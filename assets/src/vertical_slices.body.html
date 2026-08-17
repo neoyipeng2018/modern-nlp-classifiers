@@ -6,11 +6,11 @@
       <h1>Four slices, each one ending in something released</h1>
       <p class="lede">
         One task per slice, taken all the way from raw text to public weights. Nothing is built for a
-        later slice until a slice needs it. The first slice carries the shared machinery, which makes
-        it much larger than the other two, and that is the deliberate trade.
+        later slice until a slice needs it. The first slice carries the shared machinery and the first
+        length ladder, which makes it much larger than the other two, and that is the deliberate trade.
       </p>
       <div class="audit-strip">
-        <div class="audit-stat"><strong>Slice 1</strong><span>Forward-looking, plus everything reusable.</span></div>
+        <div class="audit-stat"><strong>Slice 1</strong><span>Forward-looking, the harness, and the first length ladder.</span></div>
         <div class="audit-stat"><strong>Slice 2</strong><span>Aspect sentiment. Adds one new thing.</span></div>
         <div class="audit-stat"><strong>Slice 3</strong><span>Fact versus opinion. Hardest data.</span></div>
         <div class="audit-stat"><strong>Slice 4</strong><span>Suite release, demo and write-up.</span></div>
@@ -106,9 +106,10 @@
             <div class="subcard">
               <h4>New in this slice</h4>
               <ul class="compact-list">
-                <li>Everything. Data schema, ingest, splits, input builder, training loop, evaluation harness, registry, baselines, cards, CI.</li>
-                <li>The first codebook and the first annotation round.</li>
-                <li>The T4 stability check for the chosen encoder.</li>
+                <li>Everything. Data schema, ingest, passage builder, splits, input builder, training loop, evaluation harness, registry, baselines, cards, CI.</li>
+                <li>The first codebook and the first annotation round, including the evidence-distance field.</li>
+                <li>The hardware check at every rung of the length ladder, which decides whether 8,192 is reachable at all.</li>
+                <li>The truncation gate, and the first length ladder.</li>
               </ul>
             </div>
             <div class="subcard">
@@ -130,19 +131,19 @@
               </thead>
               <tbody>
                 <tr><td>1</td><td><strong>Repo skeleton</strong></td><td>Package layout, config loading with inheritance and hashing, registry read and write, CI running an empty test suite.</td><td class="subtle-cell">Everything</td></tr>
-                <tr><td>2</td><td><strong>T4 smoke check</strong></td><td>A few hundred training steps of ModernBERT-base at 512 tokens in fp16 on a T4. Watches for NaN and for unsupported kernels. Answers the biggest hardware unknown before anything depends on it.</td><td class="subtle-cell">Model choice</td></tr>
-                <tr><td>3</td><td><strong>Source survey</strong></td><td>A written list of candidate FLS data with what each actually contains and what its licence permits, with links. Verified by you, not by an agent's summary.</td><td class="subtle-cell">Data plan</td></tr>
-                <tr><td>4</td><td><strong>Ingest pipeline</strong></td><td>EDGAR filings and transcripts to deduplicated sentences with document type, position and provenance. This is reused unchanged by both later slices.</td><td class="subtle-cell">Annotation</td></tr>
-                <tr><td>5</td><td><strong>Codebook v1 and pilot</strong></td><td>The FLS codebook, two pilot rounds of 50, and a decision at Gate 1. Expect the codebook to grow a lot here.</td><td class="subtle-cell">Gold set</td></tr>
-                <tr><td>6</td><td><strong>Gold annotation</strong></td><td>1,000 labelled sentences, 300 double-annotated, agreement measured, blind re-annotation of 100 for drift. The slowest step in the slice.</td><td class="subtle-cell">All evaluation</td></tr>
-                <tr><td>7</td><td><strong>Freeze and hash</strong></td><td>Test set written, hashed, hash committed to the config. Gate 2 data checks pass in CI.</td><td class="subtle-cell">Training</td></tr>
-                <tr><td>8</td><td><strong>Training set</strong></td><td>Public sources mapped to the codebook, with the mapping documented. Grouped split by document. Leakage check green.</td><td class="subtle-cell">Training</td></tr>
-                <tr><td>9</td><td><strong>Input builder</strong></td><td>Marker tokens, context window, truncation rules, and the full set of edge-case tests.</td><td class="subtle-cell">Training</td></tr>
-                <tr><td>10</td><td><strong>Evaluation harness</strong></td><td>Metrics, bootstrap intervals, calibration, per-document-type breakdown, gold hash enforcement, report card output. Written before the first real training run, so there is never a number without a harness.</td><td class="subtle-cell">Every result</td></tr>
-                <tr><td>11</td><td><strong>Baselines</strong></td><td>Majority, TF-IDF plus logistic regression, zero-shot and few-shot LLM at two sizes, with token counting and response caching. Gives the target to beat before you train.</td><td class="subtle-cell">Gate 4</td></tr>
-                <tr><td>12</td><td><strong>Training loop</strong></td><td>LoRA fine-tune, checkpoint to Drive, resume after a lost session, registry row written at start.</td><td class="subtle-cell">Results</td></tr>
-                <tr><td>13</td><td><strong>Context ablation</strong></td><td>The 0+0, 1+1, 2+2, 4+4 sweep on validation. Settles the context question for all three tasks, or at least gives the other two a strong prior.</td><td class="subtle-cell">Slices 2, 3</td></tr>
-                <tr><td>14</td><td><strong>Architecture control</strong></td><td>DeBERTa-v3-base under identical conditions. The first honest architecture comparison this line of work has had.</td><td class="subtle-cell">Claims</td></tr>
+                <tr><td>2</td><td><strong>Hardware smoke check</strong></td><td>A few hundred training steps of ModernBERT-base at 512, 2,048 and 8,192 tokens in fp16 on a free T4. Records peak memory, throughput and any NaN at each rung. Answers the biggest unknown in the plan, which is whether long context is reachable on free hardware at all.</td><td class="subtle-cell">Everything long</td></tr>
+                <tr><td>3</td><td><strong>Source survey</strong></td><td>A written list of candidate FLS data with what each actually contains and what its licence permits at passage length, with links. Verified by you, not by an agent's summary.</td><td class="subtle-cell">Data plan</td></tr>
+                <tr><td>4</td><td><strong>Ingest and passage builder</strong></td><td>EDGAR filings and transcripts to deduplicated sentences, each carrying the passage it came from, cut at paragraph, section or question-and-answer boundaries. Token lengths recorded. Reused unchanged by both later slices, so its tests are written properly here.</td><td class="subtle-cell">Annotation</td></tr>
+                <tr><td>5</td><td><strong>Codebook v1 and pilot</strong></td><td>The FLS codebook, the evidence-distance question, two pilot rounds of 50, and a decision at Gate 1. Expect the codebook to grow a lot here.</td><td class="subtle-cell">Gold set</td></tr>
+                <tr><td>6</td><td><strong>Gold annotation</strong></td><td>1,000 labelled sentences with their passages, stratified by passage length, evidence distance recorded on every row, 300 double-annotated, blind re-annotation of 100 for drift. The slowest step in the slice, and slower than it used to be because each label needs a passage read.</td><td class="subtle-cell">All evaluation</td></tr>
+                <tr><td>7</td><td><strong>Freeze and hash</strong></td><td>Test set written with passages and spans, hashed, hash committed to the config. Gate 2 data checks pass in CI, including near-duplicate checking on full passages.</td><td class="subtle-cell">Training</td></tr>
+                <tr><td>8</td><td><strong>Training set</strong></td><td>Public sources mapped to the codebook, with the mapping documented. Passages recovered for public rows where the source allows it, and rows without a recoverable passage marked rather than padded. Grouped split by document. Leakage check green.</td><td class="subtle-cell">Training</td></tr>
+                <tr><td>9</td><td><strong>Input builder and truncation gate</strong></td><td>Marker tokens, span handling, trimming rules, the measured truncation report, and the assertion that blocks a run above 5%. Full edge-case tests, including the fixture that must make the gate fail.</td><td class="subtle-cell">Gate 3</td></tr>
+                <tr><td>10</td><td><strong>Evaluation harness</strong></td><td>Metrics, bootstrap intervals, calibration, per-document-type and per-evidence-distance breakdowns, gold hash enforcement, report card output. Written before the first real training run, so there is never a number without a harness.</td><td class="subtle-cell">Every result</td></tr>
+                <tr><td>11</td><td><strong>Baselines</strong></td><td>Majority, TF-IDF plus logistic regression, zero-shot and few-shot LLM at two sizes over the full passage, with token counting and response caching. Gives the target to beat before you train.</td><td class="subtle-cell">Gate 5</td></tr>
+                <tr><td>12</td><td><strong>Training loop</strong></td><td>LoRA fine-tune, gradient checkpointing at the long rungs, checkpoint to Drive, resume after a lost session, registry row written at start.</td><td class="subtle-cell">Results</td></tr>
+                <tr><td>13</td><td><strong>Length ladder</strong></td><td>512, 2,048 and 8,192, three seeds each, everything else pinned. Scored on the whole validation set and on the near and far halves. The central experiment of the whole project, and it sets the prior for Slices 2 and 3.</td><td class="subtle-cell">Slices 2, 3</td></tr>
+                <tr><td>14</td><td><strong>Architecture control</strong></td><td>DeBERTa-v3-base under identical conditions at the 512 rung. It is a 512-token model, so it cannot join the long rungs, and the card says that rather than implying a comparison that was not run.</td><td class="subtle-cell">Claims</td></tr>
                 <tr><td>15</td><td><strong>Final evaluation</strong></td><td>One run against the frozen gold set for the chosen model, three seeds, full report card.</td><td class="subtle-cell">Release</td></tr>
                 <tr><td>16</td><td><strong>Release</strong></td><td>Weights, gold dataset, model card, dataset card, codebook, all generated from the report card. Then the clean-checkout reproduction check.</td><td class="subtle-cell">Slice 2</td></tr>
               </tbody>
@@ -154,9 +155,11 @@
               <h4>Done when</h4>
               <ul class="checklist">
                 <li><span><code>modernfin-fls</code> is public with a complete card.</span></li>
-                <li><span>The gold set is public with per-annotator labels and agreement statistics.</span></li>
+                <li><span>The gold set is public with per-annotator labels, evidence-distance tags and agreement statistics.</span></li>
                 <li><span>Every baseline number is in one comparison table with intervals.</span></li>
-                <li><span>Cost and latency are measured, not estimated.</span></li>
+                <li><span>The length ladder is published, including the rungs that lost and the truncation rate at each.</span></li>
+                <li><span>The hardware table has real numbers in it, and says which rungs ran on free hardware.</span></li>
+                <li><span>Cost and latency are measured per rung, not estimated.</span></li>
                 <li><span>A clean checkout reproduces the headline table.</span></li>
                 <li><span>The harness is ready for Slice 2 with no known task-specific hacks.</span></li>
               </ul>
@@ -164,18 +167,19 @@
             <div class="subcard">
               <h4>Risks specific to this slice</h4>
               <ul class="compact-list">
-                <li><strong>fp16 instability</strong> on the T4 forces an encoder change. Checked at step 2 precisely so it costs a day, not a phase.</li>
-                <li><strong>Public FLS labels may not be obtainable</strong> on usable terms. If so, the training set leans on silver labels, and that gets said in the card.</li>
-                <li><strong>The task may be largely lexical.</strong> If TF-IDF gets close to the encoder, that is a genuine finding, and Gate 3 exists to make you stop and check rather than tune past it.</li>
-                <li><strong>Annotation fatigue</strong> on the first ever 1,000-item round. Shuffle, sit in blocks, and measure the drift.</li>
+                <li><strong>8,192 tokens may not fit a free T4.</strong> The largest risk in the project. Checked at step 2 precisely so it costs a day, not a phase. Fallback is rented GPU time for the long rungs, disclosed in the card.</li>
+                <li><strong>fp16 instability</strong> on the T4 forces an encoder change, and an encoder change costs the long context with it.</li>
+                <li><strong>Public FLS labels may come without their passages.</strong> Most published sentence-level sets do. Rows that cannot recover a passage are marked, and if that is most of the training set, the long rungs train on less data than the short one, which would invalidate the comparison. Check this at step 3, not at step 13.</li>
+                <li><strong>The task may be largely lexical.</strong> If TF-IDF gets close to the encoder, that is a genuine finding, and Gate 4 exists to make you stop and check rather than tune past it. Forward-looking is the most likely of the three to be decidable from the sentence alone, which also makes it the task least likely to reward long context.</li>
+                <li><strong>Annotation fatigue</strong> on the first ever 1,000-item round, now with a passage to read per item. Shuffle, sit in shorter blocks, and measure the drift.</li>
               </ul>
             </div>
           </div>
 
           <div class="gate" style="margin-top:1rem">
-            <strong>Exit gate:</strong> Gates 1 through 5 all pass. Slice 2 does not start until the FLS
-            model is public. If Gate 4 fails, the model still ships with the miss recorded, and Slice 2
-            still starts.
+            <strong>Exit gate:</strong> Gates 1 through 6 all pass. Slice 2 does not start until the FLS
+            model is public. If Gate 5 fails, the model still ships with the miss recorded, and Slice 2
+            still starts. A length ladder that comes out flat is not a gate failure, it is the result.
           </div>
         </article>
       </section>
@@ -218,7 +222,8 @@
                 <li>Training loop, checkpointing, resume.</li>
                 <li>Evaluation harness, registry, report cards, release scripts.</li>
                 <li>Baseline runners, with a new prompt and new few-shot examples.</li>
-                <li>The context setting chosen in Slice 1, unless the ablation is rerun.</li>
+                <li>The passage builder and the truncation gate.</li>
+                <li>The length ladder, rerun for this task under the shortening rule in <a href="PROGRAM_DESIGN.html#phases">Program design</a>.</li>
               </ul>
             </div>
           </div>
@@ -273,7 +278,7 @@
           </div>
 
           <div class="gate" style="margin-top:1rem">
-            <strong>Exit gate:</strong> Gates 1 through 5, plus the multi-aspect diagnostic run and
+            <strong>Exit gate:</strong> Gates 1 through 6, plus the multi-aspect diagnostic run and
             reported. A missing diagnostic blocks release, because without it the model card cannot
             honestly describe what the model does.
           </div>
@@ -305,10 +310,14 @@
             <div class="subcard">
               <h4>New in this slice</h4>
               <ul class="compact-list">
-                <li>The silver labelling pipeline at volume, with its human-reviewed accuracy sample.</li>
+                <li>The silver labelling pipeline at volume, with its human-reviewed accuracy sample. The labelling prompt gets the full passage, because attribution is undecidable without it.</li>
                 <li>The with-silver and without-silver ablation, reported as two results.</li>
                 <li>The overlap analysis against the forward-looking labels.</li>
               </ul>
+              <p class="small muted" style="margin-top:.5rem">This is the task where long context should
+                matter most. "Margins will improve" is opinion, and the same sentence under a speaker tag
+                is a reported fact. In a transcript that tag can be a long way back. If the ladder is flat
+                here, it is unlikely to help anywhere.</p>
             </div>
             <div class="subcard">
               <h4>Reused unchanged</h4>
@@ -367,7 +376,7 @@
           </div>
 
           <div class="gate" style="margin-top:1rem">
-            <strong>Exit gate:</strong> Gates 1 through 5, plus both training tracks reported and the
+            <strong>Exit gate:</strong> Gates 1 through 6, plus both training tracks reported and the
             silver accuracy measured.
           </div>
         </article>
@@ -397,9 +406,10 @@
             <div class="subcard">
               <h4>What gets built</h4>
               <ul class="compact-list">
-                <li>The <code>Triad</code> library surface, loading all three models with one call.</li>
-                <li>The demo Space, with all three outputs and the context window shown.</li>
+                <li>The <code>Triad</code> library surface, loading all three models with one call, plus <code>scan</code> for whole documents.</li>
+                <li>The demo Space, showing all three outputs, the passage the model actually read, and a toggle to rerun the same input through the 512-token control.</li>
                 <li>The cross-model comparison table, generated from report cards.</li>
+                <li>The cross-task length section: three ladders side by side, and an honest answer to whether long context earned its cost.</li>
                 <li>The public write-up, following the fixed structure in <a href="PROGRAM_DESIGN.html#writeup">Program design</a>.</li>
               </ul>
             </div>
@@ -499,22 +509,24 @@
           <div class="card next-card">
             <div class="priority"><span>Do</span><strong>1</strong></div>
             <div>
-              <h3>Answer the three open questions</h3>
-              <p class="small muted">Is a second annotator available. What licence the repo will carry.
-                Where ABSA aspects come from. The first one changes how every model card reports its
-                ceiling, so it is worth settling before annotation starts rather than after.</p>
-              <div class="gate"><strong>Output:</strong> three decision-log entries in <a href="PRODUCT.html#decisions">Product</a>.</div>
+              <h3>Answer the open questions</h3>
+              <p class="small muted">Is a second annotator available. What licence the repo will carry, now
+                that passages rather than sentences are being published. Where ABSA aspects come from. The
+                first one changes how every model card reports its ceiling, so it is worth settling before
+                annotation starts rather than after. The hardware question is answered by step 2 below.</p>
+              <div class="gate"><strong>Output:</strong> a decision-log entry each in <a href="PRODUCT.html#decisions">Product</a>.</div>
             </div>
           </div>
           <div class="card next-card">
             <div class="priority"><span>Do</span><strong>2</strong></div>
             <div>
-              <h3>Run the T4 smoke check</h3>
-              <p class="small muted">A few hundred steps of ModernBERT-base at 512 tokens in fp16 on a free
-                Colab T4, watching for NaN and for missing kernels. This is the largest hardware unknown
-                in the plan and it is cheap to resolve.</p>
-              <div class="gate"><strong>Output:</strong> either the encoder choice is confirmed, or it moves to
-                DeBERTa-v3-base with the reason recorded.</div>
+              <h3>Run the hardware smoke check at every rung</h3>
+              <p class="small muted">A few hundred steps of ModernBERT-base at 512, then 2,048, then 8,192,
+                in fp16 on a free Colab T4. Record peak memory, steps per minute, and any NaN. This is the
+                largest unknown in the plan, it decides whether the long-context claim is affordable, and
+                it costs an afternoon.</p>
+              <div class="gate"><strong>Output:</strong> the hardware table in <a href="ARCHITECTURE.html#t4">Architecture</a>
+                filled in with real numbers, and a decision on whether the long rungs need rented GPU time.</div>
             </div>
           </div>
           <div class="card next-card">
@@ -523,9 +535,11 @@
               <h3>Survey the forward-looking data</h3>
               <p class="small muted">What annotated FLS data exists, what it contains, and what its terms
                 permit. An agent can gather the candidates with links. You verify them, because a
-                licence read wrong here is discovered at release time, which is the worst possible moment.</p>
-              <div class="gate"><strong>Output:</strong> a source table with a yes or no per source, and a
-                training data plan for Slice 1.</div>
+                licence read wrong here is discovered at release time, which is the worst possible moment.
+                Add one question the old plan did not need: does the source keep the surrounding document,
+                or only the labelled sentence? A sentence-only source cannot train a long-context model.</p>
+              <div class="gate"><strong>Output:</strong> a source table with a yes or no per source, a
+                passage-recoverable column, and a training data plan for Slice 1.</div>
             </div>
           </div>
         </div>

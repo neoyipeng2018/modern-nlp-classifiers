@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Technical design: repo layout, data schema, input construction, model and training on a T4, evaluation harness, reproducibility machinery, testing and release.">
+  <meta name="description" content="Technical design: repo layout, data schema, long-context input construction, the length budget, model and training on a T4, evaluation harness, reproducibility machinery, testing and release.">
   <title>ModernFin Triad — Architecture</title>
   <style>
 /* Shared design system for the ModernFin Triad planning documents.
@@ -635,13 +635,14 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
       <h1>One pipeline, three models, no path around the protocol</h1>
       <p class="lede">
         The technical design. A shared harness that all three tasks run through unchanged, a data
-        schema that makes provenance impossible to lose, and a training setup that fits inside a free
-        Colab T4. Where a choice is forced by the hardware, that is said out loud.
+        schema that makes provenance impossible to lose, and a training setup that reaches 8,192
+        tokens on the cheapest hardware that will carry it. Where a choice is forced by the hardware,
+        that is said out loud, and long context is where the hardware pushes back hardest.
       </p>
       <div class="audit-strip">
-        <div class="audit-stat"><strong>512 tokens</strong><span>Fixed ceiling. Target sentence plus context.</span></div>
-        <div class="audit-stat"><strong>ModernBERT-base</strong><span>With DeBERTa-v3-base as the control.</span></div>
-        <div class="audit-stat"><strong>LoRA first</strong><span>T4 memory, and it won last time.</span></div>
+        <div class="audit-stat"><strong>8,192 tokens</strong><span>Native ceiling. Passage with a marked target span.</span></div>
+        <div class="audit-stat"><strong>ModernBERT-base</strong><span>Chosen for the long context, not despite it.</span></div>
+        <div class="audit-stat"><strong>LoRA first</strong><span>The only way 8k fits in 16GB.</span></div>
         <div class="audit-stat"><strong>Config-driven</strong><span>No notebook is the source of truth.</span></div>
       </div>
       <nav class="doc-nav" aria-label="Document set">
@@ -662,8 +663,9 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         <a href="#repo">Repository layout</a>
         <a href="#schema">Data schema</a>
         <a href="#input">Input construction</a>
+        <a href="#length">Length budget</a>
         <a href="#model">Model and training</a>
-        <a href="#t4">T4 budget</a>
+        <a href="#t4">Compute budget</a>
         <a href="#eval">Evaluation harness</a>
         <a href="#baselines">Baseline runners</a>
         <a href="#inference">Inference and serving</a>
@@ -674,8 +676,9 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
       </nav>
       <hr>
       <p class="sidebar-title">Constraint</p>
-      <p class="small muted">Every decision here is shaped by one thing: a free Colab T4 with 16GB and a
-        session that can vanish. If a design cannot survive a lost session, it is the wrong design.</p>
+      <p class="small muted">Two things shape every decision here. A 16GB GPU with a session that can
+        vanish, and an 8,192-token input that does not fit that GPU comfortably. Where the two
+        conflict, the section says which one gave way.</p>
     </aside>
 
     <main id="main">
@@ -695,15 +698,15 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         </p>
 
         <div class="flow">
-          <div class="flow-step"><strong>1. Ingest</strong><span>Raw documents in, sentences out. Sentence splitting, deduplication, document and position recorded on every row.</span></div>
+          <div class="flow-step"><strong>1. Ingest</strong><span>Raw documents in, passages and sentences out. Structure preserved, sentence splitting, deduplication, document and position recorded on every row.</span></div>
           <div class="flow-arrow">&darr;</div>
           <div class="flow-step"><strong>2. Label</strong><span>Three tracks. Public sets are mapped to the codebook. Gold is annotated by hand. Silver is labelled by an LLM. Each writes its own provenance.</span></div>
           <div class="flow-arrow">&darr;</div>
           <div class="flow-step"><strong>3. Split and freeze</strong><span>Gold becomes the test set and is hashed. Training and validation splits come from the other tracks. Leakage checks run here and can fail the build.</span></div>
           <div class="flow-arrow">&darr;</div>
-          <div class="flow-step"><strong>4. Build inputs</strong><span>Target sentence plus context window, aspect injected for ABSA, truncated to 512 tokens by a rule that never cuts the target.</span></div>
+          <div class="flow-step"><strong>4. Build inputs</strong><span>Passage assembled around the target span, aspect injected for ABSA, trimmed to the configured length by a rule that never cuts the target. Truncation rate measured and asserted here.</span></div>
           <div class="flow-arrow">&darr;</div>
-          <div class="flow-step"><strong>5. Train</strong><span>Config-driven fine-tune on a T4. Writes a registry row, checkpoints to Drive, resumes after a dropped session.</span></div>
+          <div class="flow-step"><strong>5. Train</strong><span>Config-driven fine-tune at each rung of the length ladder. Writes a registry row, checkpoints to Drive, resumes after a dropped session.</span></div>
           <div class="flow-arrow">&darr;</div>
           <div class="flow-step"><strong>6. Evaluate</strong><span>Same harness for the model and every baseline. Checks the gold hash before it will score anything. Emits one report card.</span></div>
           <div class="flow-arrow">&darr;</div>
@@ -784,8 +787,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td class="mono">example_id</td><td>string</td><td>Stable hash of source document identifier plus sentence index. Regenerating the dataset gives the same ids.</td></tr>
               <tr><td class="mono">task</td><td>enum</td><td><code>fls</code>, <code>absa</code>, or <code>factop</code>.</td></tr>
               <tr><td class="mono">target</td><td>string</td><td>The sentence being classified. Never truncated.</td></tr>
-              <tr><td class="mono">context_before</td><td>string</td><td>Preceding sentences from the same document, in order.</td></tr>
-              <tr><td class="mono">context_after</td><td>string</td><td>Following sentences from the same document, in order.</td></tr>
+              <tr><td class="mono">passage</td><td>string</td><td>The surrounding text as it appeared in the document, target included, in original order. This is the long-context field.</td></tr>
+              <tr><td class="mono">target_span</td><td>[int,&nbsp;int]</td><td>Character offsets of the target inside <code>passage</code>. Validated on load: the slice must equal <code>target</code> exactly.</td></tr>
+              <tr><td class="mono">passage_unit</td><td>enum</td><td><code>paragraph</code>, <code>section</code>, <code>qa_turn</code>, <code>item</code>. What natural boundary the passage was cut at. Never a fixed token window.</td></tr>
+              <tr><td class="mono">passage_tokens</td><td>int</td><td>Token count under the model tokenizer, computed at build time. Drives the length distribution report and the truncation gate.</td></tr>
+              <tr><td class="mono">evidence_distance</td><td>enum?</td><td><code>in_target</code>, <code>near</code>, <code>far</code>, or <code>unknown</code>. Recorded by the annotator on gold rows. Defines the long-evidence split.</td></tr>
               <tr><td class="mono">aspect</td><td>string?</td><td>Required for <code>absa</code>, absent otherwise.</td></tr>
               <tr><td class="mono">label</td><td>string</td><td>The adjudicated label, from the task's label set.</td></tr>
               <tr><td class="mono">label_source</td><td>enum</td><td><code>public</code>, <code>human</code>, or <code>llm</code>. This is the track. It is never dropped.</td></tr>
@@ -841,48 +847,103 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         <div class="grid-2">
           <div class="card">
             <h3>Format</h3>
-            <p class="small">The target sentence is marked so the model can find it inside the window.
-              Marker tokens are added to the tokenizer as special tokens so they never get split.</p>
+            <p class="small">The target span is marked inside the passage so the model can find it. Marker
+              tokens are added to the tokenizer as special tokens so they never get split. The passage is
+              otherwise left as it appeared in the document, speaker tags and all.</p>
 <pre><code># fls and factop
-[CLS] {context_before} [TGT] {target} [/TGT] {context_after} [SEP]
+[CLS] {passage[:start]} [TGT] {target} [/TGT] {passage[end:]} [SEP]
 
 # absa
-[CLS] {aspect} [SEP] {context_before} [TGT] {target} [/TGT] {context_after} [SEP]</code></pre>
+[CLS] {aspect} [SEP] {passage[:start]} [TGT] {target} [/TGT] {passage[end:]} [SEP]</code></pre>
             <p class="small muted" style="margin-top:.6rem">Putting the aspect in a separate first segment
               follows the standard sentence-pair setup for aspect classification, and it lets the same
-              sentence appear several times with different aspects and different labels.</p>
+              sentence appear several times with different aspects and different labels. At long lengths
+              the aspect segment is a rounding error, so it stays where it is.</p>
           </div>
           <div class="card">
-            <h3>Truncation rules</h3>
+            <h3>Trimming rules</h3>
             <ul class="compact-list">
-              <li><strong>The target is never truncated.</strong> If a target sentence alone exceeds the budget, the example is dropped and counted, and the count is reported.</li>
-              <li><strong>The aspect is never truncated.</strong></li>
-              <li><strong>Context is trimmed from the outside in</strong>, dropping whole sentences, alternating between before and after, until the example fits.</li>
+              <li><strong>The target is never trimmed.</strong> If a target alone exceeds the budget, the example is dropped, counted, and the count is reported.</li>
+              <li><strong>The aspect is never trimmed.</strong></li>
+              <li><strong>The passage is trimmed from the outside in</strong>, dropping whole sentences, alternating between before and after, until the example fits.</li>
               <li><strong>Sentences are dropped whole.</strong> Never a partial sentence, because a half sentence changes the meaning.</li>
-              <li><strong>Context is capped by sentence count as well as by tokens</strong>, so the window is roughly consistent across documents.</li>
+              <li><strong>Every drop is recorded on the row.</strong> How many tokens went, and from which side. This is what the truncation gate reads.</li>
+              <li><strong>Passages are cut at natural boundaries in ingest</strong>, not by a sliding token window. A passage that ends mid-argument is a data bug.</li>
             </ul>
           </div>
         </div>
 
-        <div class="card" style="margin-top:1rem">
-          <h3>Context window, and the ablation that justifies it</h3>
-          <p class="small">Default is two sentences before and two after, capped at 512 tokens total.
-            That default is a guess until it is measured. The first real experiment on each task is a
-            context sweep, because it is cheap and it settles a question that affects everything after.</p>
-          <div class="table-wrap" style="margin-top:.7rem; box-shadow:none">
-            <table>
-              <thead><tr><th style="width:150px">Setting</th><th>What it tests</th><th style="width:190px">Expected</th></tr></thead>
-              <tbody>
-                <tr><td><code>0 + 0</code></td><td>Target sentence alone. The baseline everyone else publishes.</td><td class="subtle-cell">Strong on FLS, weaker on factop</td></tr>
-                <tr><td><code>1 + 1</code></td><td>Minimal disambiguation.</td><td class="subtle-cell">Most of the gain, if there is one</td></tr>
-                <tr><td><code>2 + 2</code></td><td>The proposed default.</td><td class="subtle-cell">Small gain over 1+1</td></tr>
-                <tr><td><code>4 + 4</code></td><td>Does more context keep helping, or start diluting?</td><td class="subtle-cell">Flat or worse, and slower</td></tr>
-              </tbody>
-            </table>
+        <div class="callout warning" style="margin-top:1rem">
+          <p><strong>How the passage is assembled matters more than the length.</strong> The previous
+            project's long-context failure was here, not in the model. Rows arrived already malformed and
+            more than half were still being cut at 6,144 tokens. Passage assembly gets its own test suite
+            and its own reported statistics, and it is built before any long training run.</p>
+        </div>
+      </section>
+
+      <section id="length">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">The core experiment</p>
+            <h2>Length budget</h2>
           </div>
-          <p class="small muted" style="margin-top:.6rem">Whichever wins on validation becomes the config for
-            that task. If <code>0 + 0</code> wins, that is a real and publishable finding, and the context
-            machinery stays in the code as an option rather than being deleted.</p>
+          <span class="status supported">Decided</span>
+        </div>
+        <p class="section-intro">
+          Length is the one hyperparameter that gets a full three-seed sweep on every task. It is the
+          project's headline claim and it is also the most expensive knob, so it is measured properly
+          once and then pinned.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th style="width:120px">Length</th><th style="width:200px">Covers roughly</th><th>What it is there for</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>512</code></td><td class="subtle-cell">Target plus a few neighbours</td><td>The internal control. Every long-context claim is a difference against this run, with everything else identical.</td></tr>
+              <tr><td><code>2,048</code></td><td class="subtle-cell">A paragraph block, or a full question and answer</td><td>Tests whether the gain arrives early and then flattens, which is the cheapest good outcome.</td></tr>
+              <tr><td><code>8,192</code></td><td class="subtle-cell">An MD&amp;A subsection, a long exchange</td><td>The native ceiling. Tests whether the far tail of the passage carries anything.</td></tr>
+            </tbody>
+          </table>
+          <p class="table-caption">Three seeds per rung, per task. Reported on the whole gold set and on both
+            halves of the long-evidence split. The shipped length is chosen on validation and the losing
+            rungs stay in the published table.</p>
+        </div>
+
+        <div class="grid-2" style="margin-top:1.1rem">
+          <div class="card">
+            <h3>The truncation gate</h3>
+            <p class="small">A build-time assertion, not a report. It runs over every split before training
+              and writes its numbers into the registry row.</p>
+            <ul class="compact-list">
+              <li>Share of rows losing any passage content at this length. Must be under 5%.</li>
+              <li>Share of rows losing content within two sentences of the target. Must be zero.</li>
+              <li>Rows dropped for an over-long target, counted and listed.</li>
+              <li>Full token-length distribution, with the median and the 95th percentile.</li>
+            </ul>
+            <div class="gate" style="margin-top:.8rem">
+              <strong>If it fails:</strong> the run does not start. Fix passage assembly, or lower the rung
+              and record why. Training through a failed truncation check is the exact mistake this project
+              is built to not repeat.
+            </div>
+          </div>
+          <div class="card">
+            <h3>What the ladder can conclude</h3>
+            <ul class="compact-list">
+              <li><strong>Long wins on the far half only.</strong> The expected result. Ship long, and report that the gain is concentrated where the evidence is distant.</li>
+              <li><strong>Long wins everywhere.</strong> Check for leakage before believing it. Longer passages share more text across rows, so the near-duplicate check has to pass at the long length too.</li>
+              <li><strong>Long wins nowhere.</strong> Ship 512, publish the ladder, and say the task is decidable from the sentence. That is a useful result and the write-up gives it real space.</li>
+              <li><strong>Long is worse.</strong> Also possible. More tokens is more chance to attend to the wrong thing on a small training set. Report it and say so.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="callout info" style="margin-top:1.1rem">
+          <p class="small"><strong>Why the ladder is not just 512 against 8,192.</strong> Two points cannot
+            tell you whether the curve saturates. If 2,048 gets almost all of the gain, the shipped model
+            is four times cheaper to run for nearly the same score, and that is worth knowing before
+            committing every downstream user to the long configuration.</p>
         </div>
       </section>
 
@@ -898,13 +959,15 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         <div class="grid-2">
           <div class="card decision recommended">
             <h3>Primary: ModernBERT-base</h3>
-            <p class="small muted">Roughly 150M parameters, modern training recipe, long native context
-              that this project deliberately does not use. It is also the natural continuation of the
-              previous work, which makes the comparison to it meaningful.</p>
+            <p class="small muted">Roughly 150M parameters, modern training recipe, and pretrained at
+              8,192 tokens. That last point is now the reason it was chosen rather than an unused
+              feature. It is also the natural continuation of the previous work, which keeps the
+              comparison meaningful.</p>
             <ul class="compact-list">
               <li>Classification head on the pooled representation, one head per model.</li>
               <li>Marker tokens added to the vocabulary and their embeddings trained.</li>
-              <li>Max length 512, well under what the architecture supports.</li>
+              <li>Max length up to 8,192, which the architecture was pretrained for. No position embedding surgery, no extrapolation.</li>
+              <li>Alternating local and global attention is what makes 8,192 affordable at all on this budget.</li>
             </ul>
           </div>
           <div class="card decision caution">
@@ -914,23 +977,31 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               much is the data and protocol.</p>
             <ul class="compact-list">
               <li>Same input builder, same splits, same seeds, same harness.</li>
-              <li>Also the fallback if ModernBERT training proves unstable on Turing hardware.</li>
+              <li><strong>It cannot run the long rungs.</strong> DeBERTa-v3 is a 512-token model, so the control comparison is only valid at the 512 rung. Saying otherwise would be exactly the kind of cross-protocol comparison this project bans.</li>
+              <li>Still the fallback if ModernBERT training proves unstable, in which case the long-context claim goes with it and that gets reported.</li>
             </ul>
           </div>
         </div>
 
-        <div class="callout warning" style="margin-top:1.1rem">
-          <h3>A real hardware risk worth checking early</h3>
-          <p>The T4 is a Turing GPU. It does not support bf16, and it does not support the newer flash
-            attention kernels that recent encoders assume. ModernBERT is trained in bf16 and will need
-            an attention implementation that works without those kernels, running in fp16 or fp32.
-            Mixed-precision fp16 on a model trained in bf16 sometimes produces overflow and loss
-            divergence.</p>
-          <p style="margin-top:.5rem"><strong>Mitigation, in order.</strong> First, a short smoke run in
-            Slice 1 that trains a few hundred steps and watches for NaN. If fp16 is unstable, try fp32
-            with a smaller batch and more accumulation. If that is too slow to be workable, switch the
-            primary model to DeBERTa-v3-base and report the reason. This check happens in the first
-            slice, before any real training, because discovering it late would cost the whole phase.</p>
+        <div class="callout danger" style="margin-top:1.1rem">
+          <h3>The hardware problem, stated before it bites</h3>
+          <p>The T4 is a Turing card. No bf16, and no support for the flash-attention kernels recent
+            encoders assume. ModernBERT was trained in bf16 and leans on those kernels for both its
+            unpadding path and its memory profile. Without them it falls back to a scaled dot-product
+            path in fp16 or fp32, which is slower and uses more memory. Long context makes both of those
+            costs land at once, because attention cost grows with sequence length in the global layers.</p>
+          <p style="margin-top:.5rem">Put plainly: <strong>512 on a free T4 is comfortable, 2,048 is
+            probably fine, and 8,192 is the rung that may not fit.</strong> This is the largest open
+            technical risk in the plan and it is checked first, not discovered later.</p>
+          <p style="margin-top:.5rem"><strong>Mitigation, in order.</strong> One, a smoke run in Slice 1
+            that trains a few hundred steps at every rung and watches memory, throughput and NaN. Two, if
+            8,192 does not fit, drop batch to 1 with more accumulation and turn on gradient checkpointing.
+            Three, if it still does not fit or a run would take many hours, rent an L4 or A100 for the long
+            rungs only, and record in the model card that the long rungs were not trained on free hardware.
+            Four, if ModernBERT is unstable in fp16 at any rung, fall back to fp32 at reduced batch, and
+            only then reconsider the encoder.</p>
+          <p style="margin-top:.5rem"><strong>What is not a mitigation.</strong> Quietly lowering the
+            length and continuing to describe the model as long-context.</p>
         </div>
 
         <h3 style="margin:1.6rem 0 .7rem">Training configuration</h3>
@@ -938,10 +1009,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <table>
             <thead><tr><th style="width:200px">Setting</th><th style="width:180px">Default</th><th>Reasoning</th></tr></thead>
             <tbody>
-              <tr><td><strong>Adaptation</strong></td><td>LoRA, rank 16, on attention and feed-forward projections</td><td>Fits T4 memory comfortably, and the previous project found LoRA beat the full fine-tune it tested. A full fine-tune is run once per task as a comparison, not as the default.</td></tr>
-              <tr><td><strong>Precision</strong></td><td>fp16 with loss scaling</td><td>The only mixed precision the T4 supports. Watched for divergence, with fp32 as the fallback.</td></tr>
-              <tr><td><strong>Max length</strong></td><td>512</td><td>Fixed by the product spec. Not a tuning knob.</td></tr>
-              <tr><td><strong>Batch size</strong></td><td>16, accumulated to an effective 32</td><td>Fits 16GB at 512 tokens with room to spare. Accumulation makes the effective size independent of the GPU that happens to be allocated.</td></tr>
+              <tr><td><strong>Adaptation</strong></td><td>LoRA, rank 16, on attention and feed-forward projections</td><td>At 8,192 tokens a full fine-tune does not fit 16GB at all, so LoRA stops being a preference and becomes the only option. The previous project also found LoRA beat the full fine-tune it tested. A full fine-tune is run once per task at the 512 rung only, as a comparison.</td></tr>
+              <tr><td><strong>Precision</strong></td><td>fp16 with loss scaling</td><td>The only mixed precision the T4 supports. Watched for divergence, with fp32 as the fallback. On an L4 or A100 the long rungs run in bf16, and any rung that changes precision says so in its registry row.</td></tr>
+              <tr><td><strong>Max length</strong></td><td>512 / 2,048 / 8,192</td><td>The one swept hyperparameter. Every rung is trained on every task. The shipped value is picked on validation and then pinned.</td></tr>
+              <tr><td><strong>Batch size</strong></td><td>Fixed effective 32, per-device size set by what fits</td><td>Roughly 16 at 512, 4 at 2,048, 1 at 8,192, with accumulation making up the rest. Effective size stays constant across rungs, so length is the only thing that changed.</td></tr>
+              <tr><td><strong>Gradient checkpointing</strong></td><td>Off at 512, on at 2,048 and above</td><td>Trades roughly 30% throughput for the memory that makes the long rungs possible. Turning it on does not change results, and the setting is recorded per run.</td></tr>
               <tr><td><strong>Learning rate</strong></td><td>2e-4 for LoRA, 2e-5 for full fine-tune</td><td>Standard starting points. Tuned per task on validation data, and the sweep is recorded.</td></tr>
               <tr><td><strong>Epochs</strong></td><td>3 to 5, early stopped</td><td>Small datasets overfit fast. Selection is by validation macro-F1, not by epoch count.</td></tr>
               <tr><td><strong>Evaluation frequency</strong></td><td>Several times per epoch</td><td>The previous project found frequent macro-F1 checkpoint selection helped. The peak is often mid-epoch.</td></tr>
@@ -964,37 +1036,65 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
       <section id="t4">
         <div class="section-head">
           <div>
-            <p class="section-kicker">Living inside the free tier</p>
-            <h2>T4 budget</h2>
+            <p class="section-kicker">What long context costs</p>
+            <h2>Compute budget</h2>
           </div>
           <span class="pill amber">Hard constraint</span>
         </div>
+        <p class="section-intro">
+          The free tier was a comfortable constraint at 512 tokens. At 8,192 it is a tight one, and it
+          may turn out to be an impossible one. The plan is to find that out in the first slice and
+          state the answer rather than work around it silently.
+        </p>
         <div class="grid-3">
           <div class="card">
             <h3>Memory</h3>
-            <p class="small muted">16GB. A base-size encoder at 512 tokens with LoRA and batch 16 fits
-              with headroom. The headroom is deliberate, because a run that dies at 95% costs a session.</p>
+            <p class="small muted">16GB on a T4. LoRA plus gradient checkpointing is what makes the long
+              rungs even plausible. Headroom is kept deliberately, because a run that dies at 95% costs a
+              whole session.</p>
           </div>
           <div class="card">
             <h3>Session life</h3>
-            <p class="small muted">Sessions drop without warning. Every run checkpoints to Drive and
-              resumes from the last checkpoint, including the optimiser state and the registry row.</p>
+            <p class="small muted">Sessions drop without warning, and a long-context run is on the GPU for
+              longer, so it is more exposed. Every run checkpoints to Drive and resumes, including
+              optimiser state and the registry row.</p>
           </div>
           <div class="card">
             <h3>Wall clock</h3>
-            <p class="small muted">Datasets here are thousands of rows, not millions. A run should be
-              tens of minutes. If a configuration needs hours, it is the wrong configuration for this
-              project.</p>
+            <p class="small muted">Thousands of rows, not millions. At 512 a run is tens of minutes. At
+              8,192 expect several times that. If a single rung needs more than a few hours, rent the
+              hardware for that rung and record it.</p>
           </div>
         </div>
+
+        <div class="card" style="margin-top:1rem">
+          <h3>What the smoke check has to fill in</h3>
+          <p class="small">These are the numbers nobody has yet. The table ships in the write-up with real
+            measurements in place of the dashes, whatever they turn out to be.</p>
+          <div class="table-wrap" style="margin-top:.7rem; box-shadow:none">
+            <table>
+              <thead><tr><th style="width:110px">Length</th><th style="width:150px">Per-device batch</th><th style="width:140px">Peak memory</th><th style="width:150px">Steps per minute</th><th>Verdict on a free T4</th></tr></thead>
+              <tbody>
+                <tr><td><code>512</code></td><td class="subtle-cell">16</td><td class="subtle-cell">&mdash;</td><td class="subtle-cell">&mdash;</td><td class="subtle-cell">Expected to fit easily</td></tr>
+                <tr><td><code>2,048</code></td><td class="subtle-cell">4</td><td class="subtle-cell">&mdash;</td><td class="subtle-cell">&mdash;</td><td class="subtle-cell">Expected to fit with checkpointing</td></tr>
+                <tr><td><code>8,192</code></td><td class="subtle-cell">1</td><td class="subtle-cell">&mdash;</td><td class="subtle-cell">&mdash;</td><td class="subtle-cell">Genuinely unknown. The reason the check exists.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="small muted" style="margin-top:.6rem">Inference is measured the same way and reported
+            per length, because a downstream user picking the long model is picking a slower model and
+            deserves the number before they commit.</p>
+        </div>
+
         <div class="card" style="margin-top:1rem">
           <h3>Rules that follow from the constraint</h3>
           <ul class="compact-list">
             <li><strong>Every run is resumable.</strong> Not an optimisation, a requirement. Tested by killing a run halfway and restarting it in CI-like conditions at least once per phase.</li>
-            <li><strong>No run depends on a specific GPU allocation.</strong> Effective batch size is fixed through accumulation, so a smaller card changes speed and not results.</li>
-            <li><strong>Data preparation happens off the GPU</strong> and its outputs are cached, so a lost session never repeats it.</li>
+            <li><strong>Effective batch size is fixed across rungs.</strong> Only per-device batch and accumulation move, so a length comparison is a length comparison.</li>
+            <li><strong>Rented hardware is allowed and always disclosed.</strong> If a rung is trained on an L4 or an A100, the registry row and the model card both say so. Silently upgrading the GPU is protocol drift.</li>
+            <li><strong>Data preparation happens off the GPU</strong> and its outputs are cached, so a lost session never repeats it. Passage building and tokenizing at 8,192 is slow enough that this matters more than it did.</li>
             <li><strong>The registry row is written at run start</strong>, not at the end, so a session that dies still leaves evidence that a run was attempted.</li>
-            <li><strong>Sweeps are sequential and small.</strong> No parallel hyperparameter search. Three or four configurations, chosen by reasoning, beats a grid you cannot afford.</li>
+            <li><strong>Sweeps are sequential and small.</strong> The length ladder is the sweep. There is no budget for a grid on top of it.</li>
           </ul>
         </div>
       </section>
@@ -1030,6 +1130,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <li><strong>Per-class precision, recall and F1</strong>, and the full confusion matrix.</li>
               <li><strong>Accuracy</strong>, for readers who expect it, clearly marked as secondary.</li>
               <li><strong>Per-document-type breakdown</strong>, so a model that only works on filings gets caught.</li>
+              <li><strong>The long-evidence split</strong>, scored separately on the near and far halves. This is where a long-context gain has to appear if it is real.</li>
+              <li><strong>Truncation statistics for the evaluated configuration</strong>, so a score is never read without knowing what the model was allowed to see.</li>
               <li><strong>Calibration:</strong> expected calibration error and a reliability curve. Reported, never claimed.</li>
               <li><strong>Cost and latency</strong>, measured on the same run that produced the predictions.</li>
               <li><strong>The human agreement ceiling</strong>, printed in the same table as the scores.</li>
@@ -1047,12 +1149,18 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
   "task": "fls",
   "gold_hash": "sha256:7c1e...",
   "n_test": 1000,
+  "max_length": 8192,
+  "truncation": {"rows_trimmed_pct": 0.0, "near_target_loss_pct": 0.0, "rows_dropped": 0,
+                 "tokens_p50": 0, "tokens_p95": 0},
   "macro_f1": {"value": 0.000, "ci95": [0.000, 0.000], "method": "bootstrap-10000"},
   "per_class": {"forward_looking": {...}, "not_forward_looking": {...}},
   "by_doc_type": {"filing": {...}, "transcript_qa": {...}},
+  "by_evidence_distance": {"in_target": {...}, "near": {...}, "far": {...}},
+  "vs_short_control": {"control_run_id": "fls-...-512", "macro_f1_delta": 0.000,
+                       "delta_ci95": [0.000, 0.000], "delta_on_far": 0.000},
   "calibration": {"ece": 0.000, "n_bins": 15},
-  "cost": {"usd_per_1k_sentences": 0.000, "priced_on": "YYYY-MM-DD"},
-  "latency": {"p50_ms": 0.0, "batch32_throughput_per_s": 0.0, "device": "T4"},
+  "cost": {"usd_per_1k_passages": 0.000, "priced_on": "YYYY-MM-DD"},
+  "latency": {"p50_ms": 0.0, "batch_throughput_per_s": 0.0, "batch_size": 0, "device": "T4"},
   "human_ceiling": {"metric": "cohens_kappa", "value": 0.00, "n_double": 300},
   "evidence_grade": "supported"
 }</code></pre>
@@ -1086,9 +1194,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <h3>LLM runner</h3>
             <ul class="compact-list">
               <li>Prompt template committed to the repo and hashed into the registry row.</li>
+              <li><strong>The LLM gets the full passage</strong>, the same string the encoder was given at its shipped length, with the same target markers. Handing it less would manufacture a win.</li>
               <li>Few-shot examples drawn from the training split, with their ids recorded.</li>
               <li>Temperature 0, structured output so parsing is reliable.</li>
-              <li>Token counts captured per call, and the total goes straight into the cost figure.</li>
+              <li>Token counts captured per call, and the total goes straight into the cost figure. Long passages make this the dominant cost term, which is the point of the comparison.</li>
               <li>Responses cached on disk by hash of prompt plus model, so a rerun costs nothing.</li>
               <li>Three repeats, with the spread reported.</li>
             </ul>
@@ -1118,27 +1227,37 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <h3>The library surface</h3>
             <p class="small muted">A small Python interface that hides the input construction, because
               a user who builds the marker string by hand will build it slightly wrong and get worse
-              results than the published numbers.</p>
+              results than the published numbers. Passing a whole passage is the normal path, not an
+              advanced one.</p>
 <pre><code>from triad import Triad
 
 t = Triad.load(["fls", "absa", "factop"])
 
-t.fls(target=s, context_before=b, context_after=a)
-t.absa(target=s, aspect="gross margin", context_before=b, context_after=a)
-t.factop(target=s, context_before=b, context_after=a)
+t.fls(passage=p, target_span=(start, end))
+t.absa(passage=p, target_span=(start, end), aspect="gross margin")
+t.factop(passage=p, target_span=(start, end))
 
-t.all(target=s, aspect="gross margin", ...)   # one call, three results</code></pre>
+t.all(passage=p, target_span=(start, end), aspect="gross margin")
+
+# convenience form: the passage is assembled for you
+t.fls(target=s, context_before=b, context_after=a)
+
+# whole document: split into passages, then classify every sentence
+t.scan(document=doc, tasks=["fls", "factop"])</code></pre>
             <ul class="compact-list">
               <li>Models load lazily, so using one does not pay for three.</li>
-              <li>Batch methods for volume work.</li>
+              <li>Batch methods for volume work, with the batch size defaulting to what fits at the model's length.</li>
+              <li><code>scan</code> splits a document into passages and classifies every sentence in each. It is one forward pass per target, because the target markers change the input, so a long passage with forty sentences costs forty long passes. That is real and the docs say it plainly rather than implying reuse.</li>
+              <li>A warning if the supplied passage exceeds the model's length, naming how much was trimmed. Silent truncation at inference is the same bug as at training time.</li>
               <li>The same code path the evaluation harness uses. No second implementation to drift.</li>
             </ul>
           </div>
           <div class="card">
             <h3>The demo</h3>
             <ul class="compact-list">
-              <li>A Hugging Face Space. Paste a paragraph, pick an aspect, see all three outputs with probabilities.</li>
-              <li>Shows the context window that was actually used, so the behaviour is visible rather than magic.</li>
+              <li>A Hugging Face Space. Paste a passage, pick a sentence, pick an aspect, see all three outputs with probabilities.</li>
+              <li>Highlights the passage the model actually read, and greys out anything trimmed, so the length behaviour is visible rather than magic.</li>
+              <li>A toggle that reruns the same input through the 512-token control, so a visitor can see for themselves where the extra context changes the answer.</li>
               <li>Carries the same limitations text as the model cards, on the page and not behind a link.</li>
               <li>CPU inference is fine at demo volume, which keeps it free to host.</li>
             </ul>
@@ -1207,7 +1326,10 @@ t.all(target=s, aspect="gross margin", ...)   # one call, three results</code></
             <ul class="compact-list">
               <li>No example id appears in two splits.</li>
               <li>No document id spans splits.</li>
-              <li>Near-duplicate similarity across splits stays below a fixed threshold.</li>
+              <li>Near-duplicate similarity across splits stays below a fixed threshold, <strong>checked on the full passage and not only on the target</strong>. Long passages overlap far more easily, and this is the leakage route long context opens up.</li>
+              <li><code>passage[target_span]</code> equals <code>target</code> exactly, on every row.</li>
+              <li>Truncation statistics at the configured length are within the gate, and the recorded token distribution matches the data on disk.</li>
+              <li>No passage text is shared between two splits. Grouping by document is meant to guarantee this, and the check proves it rather than trusting it.</li>
               <li>Every row has a non-empty <code>label_source</code>, <code>source_licence</code> and <code>codebook_version</code>.</li>
               <li>The test split contains only <code>label_source == "human"</code>.</li>
               <li>Every label is inside the task's declared label set.</li>
@@ -1218,7 +1340,9 @@ t.all(target=s, aspect="gross margin", ...)   # one call, three results</code></
           <div class="card">
             <h3>Code tests</h3>
             <ul class="compact-list">
-              <li>Input construction, including every truncation edge case. A long target, an empty context, an aspect containing marker-like text.</li>
+              <li>Passage assembly and input construction, including every trimming edge case. A target longer than the budget, a target at the very start or end of the passage, an empty passage, an aspect containing marker-like text, and a passage that is exactly at the limit.</li>
+              <li>The truncation gate itself. A fixture that is deliberately over-length must make the gate fail. This test is written before the gate is used, because a gate that silently passes is worse than no gate.</li>
+              <li>Token accounting: the recorded <code>passage_tokens</code> matches what the tokenizer actually produces, at every rung.</li>
               <li>Metric functions against hand-computed values on tiny fixtures.</li>
               <li>Bootstrap intervals against a known case.</li>
               <li>Registry writing and reading, including the crashed-run partial row.</li>
@@ -1265,7 +1389,7 @@ t.all(target=s, aspect="gross margin", ...)   # one call, three results</code></
           </div>
           <div class="protocol-step">
             <div class="n">6</div>
-            <div><h4>Verify from clean</h4><p>Fresh environment, download the public artifacts, reproduce the table. This is Gate 5 and it can fail the release.</p></div>
+            <div><h4>Verify from clean</h4><p>Fresh environment, download the public artifacts, reproduce the table. This is Gate 6 and it can fail the release.</p></div>
           </div>
         </div>
       </section>
@@ -1296,8 +1420,23 @@ t.all(target=s, aspect="gross margin", ...)   # one call, three results</code></
               </tr>
               <tr>
                 <td><strong>Context</strong></td>
-                <td>Neighbouring sentences, 512 tokens</td>
-                <td>Whole documents. Directly tried before, did not work, and the data behind it broke.</td>
+                <td>A passage with a marked target span, up to 8,192 tokens</td>
+                <td>A 512-token window of neighbouring sentences. It was the earlier plan, and it hands the LLM baseline a permanent advantage in evidence. It survives as the internal control at the bottom of the length ladder.</td>
+              </tr>
+              <tr>
+                <td><strong>Getting past 512</strong></td>
+                <td>A base model pretrained at 8,192</td>
+                <td>Position-embedding extension or interpolation on a 512-token model. It needs continued pretraining to work properly, there is no budget for that here, and the result would be impossible to attribute between the extension and the task.</td>
+              </tr>
+              <tr>
+                <td><strong>Whole documents</strong></td>
+                <td>Passages cut at natural boundaries</td>
+                <td>Hierarchical models or chunk-and-aggregate over a full 10-K. Two moving parts instead of one, no way to attribute a gain, and 8,192 tokens already covers the passage a human would read.</td>
+              </tr>
+              <tr>
+                <td><strong>Passage boundaries</strong></td>
+                <td>Document structure: paragraph, section, question-and-answer turn</td>
+                <td>A fixed sliding token window centred on the target. It is simpler and it cuts arguments in half, which is the failure mode that broke the previous long-context data.</td>
               </tr>
               <tr>
                 <td><strong>Adaptation</strong></td>

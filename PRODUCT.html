@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Scope, label contracts, non-goals and definition of done for three finance NLP classifiers: aspect sentiment, forward-looking, and fact vs opinion.">
+  <meta name="description" content="Scope, label contracts, non-goals and definition of done for three long-context finance NLP classifiers: aspect sentiment, forward-looking, and fact vs opinion.">
   <title>ModernFin Triad — Product Spec</title>
   <style>
 /* Shared design system for the ModernFin Triad planning documents.
@@ -632,16 +632,17 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
   <header class="hero" id="top">
     <div class="hero-inner">
       <p class="eyebrow">Document 1 of 4 &middot; Product spec</p>
-      <h1>Three classifiers that cover most of finance NLP</h1>
+      <h1>Three long-context classifiers that cover most of finance NLP</h1>
       <p class="lede">
-        Aspect sentiment, forward-looking detection, and fact versus opinion. Three small encoders,
-        one domain, one shared evaluation protocol. This document fixes what gets built, what the
-        labels mean, and what counts as done. It is the build spec, not a pitch.
+        Aspect sentiment, forward-looking detection, and fact versus opinion. Three small encoders
+        that read a whole passage, not one sentence. One domain, one shared evaluation protocol.
+        This document fixes what gets built, what the labels mean, and what counts as done. It is
+        the build spec, not a pitch.
       </p>
       <div class="audit-strip">
         <div class="audit-stat"><strong>3 models</strong><span>Separate encoder per task. No multi-task trunk.</span></div>
+        <div class="audit-stat"><strong>8,192 tokens</strong><span>The model reads the passage the LLM reads.</span></div>
         <div class="audit-stat"><strong>Finance only</strong><span>Filings, transcripts, analyst notes, financial news.</span></div>
-        <div class="audit-stat"><strong>Colab T4</strong><span>Free tier is the hard compute ceiling.</span></div>
         <div class="audit-stat"><strong>Beat the LLM</strong><span>Match or beat few-shot Claude on a frozen gold set.</span></div>
       </div>
       <nav class="doc-nav" aria-label="Document set">
@@ -660,6 +661,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
       <nav class="toc">
         <a href="#thesis">The thesis</a>
         <a href="#contracts">Model contracts</a>
+        <a href="#longcontext">Why long context</a>
         <a href="#codebook">Label codebooks</a>
         <a href="#nongoals">Non-goals</a>
         <a href="#users">Users and jobs</a>
@@ -719,6 +721,14 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             product. The models are just the way to get it cheaply.</p>
         </div>
 
+        <div class="callout" style="margin-top:1rem">
+          <p><strong>And all three need the passage, not the sentence.</strong> A person answering any of
+            these three questions reads around the sentence first. So does an LLM. A 512-token encoder
+            cannot, and that is the main reason small encoders lose the cases that matter. These models
+            read up to 8,192 tokens, which is the same evidence the LLM baseline gets. The comparison is
+            then about the model, not about who was allowed to read more.</p>
+        </div>
+
         <div class="callout warning" style="margin-top:1rem">
           <p><strong>The thesis is a claim, not a given.</strong> It is not proven by building the models.
             It gets tested in the write-up by taking real finance NLP tasks and showing what the three
@@ -737,7 +747,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         </div>
         <p class="section-intro">
           Three separate fine-tuned encoders. Same base model, same input format, same evaluation
-          harness. Each is released on its own and versioned on its own.
+          harness. Each is released on its own and versioned on its own. All three take a passage and
+          a target span inside it, and all three read up to 8,192 tokens.
         </p>
 
         <div class="stack">
@@ -751,7 +762,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             </div>
             <dl class="dl-spec">
               <dt>Input</dt>
-              <dd><code>(target_sentence, context, aspect)</code>. The aspect is supplied by the caller. The model does not find it.</dd>
+              <dd><code>(target_sentence, passage, aspect)</code>. The aspect is supplied by the caller. The model does not find it.</dd>
               <dt>Output</dt>
               <dd><code>positive</code> | <code>negative</code> | <code>neutral</code>, with a probability for each.</dd>
               <dt>Question it answers</dt>
@@ -778,7 +789,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             </div>
             <dl class="dl-spec">
               <dt>Input</dt>
-              <dd><code>(target_sentence, context)</code>. No aspect.</dd>
+              <dd><code>(target_sentence, passage)</code>. No aspect.</dd>
               <dt>Output</dt>
               <dd><code>forward_looking</code> | <code>not_forward_looking</code>, with a probability.</dd>
               <dt>Question it answers</dt>
@@ -798,7 +809,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             </div>
             <dl class="dl-spec">
               <dt>Input</dt>
-              <dd><code>(target_sentence, context)</code>. No aspect.</dd>
+              <dd><code>(target_sentence, passage)</code>. No aspect.</dd>
               <dt>Output</dt>
               <dd><code>fact</code> | <code>opinion</code>, with a probability.</dd>
               <dt>Question it answers</dt>
@@ -817,34 +828,104 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 
         <h3 style="margin:1.6rem 0 .6rem">Shared input format</h3>
         <div class="card">
-          <p class="small">All three models see one target sentence plus the sentences around it. The
-            caller splits documents into sentences and supplies the window. The model never sees a
-            whole filing.</p>
+          <p class="small">All three models take a passage and a character span inside it. The caller
+            hands over as much of the document as it has. The model decides how much of it to read.</p>
           <pre><code>{
-  "target":  "We expect gross margin to improve modestly in the second half.",
-  "context": "Margins compressed 180bps year over year. |TARGET| Pricing actions take effect in Q3.",
-  "aspect":  "gross margin"        // modernfin-absa only
+  "passage":      "... Margins compressed 180bps year over year. We expect gross margin
+                   to improve modestly in the second half. Pricing actions take effect in Q3 ...",
+  "target_span":  [46, 118],       // character offsets of the sentence being classified
+  "aspect":       "gross margin"   // modernfin-absa only
 }</code></pre>
-          <p class="small muted" style="margin-top:.6rem">Context is capped so the whole encoded example
-            fits in 512 tokens. The target sentence is never truncated. Exact construction and
-            truncation rules are in <a href="ARCHITECTURE.html#input">Architecture &rarr; Input construction</a>.</p>
+          <p class="small muted" style="margin-top:.6rem">The passage may be a paragraph, an MD&amp;A
+            section, a full answer in a question-and-answer exchange, or a short filing item. The
+            target span is never truncated. Everything else is trimmed to fit the length budget by the
+            rules in <a href="ARCHITECTURE.html#input">Architecture &rarr; Input construction</a>. A
+            convenience wrapper still accepts the old <code>(target, context_before, context_after)</code>
+            form and builds the passage for you.</p>
         </div>
+      </section>
 
-        <h3 style="margin:1.6rem 0 .6rem">Why context, and why not more</h3>
+      <section id="longcontext">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">The change that makes this competitive</p>
+            <h2>Why long context</h2>
+          </div>
+          <span class="status supported">Decided</span>
+        </div>
+        <p class="section-intro">
+          The previous version of this plan capped the input at 512 tokens. That cap is removed. The
+          ceiling is now 8,192 tokens, which is what the base encoder natively supports. This is the
+          single biggest change in the spec and it needs a stated reason, because a long-context
+          attempt failed once already.
+        </p>
+
         <div class="grid-2">
           <div class="card">
-            <h4>Context is needed</h4>
-            <p class="small muted">"That is unlikely to repeat" is meaningless alone. A window fixes
-              pronouns, carries the subject forward, and disambiguates whether a number is being
-              reported or projected. Fact versus opinion in particular is often undecidable on the
-              sentence alone.</p>
+            <h4>The argument for it</h4>
+            <ul class="compact-list">
+              <li><strong>It is the honest comparison.</strong> An LLM baseline is handed the whole passage. Handing the encoder two neighbouring sentences and then calling the result a fair fight is not a fair fight.</li>
+              <li><strong>Finance evidence is far apart.</strong> The number is in a table at the top of the section. The judgement about it is three paragraphs down. Both are needed and they are rarely adjacent.</li>
+              <li><strong>Attribution needs the speaker.</strong> "Margins will improve" is opinion or fact depending on who is talking, and in a transcript the speaker tag can be hundreds of tokens back.</li>
+              <li><strong>It is free capability.</strong> ModernBERT was pretrained at 8,192 tokens. Capping it at 512 throws away something already paid for.</li>
+              <li><strong>Cost still wins by a wide margin.</strong> A 150M encoder over 8,192 tokens is still orders of magnitude cheaper than a frontier model over the same text.</li>
+            </ul>
           </div>
           <div class="card">
-            <h4>More context is a known failure</h4>
-            <p class="small muted">The previous project trained a long-context model and it did not
-              work. The long data provenance also broke. 512 tokens is the ceiling here, and it is a
-              deliberate limit, not an oversight. See <a href="learnings.html">prior learnings</a>.</p>
+            <h4>What went wrong last time</h4>
+            <ul class="compact-list">
+              <li>The long run trained on rows that were <strong>still 52.8% truncated at 6,144 tokens</strong>. The examples were malformed before length was ever the issue.</li>
+              <li>A later attempt measured <strong>78.2% truncation at 4,096</strong> and an assertion correctly stopped the run.</li>
+              <li>Provenance on the long data could not be reconstructed afterwards.</li>
+              <li>So the finding was <strong>"the long data was broken"</strong>, not "length does not help". Those are different results and only the first one was actually measured.</li>
+            </ul>
+            <p class="small muted" style="margin-top:.6rem">Full record in <a href="learnings.html">prior learnings</a>.</p>
           </div>
+        </div>
+
+        <div class="callout danger" style="margin-top:1.1rem">
+          <h3>The truncation gate</h3>
+          <p>No long-context training run starts until the truncation rate at the configured length is
+            measured and recorded. Above 5% of rows losing any target-adjacent content, the run is
+            blocked and the data builder is fixed first. This is the direct countermeasure for the
+            previous failure, and it is enforced by an assertion, not by care.</p>
+        </div>
+
+        <h3 style="margin:1.6rem 0 .6rem">Length is a measured choice, not a slogan</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th style="width:150px">Length</th><th>Role</th><th style="width:230px">What it settles</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>512</code></td>
+                <td>The control. What the previous plan would have shipped, and what most published finance encoders do.</td>
+                <td class="subtle-cell">The number long context has to beat.</td>
+              </tr>
+              <tr>
+                <td><code>2,048</code></td>
+                <td>Roughly a full section of prepared remarks, or a complete question and answer.</td>
+                <td class="subtle-cell">Whether most of the gain arrives early.</td>
+              </tr>
+              <tr>
+                <td><code>8,192</code></td>
+                <td>The native ceiling. A whole MD&amp;A subsection or a long transcript exchange.</td>
+                <td class="subtle-cell">Whether the last stretch is worth the compute.</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="table-caption">Every task runs this ladder on validation data, three seeds each, with
+            everything else pinned. The winner becomes that task's shipped configuration. If 512 wins,
+            that ships and the write-up says so plainly.</p>
+        </div>
+
+        <div class="callout warning" style="margin-top:1.1rem">
+          <p><strong>Long context is a hypothesis, and it can lose.</strong> The claim under test is that
+            reading more of the document raises macro-F1 on cases where the evidence is not adjacent.
+            The refutation is simple: if 8,192 does not beat 512 outside the noise band on the
+            long-evidence subset, long context did not help on this task, and that gets published as the
+            result. See <a href="#done">definition of done</a> for the gate.</p>
         </div>
       </section>
 
@@ -1002,9 +1083,14 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <p class="do-not">Do not claim</p>
           </div>
           <div class="quarantine">
-            <h3>Long-document modelling</h3>
-            <p>512 tokens is the ceiling. Document-level work belongs to whatever calls these models, and it splits text before it arrives.</p>
+            <h3>Anything past 8,192 tokens</h3>
+            <p>8,192 is the ceiling, because it is what the base encoder was pretrained for. Whole 10-Ks, multi-document reasoning, hierarchical chunk aggregation and retrieval all sit outside it. The caller cuts the document into passages.</p>
             <p class="do-not">Hard limit</p>
+          </div>
+          <div class="quarantine">
+            <h3>"Long context works" as an assumption</h3>
+            <p>Length is on the experiment ladder, not in the conclusion. Every task publishes 512 against 8,192 with intervals, and a task where the short model wins ships as the short model.</p>
+            <p class="do-not">Measure, never assume</p>
           </div>
           <div class="quarantine">
             <h3>A multi-task model</h3>
@@ -1080,10 +1166,18 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <span class="status supported">Decided</span>
         </div>
         <p class="section-intro">
-          Success is beating a strong LLM baseline on a frozen gold set, at far lower cost. Each of
-          the three models has to clear the same bar on its own. A model that misses the bar still
-          ships, with the miss stated in the model card.
+          Success is beating a strong LLM baseline on a frozen gold set, at far lower cost, reading the
+          same passage the LLM read. Each of the three models has to clear the same bar on its own. A
+          model that misses the bar still ships, with the miss stated in the model card.
         </p>
+
+        <div class="callout info">
+          <p><strong>The long-evidence subset.</strong> Every gold set is tagged at annotation time with
+            whether the label needed evidence outside the target sentence, and roughly how far away it
+            was. That tag splits the test set into a near half and a long half. Headline numbers are
+            reported on the whole set and on both halves. Without this split, a long-context gain
+            averages away into nothing and nobody can tell whether the extra tokens did anything.</p>
+        </div>
 
         <div class="table-wrap">
           <table>
@@ -1097,17 +1191,27 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <tbody>
               <tr>
                 <td><strong>Quality</strong></td>
-                <td>Macro-F1 on the frozen gold test set is at or above the best few-shot LLM baseline, with the difference reported as a bootstrap 95% confidence interval. "At or above" means the interval does not put the LLM clearly ahead.</td>
+                <td>Macro-F1 on the frozen gold test set is at or above the best few-shot LLM baseline, with the difference reported as a bootstrap 95% confidence interval. "At or above" means the interval does not put the LLM clearly ahead. The LLM gets the same passage the model got.</td>
                 <td>Each model</td>
               </tr>
               <tr>
+                <td><strong>Length ladder</strong></td>
+                <td>The 512, 2,048 and 8,192 configurations are all trained and all reported, three seeds each, on the whole gold set and on both halves of the long-evidence split. The shipped length is whichever won on validation, and the losing lengths stay in the table.</td>
+                <td>Each task</td>
+              </tr>
+              <tr>
+                <td><strong>Truncation</strong></td>
+                <td>Measured truncation rate at the shipped length is recorded and under 5%. Above that, the run is blocked before it starts. This is the gate the previous project did not have.</td>
+                <td>Each dataset</td>
+              </tr>
+              <tr>
                 <td><strong>Cost</strong></td>
-                <td>Measured cost per 1,000 sentences is at least 50&times; lower than the winning LLM baseline, counting real token usage at list price.</td>
+                <td>Measured cost per 1,000 passages is at least 50&times; lower than the winning LLM baseline, counting real token usage at list price, over identical passages.</td>
                 <td>Each model</td>
               </tr>
               <tr>
                 <td><strong>Latency</strong></td>
-                <td>Median single-sentence latency on a T4 is under 50ms, and batch throughput is reported at batch size 32.</td>
+                <td>Median latency per passage on a T4 is measured and published at every length on the ladder, with batch throughput at the largest batch that fits. The gate is under one second per passage at the shipped length. Under 50ms still holds at 512 and that number stays in the table.</td>
                 <td>Each model</td>
               </tr>
               <tr>
@@ -1142,7 +1246,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <ul class="compact-list">
               <li><strong>Majority class.</strong> The floor. Catches a broken metric.</li>
               <li><strong>TF-IDF plus logistic regression.</strong> The cheap classical baseline. If a fine-tuned encoder cannot clearly beat it, the task is trivial or the data is broken.</li>
-              <li><strong>Few-shot Claude, small and large.</strong> The real competition, run with a prompt tuned on validation data only. The strongest of these is the number to beat.</li>
+              <li><strong>The same encoder at 512 tokens.</strong> The internal control for the whole long-context claim. Identical data, identical recipe, shorter input. Any long-context gain is measured against this and nothing else.</li>
+              <li><strong>Few-shot Claude, small and large.</strong> The real competition, run with a prompt tuned on validation data only, over the same passage. The strongest of these is the number to beat.</li>
               <li><strong>Zero-shot LLM.</strong> Reported to show what prompt work is worth.</li>
               <li><strong>Off-the-shelf finance encoder.</strong> Existing public models on the same task where one exists, to show the delta from doing this properly.</li>
             </ul>
@@ -1152,6 +1257,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <ul class="compact-list">
               <li><strong>Beating published state of the art.</strong> Prior benchmark protocols are not comparable to this one, and forcing the comparison is how the last project produced numbers it had to retract.</li>
               <li><strong>A round number like 90%.</strong> The gold set defines the ceiling, and it is unknown until agreement is measured.</li>
+              <li><strong>Long context winning.</strong> The ladder is run and published either way. A task where 512 wins is a real finding, and it ships as the short model with the ladder in the card.</li>
               <li><strong>Calibration quality.</strong> Reported, not gated.</li>
               <li><strong>Out-of-domain robustness.</strong> Measured and published as a limitation, not a pass condition.</li>
             </ul>
@@ -1220,7 +1326,9 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <li>Model card with the label definitions copied in full, not linked.</li>
               <li>Gold test set results with confidence intervals and the human agreement ceiling.</li>
               <li>Every baseline number from the table above, in one comparison table.</li>
-              <li>Cost and latency measurements, with the hardware and prices stated.</li>
+              <li>The full length ladder, with results on the near and long halves of the gold set.</li>
+              <li>The measured truncation rate at the shipped length.</li>
+              <li>Cost and latency measurements per length, with the hardware and prices stated.</li>
               <li>Named limitations, including the out-of-domain results.</li>
               <li>Intended use and out-of-scope use.</li>
               <li>Training config, seed, and the exact dataset revision hash.</li>
@@ -1230,6 +1338,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <h3>Per dataset</h3>
             <ul class="checklist">
               <li>Gold test set on Hugging Face, with per-example annotator labels kept.</li>
+              <li>The evidence-distance tag on every gold row, so the long-evidence split is reproducible by anyone.</li>
+              <li>Passage length distribution in tokens, so readers can see what the length ladder was actually exercising.</li>
               <li>Dataset card with source, licence, and collection method for every row.</li>
               <li>The codebook version used, published alongside.</li>
               <li>Human and LLM-labelled rows in separate splits, never merged.</li>
@@ -1304,9 +1414,14 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
                 <td>Training runs write a registry entry with config hash, seed, and artifact path. No registry entry means the run did not happen.</td>
               </tr>
               <tr>
-                <td><strong>Long context wishful thinking</strong></td>
-                <td>Long-context training was attempted, did not help, and the data behind it broke.</td>
-                <td>512 tokens is fixed in the spec. Anything longer needs a new decision-log entry with a reason.</td>
+                <td><strong>Long context on broken data</strong></td>
+                <td>A long run trained on rows that were still 52.8% truncated at 6,144 tokens. The conclusion drawn was that length did not help. What was actually measured was that the examples were malformed.</td>
+                <td>Truncation rate is measured before the run and asserted under 5%. The passage builder has its own test suite. Length only enters the argument once the data is known to be intact.</td>
+              </tr>
+              <tr>
+                <td><strong>Long context assumed to help</strong></td>
+                <td>The opposite failure, and the one this project is now exposed to. Extra tokens feel like they must be worth something.</td>
+                <td>512 is trained as an internal control on every task. The long-evidence split is where the gain has to show up. No gain there means no claim.</td>
               </tr>
               <tr>
                 <td><strong>Augmentation causality</strong></td>
@@ -1347,7 +1462,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>ABSA input</td><td>Aspect is supplied by the caller. No extraction.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>FLS labels</td><td>Binary.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Fact/opinion labels</td><td>Binary. Mixed sentences resolve to opinion.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Input unit</td><td>Target sentence plus surrounding context, 512 tokens.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Input unit</td><td>A passage with a marked target span, up to 8,192 tokens. Replaces the earlier 512-token cap.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Length ladder</td><td>512, 2,048 and 8,192 trained and published on every task. The shipped length is chosen on validation.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Truncation gate</td><td>Under 5% at the shipped length, asserted before training starts.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Long-evidence split</td><td>Gold rows tagged with evidence distance at annotation time. Results reported on both halves.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Long-context training hardware</td><td>Whether a free T4 can train at 8,192 at a workable speed, or whether the long rungs need a rented L4 or A100. Settled by the smoke check in Slice 1.</td><td><span class="status compromised">Open</span></td></tr>
               <tr><td>Data sources</td><td>Public labelled sets, plus a human-annotated gold set, plus LLM silver labels in a separate track.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Compute</td><td>Colab T4 free tier.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Success bar</td><td>Beat the strongest few-shot LLM baseline on the gold set.</td><td><span class="status supported">Decided</span></td></tr>
