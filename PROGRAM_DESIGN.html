@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="How the research programme is run: phases, data tracks, annotation, baselines, experiment protocol, decision gates and the write-up plan.">
+  <meta name="description" content="How the research programme is run: phases, data tracks, annotation, long-context baselines, experiment protocol, decision gates and the write-up plan.">
   <title>ModernFin Triad — Program Design</title>
   <style>
 /* Shared design system for the ModernFin Triad planning documents.
@@ -642,7 +642,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         <div class="audit-stat"><strong>4 phases</strong><span>One per task, plus a suite release.</span></div>
         <div class="audit-stat"><strong>3 data tracks</strong><span>Public, gold human, silver LLM. Never merged silently.</span></div>
         <div class="audit-stat"><strong>1 variable</strong><span>Per experiment. Everything else pinned.</span></div>
-        <div class="audit-stat"><strong>5 gates</strong><span>Each phase has an exit condition that can fail.</span></div>
+        <div class="audit-stat"><strong>6 gates</strong><span>Each phase has exit conditions that can fail.</span></div>
       </div>
       <nav class="doc-nav" aria-label="Document set">
         <a href="PRODUCT.html">Product</a>
@@ -784,10 +784,13 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             </div>
             <p>Goes first because the labels are the simplest to define and public annotated data is
               the easiest to find. That keeps the risk in the machinery rather than in the task.
-              Everything reusable is built here: data schema, eval harness, run registry, baseline
-              runners, model card template, CI.</p>
-            <p class="small"><strong>Exit:</strong> one released model, one released gold set, and a harness
-              the next two phases use unchanged.</p>
+              Everything reusable is built here: data schema, passage builder, eval harness, run
+              registry, baseline runners, model card template, CI.</p>
+            <p>It also runs the length ladder for the first time, which is the phase's real headline.
+              Whatever 512 against 8,192 says on forward-looking sets the prior for the other two
+              tasks, and it decides whether the long-context claim has legs at all.</p>
+            <p class="small"><strong>Exit:</strong> one released model, one released gold set, a published
+              length ladder, and a harness the next two phases use unchanged.</p>
           </div>
           <div class="timeline-item">
             <div class="timeline-meta">
@@ -797,8 +800,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <p>Second because it adds one new thing to a proven pipeline: the aspect goes into the
               input. Public data exists in the form of aspect-level financial sentiment sets with
               continuous scores, so there is also a score-to-class mapping to decide and document.</p>
-            <p class="small"><strong>Exit:</strong> released model, released gold set, and a documented
-              mapping from any continuous source scores to the three classes.</p>
+            <p class="small"><strong>Exit:</strong> released model, released gold set, a length ladder for
+              this task, and a documented mapping from any continuous source scores to the three classes.</p>
           </div>
           <div class="timeline-item">
             <div class="timeline-meta">
@@ -808,8 +811,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <p>Last because the public data is weakest, so this phase leans hardest on your own
               annotation and on LLM silver labels. Doing it last means the annotation tooling and the
               silver-label pipeline are already proven on two easier tasks.</p>
-            <p class="small"><strong>Exit:</strong> released model, released gold set, and a measured
-              overlap with the forward-looking labels.</p>
+            <p class="small"><strong>Exit:</strong> released model, released gold set, a length ladder for
+              this task, and a measured overlap with the forward-looking labels.</p>
           </div>
           <div class="timeline-item old">
             <div class="timeline-meta">
@@ -827,6 +830,15 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <p><strong>Phases do not overlap.</strong> The temptation after Phase 1 is to start all three at
             once. Do not. The harness will need changes discovered in Phase 2, and changing it while
             three models are mid-training is how protocol drift starts.</p>
+        </div>
+
+        <div class="callout info" style="margin-top:.8rem">
+          <p><strong>Every task runs its own ladder, and here is the rule for shortening it.</strong> The
+            full ladder is three rungs at three seeds. Phases 2 and 3 may drop to the winning rung plus
+            the 512 control, two rungs at three seeds, but only if Phase 1's ladder separated cleanly
+            outside the noise band. If Phase 1 came out flat or mixed, the full ladder runs every time,
+            because a flat result is exactly the case where one task's answer says nothing about
+            another's. Whichever version ran is recorded in the model card.</p>
         </div>
       </section>
 
@@ -963,8 +975,18 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <li><strong>Do not balance the classes by sampling.</strong> The natural rate of forward-looking sentences is part of the problem. Report the rate and handle imbalance in training, not in the test set.</li>
             <li><strong>Deduplicate before annotating.</strong> Boilerplate repeats across filings and will otherwise dominate the set.</li>
             <li><strong>Keep the document and sentence position for every example</strong>, so leakage across splits can be checked later.</li>
+            <li><strong>Keep the whole passage, not the sentence.</strong> The gold set stores the passage the annotator read. Storing only the sentence would make the long rungs untestable after the fact, and re-fetching the surroundings later is how provenance broke last time.</li>
+            <li><strong>Sample passages long enough to matter.</strong> If every gold passage is 300 tokens, the ladder has nothing to measure. Stratify the sample by passage length so the long rungs are actually exercised, and publish the length distribution.</li>
             <li><strong>Sample once and freeze.</strong> Re-sampling after seeing results is the same as tuning on the test set.</li>
           </ul>
+        </div>
+
+        <div class="callout warning" style="margin-top:1.1rem">
+          <p><strong>Long passages make the licence problem worse.</strong> A single sentence from a paid
+            transcript is arguably a quotation. Two thousand tokens of it is not. Redistribution terms get
+            checked against the passage length actually being published, not against the sentence. Where
+            terms are unclear, publish document identifiers and character offsets instead of the text, and
+            ship a script that rebuilds the passages from the source.</p>
         </div>
       </section>
 
@@ -994,6 +1016,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <li><strong>Re-annotate 100 examples from early in the run, blind,</strong> at the end. Agreement with your own earlier labels is the drift measurement. Publish it.</li>
               <li><strong>Adjudicate disagreements</strong> with a written reason, and fold the reason back into the codebook for next time.</li>
             </ol>
+            <div class="gate" style="margin-top:.8rem">
+              <strong>One extra field per row:</strong> evidence distance. Two clicks, and it is what makes
+              the whole long-context claim testable.
+            </div>
           </div>
           <div class="card">
             <h3>Measuring quality</h3>
@@ -1008,6 +1034,29 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               ceiling is reported in every model card, so answer it before Phase 1 annotation starts.
             </div>
           </div>
+        </div>
+
+        <h3 style="margin:1.6rem 0 .7rem">Recording evidence distance</h3>
+        <div class="card">
+          <p class="small">The annotator answers a second question on every gold row: where was the
+            evidence that decided this label? It takes seconds, it is recorded before any model exists,
+            and it is the only honest way to test whether long context helps.</p>
+          <div class="table-wrap" style="margin-top:.7rem; box-shadow:none">
+            <table>
+              <thead><tr><th style="width:150px">Value</th><th>Means</th><th style="width:220px">Role in the results</th></tr></thead>
+              <tbody>
+                <tr><td><code>in_target</code></td><td>The sentence alone was enough.</td><td class="subtle-cell">Long context should change nothing here. If it does, something is wrong.</td></tr>
+                <tr><td><code>near</code></td><td>Needed a sentence or two either side.</td><td class="subtle-cell">What a 512-token model can already reach.</td></tr>
+                <tr><td><code>far</code></td><td>Needed something further away. A speaker tag, an earlier number, a heading, a prior paragraph.</td><td class="subtle-cell">The subset the whole claim rests on.</td></tr>
+                <tr><td><code>unknown</code></td><td>The annotator could not say.</td><td class="subtle-cell">Reported, excluded from the split, and the rate is published.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <ul class="compact-list" style="margin-top:.8rem">
+            <li><strong>Record it before seeing any model output.</strong> Assigning it afterwards would let the results decide the split, which is the same sin as tuning on test.</li>
+            <li><strong>It is annotator judgement, not ground truth.</strong> Say so wherever the split appears. On the double-annotated portion, agreement on this field is measured and published alongside the label agreement.</li>
+            <li><strong>If <code>far</code> comes in under 10% of the gold set</strong>, the long-context question is close to untestable on that task. Report that rather than reading a difference out of forty examples.</li>
+          </ul>
         </div>
 
         <div class="callout info" style="margin-top:1.1rem">
@@ -1049,9 +1098,14 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
                 <td>Hyperparameters tuned on validation only.</td>
               </tr>
               <tr>
+                <td><strong>The same encoder at 512 tokens</strong></td>
+                <td>The internal control for the long-context claim. Same data, same recipe, same seeds, shorter input. Every statement about what long context bought is a difference against this run.</td>
+                <td>Identical in every respect except max length. Run at three seeds, like the long rungs.</td>
+              </tr>
+              <tr>
                 <td><strong>Few-shot Claude, small model</strong></td>
                 <td>The realistic cheap alternative a practitioner would reach for instead of your model.</td>
-                <td>Prompt developed against validation data. Few-shot examples drawn from training data. Never from test.</td>
+                <td>Prompt developed against validation data. Few-shot examples drawn from training data. Never from test. Gets the full passage.</td>
               </tr>
               <tr>
                 <td><strong>Few-shot Claude, large model</strong></td>
@@ -1079,17 +1133,19 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <li>The prompt gets a real effort budget. Several iterations against validation data, not one attempt.</li>
               <li>The full codebook definition goes in the prompt. Do not handicap the LLM by underspecifying the task.</li>
               <li>Parsing failures count as errors, and the failure rate is reported separately.</li>
-              <li>The same context window the model sees goes to the LLM.</li>
+              <li><strong>The LLM reads the same passage the model reads.</strong> Not a trimmed version, not the sentence. If the encoder ships at 8,192 tokens, the LLM gets those 8,192 tokens.</li>
+              <li>Where the source passage is longer than the encoder's limit, both get the same trimmed passage, and the trimming is done once by the same code.</li>
               <li>Run it three times and report the spread, because even at temperature 0 the output can move.</li>
             </ul>
           </div>
           <div class="card">
             <h3>Measuring the cost claim</h3>
             <ul class="compact-list">
-              <li>Count actual input and output tokens for the whole test set. Do not estimate.</li>
+              <li>Count actual input and output tokens for the whole test set. Do not estimate. Long passages make input tokens the dominant term, and that is the heart of the cost story.</li>
               <li>Price at published list rates, with the date recorded, since prices change.</li>
-              <li>For the encoder, report throughput on a T4 and the cost of that GPU-time, so the comparison is like for like.</li>
-              <li>Report cost per 1,000 sentences for both, and the ratio.</li>
+              <li>For the encoder, report throughput at its shipped length on a T4 and the cost of that GPU-time, so the comparison is like for like.</li>
+              <li>Report cost per 1,000 passages for both, and the ratio, at every rung of the ladder. A reader choosing 2,048 over 8,192 needs to see what that saves.</li>
+              <li>State the cost of any rented GPU time used for the long rungs. Free-tier training is part of the pitch, and if it stopped being true, say so.</li>
               <li>State clearly that the encoder needed a labelled dataset and a training run, and the LLM did not. That is a real cost, and hiding it makes the comparison dishonest.</li>
             </ul>
           </div>
@@ -1124,8 +1180,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
                 <tr><td class="mono">config_hash</td><td>Hash of the full resolved config, including data selection.</td></tr>
                 <tr><td class="mono">data_revision</td><td>Dataset version and hash for every split used.</td></tr>
                 <tr><td class="mono">gold_hash</td><td>Hash of the frozen test set. Mismatch aborts the run.</td></tr>
+                <tr><td class="mono">max_length</td><td>Which rung of the length ladder this run is. A first-class field, because it is the project's main variable.</td></tr>
+                <tr><td class="mono">truncation</td><td>Measured trimming statistics at this length, written by the gate before training starts. A run whose gate failed has no training metrics and says why.</td></tr>
+                <tr><td class="mono">control_run_id</td><td>The 512-token run this one is compared against. Empty on the control itself.</td></tr>
                 <tr><td class="mono">seed</td><td>Random seed. Three seeds per reported configuration.</td></tr>
-                <tr><td class="mono">env</td><td>Library versions, GPU type, CUDA version.</td></tr>
+                <tr><td class="mono">env</td><td>Library versions, GPU type, CUDA version. Says plainly whether this rung ran on free or rented hardware.</td></tr>
                 <tr><td class="mono">metrics_val</td><td>Validation metrics, per epoch.</td></tr>
                 <tr><td class="mono">metrics_test</td><td>Test metrics. Empty until the run is promoted to a final evaluation.</td></tr>
                 <tr><td class="mono">artifact_path</td><td>Where the checkpoint actually is.</td></tr>
@@ -1186,15 +1245,29 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <div class="card next-card">
             <div class="priority"><span>Gate</span><strong>2</strong></div>
             <div>
-              <h3>Data is clean</h3>
-              <p class="small muted">No near-duplicates across splits. Every row has provenance. Licence
-                confirmed for every source that will be redistributed. Class rates recorded.</p>
+              <h3>Data is clean, and the passages are intact</h3>
+              <p class="small muted">No near-duplicates across splits, checked on full passages. Every row
+                has provenance. Every target span resolves inside its passage. Licence confirmed for every
+                source that will be redistributed, at the passage length being published. Class rates and
+                token-length distribution recorded.</p>
               <div class="gate"><strong>If it fails:</strong> no training run starts. Leakage found later
-                invalidates everything downstream of it.</div>
+                invalidates everything downstream of it, and long passages make leakage easier, not harder.</div>
             </div>
           </div>
           <div class="card next-card">
             <div class="priority"><span>Gate</span><strong>3</strong></div>
+            <div>
+              <h3>The length budget holds</h3>
+              <p class="small muted">At the rung about to be trained: trimming affects under 5% of rows,
+                nothing within two sentences of a target is lost, and the configuration actually fits the
+                available hardware for a full run.</p>
+              <div class="gate"><strong>If it fails:</strong> the run does not start. Fix passage assembly,
+                or drop to a lower rung and record why. This is the gate the previous project did not have,
+                and its absence is the whole reason the earlier long-context result was uninterpretable.</div>
+            </div>
+          </div>
+          <div class="card next-card">
+            <div class="priority"><span>Gate</span><strong>4</strong></div>
             <div>
               <h3>Model beats the classical baseline</h3>
               <p class="small muted">The fine-tuned encoder clearly beats TF-IDF plus logistic regression
@@ -1205,18 +1278,20 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             </div>
           </div>
           <div class="card next-card">
-            <div class="priority"><span>Gate</span><strong>4</strong></div>
+            <div class="priority"><span>Gate</span><strong>5</strong></div>
             <div>
               <h3>Model meets the success bar</h3>
-              <p class="small muted">Test macro-F1 at or above the best LLM baseline, cost ratio at least
-                50&times;, latency under 50ms, all measured once on the frozen gold set.</p>
+              <p class="small muted">Test macro-F1 at or above the best LLM baseline on the same passages,
+                cost ratio at least 50&times;, latency within budget at the shipped length, all measured
+                once on the frozen gold set. The full length ladder is reported, including the rungs that
+                lost.</p>
               <div class="gate"><strong>If it fails:</strong> the model still ships, with the miss in the model
                 card and an honest section in the write-up about why. Failing this gate does not block the
-                next phase. Hiding it does.</div>
+                next phase. Hiding it does. A ladder that comes out flat is a reported result, not a failure.</div>
             </div>
           </div>
           <div class="card next-card">
-            <div class="priority"><span>Gate</span><strong>5</strong></div>
+            <div class="priority"><span>Gate</span><strong>6</strong></div>
             <div>
               <h3>Release is reproducible</h3>
               <p class="small muted">A clean checkout plus one command reproduces the published table from
@@ -1232,6 +1307,13 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <p><strong>The programme-level stop rule.</strong> If Phase 1 fails Gate 1 or Gate 2 twice, stop
             and reconsider the task definition before spending time on Phases 2 and 3. Three models
             built on a shaky label definition is three times the wasted effort.</p>
+        </div>
+
+        <div class="callout danger" style="margin-top:.8rem">
+          <p><strong>And the long-context stop rule.</strong> If Gate 3 fails twice at 8,192 on the same
+            task, ship the highest rung that passes and say in the model card that 8,192 was attempted and
+            abandoned, with the reason. Do not keep retrying it, and do not describe the shipped model as
+            long-context if it is not.</p>
         </div>
       </section>
 
@@ -1297,6 +1379,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
                 <td>Publish the mapping, and report performance on the gold set separately from performance on public test splits. Never blend the two into one headline.</td>
               </tr>
               <tr>
+                <td><strong>Public data ships sentences without their documents</strong></td>
+                <td>Almost every published sentence-level finance set was built for short-context models. The surrounding text was thrown away.</td>
+                <td>Ask this question during the source survey, not during training. Rows without a recoverable passage are marked and counted. If they dominate the training set, the long rungs train on less real context than the short rung, and that would break the comparison. In that case, say so and lean on gold and silver data where the passage was kept.</td>
+              </tr>
+              <tr>
                 <td><strong>Fact versus opinion has no usable public data</strong></td>
                 <td>It is the least studied of the three in a finance setting.</td>
                 <td>Plan for it. Phase 3 is scheduled last precisely so the silver pipeline is proven by then. Accept a smaller training set and say so.</td>
@@ -1307,9 +1394,29 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
                 <td>Ship the result. "A 150M encoder gets within a point of a frontier model at one fiftieth the cost" is a good outcome and an honest one.</td>
               </tr>
               <tr>
-                <td><strong>T4 limits force a compromise</strong></td>
-                <td>Free-tier sessions time out, and memory is tight at 512 tokens.</td>
-                <td>LoRA, gradient accumulation, and checkpoint-resume by default. Every config must survive a session restart without losing a run.</td>
+                <td><strong>8,192 tokens does not fit a free T4</strong></td>
+                <td>The T4 is a Turing card with no bf16 and no flash-attention support, so the memory-efficient path ModernBERT expects is not there. This is the single most likely thing to go wrong.</td>
+                <td>Smoke-checked at every rung in Slice 1, before anything depends on it. Fallbacks in order: batch 1 with accumulation, gradient checkpointing, then rented L4 or A100 time for the long rungs with the rental disclosed in the card.</td>
+              </tr>
+              <tr>
+                <td><strong>Long context does not help</strong></td>
+                <td>Small training sets and more tokens to attend to is a real recipe for no gain, or for a loss.</td>
+                <td>The 512 control runs on every task, so the answer is measurable rather than arguable. A flat ladder ships as the short model, with the ladder published. That is a result the field is short of.</td>
+              </tr>
+              <tr>
+                <td><strong>Long passages leak across splits</strong></td>
+                <td>Boilerplate repeats across filings. At 8,192 tokens two rows from different documents can share most of their text.</td>
+                <td>Near-duplicate checks run on full passages, not targets, and they fail the build. Grouped splitting by document stays in place on top of that.</td>
+              </tr>
+              <tr>
+                <td><strong>The gold set has no long-evidence examples</strong></td>
+                <td>Sampling by sentence tends to pull self-contained sentences, and then there is nothing for the long rungs to win on.</td>
+                <td>Stratify the gold sample by passage length. Record evidence distance at annotation time. If the far bucket lands under 10%, say the question was untestable on that task rather than reading a result out of noise.</td>
+              </tr>
+              <tr>
+                <td><strong>Annotation gets slower</strong></td>
+                <td>Reading a 2,000-token passage per label is not the same job as reading a sentence.</td>
+                <td>Budget fewer examples per sitting. Cut the set to 600 before cutting the passage. A label made without reading the context is worse than no label at all now that context is the whole point.</td>
               </tr>
               <tr>
                 <td><strong>Licences block the dataset release</strong></td>
@@ -1318,8 +1425,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               </tr>
               <tr>
                 <td><strong>Scope creep back into non-goals</strong></td>
-                <td>Aspect extraction and long context both feel like natural next steps.</td>
-                <td>The non-goals list in Product, plus the rule that adding one back needs a decision-log entry.</td>
+                <td>Aspect extraction, whole-document modelling and hierarchical chunk aggregation all feel like natural next steps once the input is already long.</td>
+                <td>The non-goals list in Product, plus the rule that adding one back needs a decision-log entry. 8,192 is the ceiling and the caller cuts documents into passages.</td>
               </tr>
               <tr>
                 <td><strong>The thesis turns out to be wrong</strong></td>
@@ -1352,7 +1459,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <li><strong>The protocol</strong>, before any results. Deliberately first, so the reader judges the method before seeing the numbers.</li>
               <li><strong>Data</strong>, including the tracks and their reliability.</li>
               <li><strong>Results</strong>, one table per task, every baseline, every interval, the human ceiling in the same table.</li>
-              <li><strong>Cost and latency</strong>, with the training cost stated too.</li>
+              <li><strong>Does length help</strong>, the full ladder on all three tasks, split by evidence distance, with the 512 control alongside. This is the paper's actual contribution and it gets its own section whichever way it comes out.</li>
+              <li><strong>Cost and latency</strong>, per rung, with the training cost and any rented GPU time stated too.</li>
               <li><strong>What did not work</strong>, at similar length to what did.</li>
               <li><strong>Thesis test</strong>, taking real finance NLP tasks and showing coverage and gaps.</li>
               <li><strong>Limitations and quarantined claims.</strong></li>
@@ -1365,7 +1473,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <li>No comparison across different protocols, ever, even with a caveat.</li>
               <li>Confidence intervals in every results table, not just the text.</li>
               <li>The word "state of the art" does not appear.</li>
-              <li>Where an earlier plan changed, say so and say why.</li>
+              <li>Where an earlier plan changed, say so and say why. The move from 512 tokens to 8,192 is the largest such change and it gets its own paragraph, including what the previous project's long-context failure did and did not show.</li>
+              <li>"Long context helps" is never written without the control run, the interval, and the evidence-distance split next to it.</li>
               <li>The thesis section reports what the three labels miss, in the same detail as what they cover.</li>
             </ul>
           </div>
