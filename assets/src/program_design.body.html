@@ -11,9 +11,9 @@
       </p>
       <div class="audit-strip">
         <div class="audit-stat"><strong>4 phases</strong><span>One per task, plus a suite release.</span></div>
-        <div class="audit-stat"><strong>3 data tracks</strong><span>Public, gold human, silver LLM. Never merged silently.</span></div>
+        <div class="audit-stat"><strong>3 data tracks</strong><span>Public, gold human, weakly supervised. Never merged silently.</span></div>
         <div class="audit-stat"><strong>1 variable</strong><span>Per experiment. Everything else pinned.</span></div>
-        <div class="audit-stat"><strong>6 gates</strong><span>Each phase has exit conditions that can fail.</span></div>
+        <div class="audit-stat"><strong>7 gates</strong><span>Each phase has exit conditions that can fail.</span></div>
       </div>
       <nav class="doc-nav" aria-label="Document set">
         <a href="PRODUCT.html">Product</a>
@@ -32,6 +32,7 @@
         <a href="#principles">Operating principles</a>
         <a href="#phases">Phases</a>
         <a href="#data">Data program</a>
+        <a href="#weak">Weak supervision</a>
         <a href="#annotation">Annotation program</a>
         <a href="#baselines">Baseline program</a>
         <a href="#protocol">Experiment protocol</a>
@@ -57,7 +58,7 @@
           <span class="pill teal">Enforced in CI</span>
         </div>
         <p class="section-intro">
-          Seven rules. Most of them are enforced by a test or a script, not by discipline. Anything
+          Eight rules. Most of them are enforced by a test or a script, not by discipline. Anything
           that depends only on remembering will eventually be forgotten.
         </p>
 
@@ -92,8 +93,9 @@
             <div class="n">4</div>
             <div>
               <h4>Never look at the test set</h4>
-              <p>Prompt tuning, hyperparameter search, checkpoint selection, threshold picking. All of
-                it happens on validation data. The test set is opened once per model, at the end.</p>
+              <p>Prompt tuning, labelling-function selection, label-model fitting, hyperparameter search,
+                checkpoint selection, threshold picking. All of it happens on the development and
+                validation sets. The test set is opened once per model, at the end.</p>
             </div>
           </div>
           <div class="protocol-step">
@@ -155,8 +157,8 @@
             </div>
             <p>Goes first because the labels are the simplest to define and public annotated data is
               the easiest to find. That keeps the risk in the machinery rather than in the task.
-              Everything reusable is built here: data schema, passage builder, eval harness, run
-              registry, baseline runners, model card template, CI.</p>
+              Everything reusable is built here: data schema, passage builder, weak-supervision
+              pipeline, eval harness, run registry, baseline runners, model card template, CI.</p>
             <p>It also runs the length ladder for the first time, which is the phase's real headline.
               Whatever 512 against 8,192 says on forward-looking sets the prior for the other two
               tasks, and it decides whether the long-context claim has legs at all.</p>
@@ -179,9 +181,9 @@
               <h3 style="margin:0">Phase 3 &mdash; Fact versus opinion</h3>
               <span class="pill violet">Third</span>
             </div>
-            <p>Last because the public data is weakest, so this phase leans hardest on your own
-              annotation and on LLM silver labels. Doing it last means the annotation tooling and the
-              silver-label pipeline are already proven on two easier tasks.</p>
+            <p>Last because the public data is weakest, so this phase leans hardest on weak
+              supervision. Doing it last means the annotation process and the labelling pipeline are
+              both proven, and the labelling bill at passage length is already a known quantity.</p>
             <p class="small"><strong>Exit:</strong> released model, released gold set, a length ladder for
               this task, and a measured overlap with the forward-looking labels.</p>
           </div>
@@ -253,14 +255,15 @@
             </ul>
           </div>
           <div class="card decision caution">
-            <h3>Track C &mdash; Silver LLM</h3>
+            <h3>Track C &mdash; Weakly supervised</h3>
             <span class="pill amber">Scale, with doubt</span>
-            <p class="small muted" style="margin-top:.6rem">Claude labelling sentences from public
-              filings and transcripts at volume. Fast and cheap, and it inherits whatever the LLM gets
-              wrong, which is exactly what you are trying to beat.</p>
+            <p class="small muted" style="margin-top:.6rem">Every passage labelled by k different models
+              through one router, plus a few cheap heuristics, combined into one probabilistic label.
+              This is where training volume comes from, and it inherits whatever the models get wrong
+              together.</p>
             <ul class="compact-list">
               <li>Training only, in its own split.</li>
-              <li>A human-reviewed sample measures its accuracy against the gold codebook.</li>
+              <li>Label quality measured against a human development set, never against the test set.</li>
               <li>Its contribution is proven by an ablation, never assumed.</li>
             </ul>
           </div>
@@ -268,14 +271,15 @@
 
         <div class="callout danger" style="margin-top:1.2rem">
           <h3>The circularity problem, stated plainly</h3>
-          <p>The success bar is beating a few-shot LLM. Track C trains the model on that same LLM's
-            labels. Left alone, this makes the headline comparison meaningless, because a student
-            cannot cleanly beat its teacher on the teacher's own answers.</p>
-          <p style="margin-top:.5rem"><strong>How it is handled.</strong> Three things, all required.
-            The gold test set is human-labelled, so the LLM never grades its own homework. Every model
-            is reported twice, once trained without Track C and once with it, so the reader sees the
-            claim both ways. And the headline claim is always stated against the Track A plus B model,
-            with the Track C model reported as a separate result.</p>
+          <p>The models that produce Track C labels are also the baseline being compared against. Left
+            alone this makes the headline meaningless, because a student cannot cleanly beat its
+            teachers on answers the teachers wrote.</p>
+          <p style="margin-top:.5rem"><strong>How it is handled.</strong> Four things, all required.
+            The gold test set is human-labelled, so no model grades its own homework. The headline
+            comparison is against the whole ensemble, which is the actual teacher, rather than against
+            one of its members. Every model is reported twice, once trained without Track C and once
+            with it. And any single-model comparison is labelled a distillation result wherever it
+            appears, including in the model card.</p>
         </div>
 
         <h3 style="margin:1.6rem 0 .7rem">Candidate public sources</h3>
@@ -317,7 +321,7 @@
               <tr>
                 <td><strong>SEC EDGAR filings</strong></td>
                 <td>All three</td>
-                <td>Unlabelled raw text. Public domain in the US. The main sampling pool for both gold annotation and silver labelling.</td>
+                <td>Unlabelled raw text. Public domain in the US. The main sampling pool for both gold annotation and the routed labelling runs.</td>
                 <td><span class="status supported">Usable</span></td>
               </tr>
               <tr>
@@ -361,6 +365,100 @@
         </div>
       </section>
 
+      <section id="weak">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Where training labels come from</p>
+            <h2>Weak supervision</h2>
+          </div>
+          <span class="status supported">Decided</span>
+        </div>
+        <p class="section-intro">
+          Each passage goes to k different models through one router. Each model's answer is a
+          labelling function. A label model learns how much to trust each one and returns a
+          probabilistic label. The student trains on those. This is what makes a training set of tens
+          of thousands of passages possible at all, and it brings its own failure modes.
+        </p>
+
+        <div class="flow">
+          <div class="flow-step"><strong>1. Route</strong><span>Each passage is sent to k models from different families, with the target span marked exactly as the student sees it. One prompt, one structured answer, abstention allowed.</span></div>
+          <div class="flow-arrow">&darr;</div>
+          <div class="flow-step"><strong>2. Add heuristics</strong><span>Two or three cheap rule-based labelling functions per task. Low coverage, high precision, and genuinely uncorrelated with the models.</span></div>
+          <div class="flow-arrow">&darr;</div>
+          <div class="flow-step"><strong>3. Build the label matrix</strong><span>One row per passage, one column per labelling function, with abstentions marked rather than guessed.</span></div>
+          <div class="flow-arrow">&darr;</div>
+          <div class="flow-step"><strong>4. Diagnose</strong><span>Coverage, overlap, conflict, and pairwise agreement per function, measured on the human development set.</span></div>
+          <div class="flow-arrow">&darr;</div>
+          <div class="flow-step"><strong>5. Fit the label model</strong><span>Snorkel's label model against plain majority vote. Whichever wins on the development set is the one used.</span></div>
+          <div class="flow-arrow">&darr;</div>
+          <div class="flow-step"><strong>6. Train the student</strong><span>Soft labels, noise-aware loss. Low-confidence rows dropped by a threshold chosen on validation data.</span></div>
+        </div>
+
+        <div class="callout danger" style="margin-top:1.2rem">
+          <h3>Long passages make this the most expensive thing in the project</h3>
+          <p>Labelling cost is roughly passage length times the number of models times the number of
+            rows. Moving from 512 to 8,192 tokens multiplies the first term by up to sixteen, and k
+            models multiply it again. A labelling run that would have been an afternoon's pocket change
+            at sentence level is the largest single line in the budget at passage level.</p>
+          <p style="margin-top:.5rem"><strong>Two consequences, both binding.</strong> Labels are bought
+            per length rung, because a label produced from a 512-token window is not a valid label for
+            an 8,192-token student and reusing it would quietly wreck the length ladder. And the pilot
+            comes first at every rung, so the ladder's true cost is known before it is committed to.</p>
+        </div>
+
+        <div class="grid-2" style="margin-top:1.2rem">
+          <div class="card">
+            <h3>Choosing the k models</h3>
+            <ul class="compact-list">
+              <li><strong>Different families, not different sizes.</strong> Two versions of the same model fail in the same places and add almost nothing to the vote.</li>
+              <li><strong>Five is the starting point.</strong> Enough for the label model to estimate accuracies, few enough to afford at 8,192 tokens.</li>
+              <li><strong>Every model must handle the full passage length.</strong> A model that silently truncates is labelling a different task from the one the student learns.</li>
+              <li><strong>Pin exact model identifiers per run.</strong> Router-hosted models get updated and deprecated, so an unpinned run is not reproducible.</li>
+              <li><strong>Mix strong and cheap.</strong> A weaker model with a different bias can be more useful to the vote than a second strong one that agrees with the first.</li>
+              <li><strong>Record cost per model per run.</strong> One expensive function is often removable at almost no quality cost, and you can only see that if you measured it.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>The heuristic labelling functions</h3>
+            <p class="small muted">Cheap, transparent, and the only functions in the set that are
+              genuinely independent of the models. They matter more than their accuracy suggests.</p>
+            <ul class="compact-list">
+              <li><strong>Forward-looking:</strong> future modals, expectation verbs, explicit horizon phrases, safe-harbour markers, applied to the target span. Abstain otherwise.</li>
+              <li><strong>Fact versus opinion:</strong> attribution patterns, evaluative adjective lists, presence of a figure with a unit. Abstain otherwise.</li>
+              <li><strong>Aspect sentiment:</strong> direction verbs near the aspect mention, negation handling. Low coverage, and useful where it fires.</li>
+              <li><strong>Abstaining is normal.</strong> A function that answers on 15% of rows and is right almost every time is a good function.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="callout warning" style="margin-top:1.2rem">
+          <h3>The assumption most likely to be violated</h3>
+          <p>A label model works by assuming its functions make mistakes for unrelated reasons. Large
+            models trained on overlapping web text do not. When five of them are wrong they are often
+            wrong in the same way and on the same rows, and the label model reads that agreement as
+            confidence.</p>
+          <p style="margin-top:.5rem"><strong>What is done about it.</strong> Pairwise conditional
+            agreement is measured on the human development set and published. Model families are chosen
+            to be as different as the router allows. Heuristic functions are included specifically
+            because they break the correlation. And plain majority vote is always run alongside, because
+            if the independence assumption is badly broken the learned model has no real advantage over
+            counting, and pretending otherwise is the kind of unfalsifiable claim this project exists to
+            avoid.</p>
+        </div>
+
+        <div class="card" style="margin-top:1.2rem">
+          <h3>Budget discipline</h3>
+          <ul class="compact-list">
+            <li><strong>Pilot on 500 rows first, at every length rung.</strong> Measure real cost per row per model, and measure label quality on the development set, before any full run.</li>
+            <li><strong>Set a dollar ceiling per task</strong> and make the runner stop at it rather than warn.</li>
+            <li><strong>Cache every response</strong> by hash of prompt plus model plus passage. A rerun after a bug fix should cost nothing for rows that did not change.</li>
+            <li><strong>Drop functions that do not pay.</strong> If removing a model changes label quality by less than noise, remove it and note the saving.</li>
+            <li><strong>Scale the row count to the gain.</strong> Plot student quality against training rows on validation data. Where the curve flattens, stop buying rows.</li>
+            <li><strong>Consider labelling short and training long only as a measured experiment</strong>, never as a saving. If it works it is a real finding worth publishing. If it is assumed, it silently invalidates the ladder.</li>
+          </ul>
+        </div>
+      </section>
+
       <section id="annotation">
         <div class="section-head">
           <div>
@@ -374,6 +472,49 @@
           rushed. This section fixes the process so the quality is measurable rather than asserted.
         </p>
 
+        <div class="callout warning">
+          <p><strong>Weak supervision does not reduce this work.</strong> It replaces hand-labelled
+            training data, and the plan never had any. The human sets were always the benchmark. What
+            weak supervision adds is a second small human set to tune the labelling functions against,
+            so the annotation budget goes slightly up, not down. Anyone reading "we automated the
+            labelling" and expecting to annotate less will be disappointed, and the schedule should not
+            assume it.</p>
+        </div>
+
+        <div class="grid-2" style="margin:1.2rem 0">
+          <div class="card decision recommended">
+            <h3>The gold test set</h3>
+            <span class="pill teal">1,000 per task</span>
+            <p class="small muted" style="margin-top:.6rem">The frozen benchmark. 300 double-annotated
+              for the agreement ceiling, every row tagged with evidence distance. Opened once per model,
+              at the end. Its size is what keeps the near and far halves large enough to read.</p>
+            <ul class="compact-list">
+              <li>Never used to tune anything, including labelling functions.</li>
+              <li>Hashed before the first training run.</li>
+              <li>Published with per-annotator labels.</li>
+            </ul>
+          </div>
+          <div class="card decision caution">
+            <h3>The development set</h3>
+            <span class="pill amber">200 per task</span>
+            <p class="small muted" style="margin-top:.6rem">Human-labelled, and deliberately burnable.
+              This is what the labelling functions, the label model, the prompts and the confidence
+              threshold get tuned against.</p>
+            <ul class="compact-list">
+              <li>Sampled and labelled with the gold set, then split apart immediately.</li>
+              <li>Looked at as often as needed. That is what it is for.</li>
+              <li>Never reported as a headline result, because it has been tuned against.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="callout danger" style="margin-bottom:1.2rem">
+          <p><strong>These two sets must not touch.</strong> Tuning the label model on the gold set would
+            quietly turn the benchmark into training data, and every number after that would be inflated
+            in a way no reader could detect. Split them at sampling time, store them in separate files
+            with separate hashes, and let the harness refuse any run where the two hashes overlap.</p>
+        </div>
+
         <div class="grid-2">
           <div class="card">
             <h3>Process</h3>
@@ -382,7 +523,7 @@
               <li><strong>Pilot on 50 examples.</strong> Every disagreement or hesitation becomes a new rule in the codebook. Expect the codebook to roughly double in size here.</li>
               <li><strong>Re-pilot on 50 fresh examples</strong> under the revised codebook. If you are still hesitating on more than one in five, the label definition is wrong, not the annotator.</li>
               <li><strong>Bump the codebook version and discard the pilot labels.</strong> They were made under a different definition.</li>
-              <li><strong>Annotate the full 1,000</strong> in sittings of no more than 150. Fatigue shows up as label drift, and drift late in the set is invisible unless you shuffle.</li>
+              <li><strong>Annotate the full 1,200</strong> in sittings of no more than 150, then split 1,000 to test and 200 to development. Fatigue shows up as label drift, and drift late in the set is invisible unless you shuffle.</li>
               <li><strong>Shuffle before annotating</strong> so any drift spreads evenly rather than landing on one document type.</li>
               <li><strong>Re-annotate 100 examples from early in the run, blind,</strong> at the end. Agreement with your own earlier labels is the drift measurement. Publish it.</li>
               <li><strong>Adjudicate disagreements</strong> with a written reason, and fold the reason back into the codebook for next time.</li>
@@ -431,11 +572,13 @@
         </div>
 
         <div class="callout info" style="margin-top:1.1rem">
-          <p><strong>Time is the real constraint.</strong> 1,000 sentences per task at a realistic pace is
-            several sittings of focused work, three times over. Budget it as a first-class task in each
-            phase, not as something squeezed in around training runs. If the budget will not stretch,
-            cut the set to 600 and report the wider confidence intervals honestly. Do not cut the
-            double-annotated portion, because that is what makes the rest of the numbers interpretable.</p>
+          <p><strong>Time is the real constraint.</strong> 1,200 passages per task at a realistic pace is
+            several sittings of focused work, three times over, and passages take longer to read than
+            sentences did. Budget it as a first-class task in each phase, not as something squeezed in
+            around training runs. If the budget will not stretch, cut the test set to 600 and accept
+            that the near and far halves get noisy. Do not cut the development set, because the whole
+            labelling pipeline is tuned against it, and do not cut the double-annotated portion,
+            because that is what makes the rest of the numbers interpretable.</p>
         </div>
       </section>
 
@@ -474,19 +617,24 @@
                 <td>Identical in every respect except max length. Run at three seeds, like the long rungs.</td>
               </tr>
               <tr>
-                <td><strong>Few-shot Claude, small model</strong></td>
-                <td>The realistic cheap alternative a practitioner would reach for instead of your model.</td>
-                <td>Prompt developed against validation data. Few-shot examples drawn from training data. Never from test. Gets the full passage.</td>
+                <td><strong>The routed ensemble</strong></td>
+                <td>The actual teacher. All k labelling functions combined by the same label model used for training, over the same passages, scored on the gold set. This is the headline number to match.</td>
+                <td>Identical pipeline to the training-label run, including the pinned model list. Its full cost is measured.</td>
               </tr>
               <tr>
-                <td><strong>Few-shot Claude, large model</strong></td>
-                <td>The quality ceiling of the prompt-only approach. This is usually the number to beat.</td>
-                <td>Same prompt discipline. Temperature 0, and the exact prompt is committed to the repo.</td>
+                <td><strong>Each single routed model</strong></td>
+                <td>Shows which teachers carried the ensemble. Also gives the familiar small-model-versus-one-frontier-model comparison readers will look for.</td>
+                <td>Reported per model, over the full passage. Always labelled as a distillation comparison, since the student trained on these labels.</td>
               </tr>
               <tr>
-                <td><strong>Zero-shot LLM</strong></td>
+                <td><strong>Zero-shot single model</strong></td>
                 <td>Shows what the prompt engineering was worth, which is itself a useful published result.</td>
                 <td>The codebook definition goes in the prompt, and nothing else.</td>
+              </tr>
+              <tr>
+                <td><strong>Plain majority vote</strong></td>
+                <td>The dumb version of the ensemble. If it matches the label model, the label model is not earning its complexity.</td>
+                <td>Same labelling functions, no learned weights, ties broken by a fixed documented rule.</td>
               </tr>
               <tr>
                 <td><strong>Existing public finance encoder</strong></td>
@@ -499,11 +647,12 @@
 
         <div class="grid-2" style="margin-top:1.1rem">
           <div class="card">
-            <h3>Fairness rules for the LLM baseline</h3>
+            <h3>Fairness rules for the LLM baselines</h3>
             <ul class="compact-list">
-              <li>The prompt gets a real effort budget. Several iterations against validation data, not one attempt.</li>
-              <li>The full codebook definition goes in the prompt. Do not handicap the LLM by underspecifying the task.</li>
-              <li>Parsing failures count as errors, and the failure rate is reported separately.</li>
+              <li>The prompt gets a real effort budget. Several iterations against the development set, not one attempt.</li>
+              <li>The full codebook definition goes in the prompt. Do not handicap the models by underspecifying the task.</li>
+              <li>Parsing failures count as abstentions in the label matrix and as errors in the baseline table. Both rates are reported.</li>
+              <li>Exact model identifiers are pinned and recorded, since a router can silently serve a newer version.</li>
               <li><strong>The LLM reads the same passage the model reads.</strong> Not a trimmed version, not the sentence. If the encoder ships at 8,192 tokens, the LLM gets those 8,192 tokens.</li>
               <li>Where the source passage is longer than the encoder's limit, both get the same trimmed passage, and the trimming is done once by the same code.</li>
               <li>Run it three times and report the spread, because even at temperature 0 the output can move.</li>
@@ -514,10 +663,10 @@
             <ul class="compact-list">
               <li>Count actual input and output tokens for the whole test set. Do not estimate. Long passages make input tokens the dominant term, and that is the heart of the cost story.</li>
               <li>Price at published list rates, with the date recorded, since prices change.</li>
-              <li>For the encoder, report throughput at its shipped length on a T4 and the cost of that GPU-time, so the comparison is like for like.</li>
+              <li>For the encoder, report throughput at its shipped length and the per-second cost of the GPU it ran on, so the comparison is like for like. Report CPU inference too.</li>
               <li>Report cost per 1,000 passages for both, and the ratio, at every rung of the ladder. A reader choosing 2,048 over 8,192 needs to see what that saves.</li>
-              <li>State the cost of any rented GPU time used for the long rungs. Free-tier training is part of the pitch, and if it stopped being true, say so.</li>
-              <li>State clearly that the encoder needed a labelled dataset and a training run, and the LLM did not. That is a real cost, and hiding it makes the comparison dishonest.</li>
+              <li>Report the labelling spend and the training spend separately, per length rung. Labelling dominates, and it is the number a reader planning their own run most needs.</li>
+              <li><strong>Report the setup cost prominently.</strong> The student needed a labelling run, a training run and 1,200 human labels. The ensemble needed none of that. Quote the break-even volume where the student becomes cheaper overall, because that is the number a practitioner actually needs.</li>
             </ul>
           </div>
         </div>
@@ -609,7 +758,7 @@
               <p class="small muted">Two pilot rounds done. Hesitation rate under one in five. Kappa above
                 0.7 if a second annotator exists, or stable self-agreement if not.</p>
               <div class="gate"><strong>If it fails:</strong> rewrite the label definitions. Do not annotate
-                1,000 examples against a definition you are unsure of. This is the cheapest failure in
+                1,200 passages against a definition you are unsure of. This is the cheapest failure in
                 the whole programme and the most expensive one to skip.</div>
             </div>
           </div>
@@ -640,6 +789,20 @@
           <div class="card next-card">
             <div class="priority"><span>Gate</span><strong>4</strong></div>
             <div>
+              <h3>Weak labels are worth buying</h3>
+              <p class="small muted">On the human development set, at the length rung about to be
+                labelled, the label model beats both plain majority vote and the best single labelling
+                function. Coverage, conflict, pairwise agreement and measured cost per row are all
+                recorded.</p>
+              <div class="gate"><strong>If it fails:</strong> do not buy labels at volume yet. Either the
+                functions are too correlated to combine usefully, in which case use majority vote and say
+                so, or the prompt needs work. At passage length this is the one gate whose failure costs
+                real money rather than time, so it runs on a 500-row pilot before every full run.</div>
+            </div>
+          </div>
+          <div class="card next-card">
+            <div class="priority"><span>Gate</span><strong>5</strong></div>
+            <div>
               <h3>Model beats the classical baseline</h3>
               <p class="small muted">The fine-tuned encoder clearly beats TF-IDF plus logistic regression
                 on validation data.</p>
@@ -649,20 +812,20 @@
             </div>
           </div>
           <div class="card next-card">
-            <div class="priority"><span>Gate</span><strong>5</strong></div>
+            <div class="priority"><span>Gate</span><strong>6</strong></div>
             <div>
               <h3>Model meets the success bar</h3>
-              <p class="small muted">Test macro-F1 at or above the best LLM baseline on the same passages,
-                cost ratio at least 50&times;, latency within budget at the shipped length, all measured
-                once on the frozen gold set. The full length ladder is reported, including the rungs that
-                lost.</p>
+              <p class="small muted">Test macro-F1 at or above the routed ensemble on the same passages,
+                tested as a paired bootstrap, cost ratio at least 50&times;, latency within budget at the
+                shipped length, all measured once on the frozen gold set. The full length ladder is
+                reported, including the rungs that lost.</p>
               <div class="gate"><strong>If it fails:</strong> the model still ships, with the miss in the model
                 card and an honest section in the write-up about why. Failing this gate does not block the
                 next phase. Hiding it does. A ladder that comes out flat is a reported result, not a failure.</div>
             </div>
           </div>
           <div class="card next-card">
-            <div class="priority"><span>Gate</span><strong>6</strong></div>
+            <div class="priority"><span>Gate</span><strong>7</strong></div>
             <div>
               <h3>Release is reproducible</h3>
               <p class="small muted">A clean checkout plus one command reproduces the published table from
@@ -675,7 +838,7 @@
         </div>
 
         <div class="callout warning" style="margin-top:1.2rem">
-          <p><strong>The programme-level stop rule.</strong> If Phase 1 fails Gate 1 or Gate 2 twice, stop
+          <p><strong>The programme-level stop rule.</strong> If Phase 1 fails Gate 1, 2 or 4 twice, stop
             and reconsider the task definition before spending time on Phases 2 and 3. Three models
             built on a shaky label definition is three times the wasted effort.</p>
         </div>
@@ -712,7 +875,7 @@
               <li><strong>Harness, scripts, tests, CI.</strong> Well-specified engineering with a clear definition of done.</li>
               <li><strong>Dataset surveys.</strong> Finding what exists and what its terms are, with links, for you to verify.</li>
               <li><strong>Baseline runners</strong> and the cost measurement plumbing.</li>
-              <li><strong>Silver labelling at volume</strong>, once the prompt is fixed.</li>
+              <li><strong>The routed labelling runs</strong>, once the prompt and the model list are fixed.</li>
               <li><strong>Drafting model cards and the write-up</strong>, from registry numbers rather than from memory.</li>
             </ul>
           </div>
@@ -741,8 +904,8 @@
             <tbody>
               <tr>
                 <td><strong>Annotation stalls the project</strong></td>
-                <td>3,000 careful judgements is genuinely a lot of work, and it is the least fun part.</td>
-                <td>Cut to 600 per task before cutting quality. Keep the double-annotated portion. Report the wider intervals.</td>
+                <td>3,600 careful judgements over long passages is a lot of work, and it is the least fun part. Weak supervision makes it tempting to assume the human sets got smaller. They did not.</td>
+                <td>Cut the test set to 600 per task before cutting quality, and accept noisier near and far halves. Never cut the development set or the double-annotated portion.</td>
               </tr>
               <tr>
                 <td><strong>Public data does not match the codebook</strong></td>
@@ -752,12 +915,12 @@
               <tr>
                 <td><strong>Public data ships sentences without their documents</strong></td>
                 <td>Almost every published sentence-level finance set was built for short-context models. The surrounding text was thrown away.</td>
-                <td>Ask this question during the source survey, not during training. Rows without a recoverable passage are marked and counted. If they dominate the training set, the long rungs train on less real context than the short rung, and that would break the comparison. In that case, say so and lean on gold and silver data where the passage was kept.</td>
+                <td>Ask this question during the source survey, not during training. Rows without a recoverable passage are marked and counted. If they dominate the training set, the long rungs train on less real context than the short rung, and that would break the comparison. In that case, say so and lean on the passages that were kept.</td>
               </tr>
               <tr>
                 <td><strong>Fact versus opinion has no usable public data</strong></td>
                 <td>It is the least studied of the three in a finance setting.</td>
-                <td>Plan for it. Phase 3 is scheduled last precisely so the silver pipeline is proven by then. Accept a smaller training set and say so.</td>
+                <td>Plan for it. Weak supervision is exactly the answer here, and Phase 3 runs last so the labelling pipeline is already proven and priced.</td>
               </tr>
               <tr>
                 <td><strong>The LLM baseline wins</strong></td>
@@ -765,9 +928,14 @@
                 <td>Ship the result. "A 150M encoder gets within a point of a frontier model at one fiftieth the cost" is a good outcome and an honest one.</td>
               </tr>
               <tr>
-                <td><strong>8,192 tokens does not fit a free T4</strong></td>
-                <td>The T4 is a Turing card with no bf16 and no flash-attention support, so the memory-efficient path ModernBERT expects is not there. This is the single most likely thing to go wrong.</td>
-                <td>Smoke-checked at every rung in Slice 1, before anything depends on it. Fallbacks in order: batch 1 with accumulation, gradient checkpointing, then rented L4 or A100 time for the long rungs with the rental disclosed in the card.</td>
+                <td><strong>Labelling spend runs away</strong></td>
+                <td>k models across tens of thousands of 8,192-token passages, re-bought at every rung of the ladder and every time a prompt changes. This is now the largest cost in the project and the easiest one to lose control of.</td>
+                <td>A 500-row pilot before every full run, at every rung. A hard dollar ceiling in the runner. Response caching keyed by prompt, model and passage. A learning curve that says when to stop buying rows.</td>
+              </tr>
+              <tr>
+                <td><strong>Router models change underneath you</strong></td>
+                <td>Hosted models get updated, deprecated and silently reassigned. A rerun months later is not the same experiment, and long-context support in particular varies between versions.</td>
+                <td>Pin exact model identifiers per run and record them. Cache all responses. Treat a model list change as a new experiment with a new registry row, not a rerun of the old one.</td>
               </tr>
               <tr>
                 <td><strong>Long context does not help</strong></td>
