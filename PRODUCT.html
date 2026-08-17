@@ -643,7 +643,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         <div class="audit-stat"><strong>3 models</strong><span>Separate encoder per task. No multi-task trunk.</span></div>
         <div class="audit-stat"><strong>8,192 tokens</strong><span>The model reads the passage the LLM reads.</span></div>
         <div class="audit-stat"><strong>Finance only</strong><span>Filings, transcripts, analyst notes, financial news.</span></div>
-        <div class="audit-stat"><strong>Beat the LLM</strong><span>Match or beat few-shot Claude on a frozen gold set.</span></div>
+        <div class="audit-stat"><strong>Match the ensemble</strong><span>Distil k routed LLMs into one small encoder.</span></div>
       </div>
       <nav class="doc-nav" aria-label="Document set">
         <a href="PRODUCT.html" aria-current="page">Product</a>
@@ -1113,6 +1113,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <p class="do-not">Report, never claim</p>
           </div>
           <div class="quarantine">
+            <h3>Machine-labelled test data</h3>
+            <p>Training labels come from an ensemble of routed models. Test labels never do. A model scored against labels its own teachers produced cannot tell you anything about whether it beat them.</p>
+            <p class="do-not">Human gold only</p>
+          </div>
+          <div class="quarantine">
             <h3>A production service</h3>
             <p>This is a research release. A demo Space and a clean inference example, and no SLA, no hosted API, no uptime promise.</p>
             <p class="do-not">Not shipped</p>
@@ -1166,10 +1171,21 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <span class="status supported">Decided</span>
         </div>
         <p class="section-intro">
-          Success is beating a strong LLM baseline on a frozen gold set, at far lower cost, reading the
-          same passage the LLM read. Each of the three models has to clear the same bar on its own. A
-          model that misses the bar still ships, with the miss stated in the model card.
+          Success is matching what a routed ensemble of large models can do on a frozen human gold set,
+          reading the same passage they read, at a tiny fraction of the cost. Each of the three models
+          clears the bar on its own. A model that misses still ships, with the miss stated in the card.
         </p>
+
+        <div class="callout warning">
+          <h3>Weak supervision changes what "beating the LLM" means</h3>
+          <p>Training labels now come from k different models voted together. The student is distilled
+            from an ensemble that contains the single-model baseline. Beating that single model is
+            therefore expected, and it is a weak claim.</p>
+          <p style="margin-top:.5rem"><strong>The honest headline</strong> is against the ensemble: a
+            150M encoder reaches the quality of k routed frontier models, on the same passages, at a
+            fraction of the cost and latency. The single-model comparison stays in the table, labelled
+            as what it is, which is a distillation result.</p>
+        </div>
 
         <div class="callout info">
           <p><strong>The long-evidence subset.</strong> Every gold set is tagged at annotation time with
@@ -1191,7 +1207,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <tbody>
               <tr>
                 <td><strong>Quality</strong></td>
-                <td>Macro-F1 on the frozen gold test set is at or above the best few-shot LLM baseline, with the difference reported as a bootstrap 95% confidence interval. "At or above" means the interval does not put the LLM clearly ahead. The LLM gets the same passage the model got.</td>
+                <td>Macro-F1 on the frozen gold test set is at or above the routed ensemble's own macro-F1 on that same set, tested as a paired bootstrap of the per-example difference. "At or above" means the interval on the difference does not put the ensemble clearly ahead. Every model in the ensemble gets the same passage the student got.</td>
                 <td>Each model</td>
               </tr>
               <tr>
@@ -1206,13 +1222,18 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               </tr>
               <tr>
                 <td><strong>Cost</strong></td>
-                <td>Measured cost per 1,000 passages is at least 50&times; lower than the winning LLM baseline, counting real token usage at list price, over identical passages.</td>
+                <td>Measured cost per 1,000 passages is at least 50&times; lower than the routed ensemble, counting real token usage at recorded prices, over identical passages. Labelling and training cost is reported separately and is not netted out of this ratio.</td>
                 <td>Each model</td>
               </tr>
               <tr>
                 <td><strong>Latency</strong></td>
-                <td>Median latency per passage on a T4 is measured and published at every length on the ladder, with batch throughput at the largest batch that fits. The gate is under one second per passage at the shipped length. Under 50ms still holds at 512 and that number stays in the table.</td>
+                <td>Median latency per passage is measured and published at every length on the ladder, on the reported hardware and on CPU, with batch throughput at the largest batch that fits. The gate is under one second per passage at the shipped length. Under 50ms still holds at 512 and that number stays in the table.</td>
                 <td>Each model</td>
+              </tr>
+              <tr>
+                <td><strong>Label quality</strong></td>
+                <td>The weak-supervision label model beats both plain majority vote and the best single labelling function, measured on a human-labelled development set that is separate from the test set.</td>
+                <td>Each task</td>
               </tr>
               <tr>
                 <td><strong>Human ceiling</strong></td>
@@ -1226,7 +1247,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               </tr>
               <tr>
                 <td><strong>Traceable</strong></td>
-                <td>Every training example carries its source, licence, and whether it is human-labelled or LLM-labelled. No example with unknown provenance is in any training set.</td>
+                <td>Every training example carries its source, licence, and how it was labelled, including which labelling functions voted and what the label model returned. No example with unknown provenance is in any training set.</td>
                 <td>Each dataset</td>
               </tr>
               <tr>
@@ -1247,8 +1268,9 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <li><strong>Majority class.</strong> The floor. Catches a broken metric.</li>
               <li><strong>TF-IDF plus logistic regression.</strong> The cheap classical baseline. If a fine-tuned encoder cannot clearly beat it, the task is trivial or the data is broken.</li>
               <li><strong>The same encoder at 512 tokens.</strong> The internal control for the whole long-context claim. Identical data, identical recipe, shorter input. Any long-context gain is measured against this and nothing else.</li>
-              <li><strong>Few-shot Claude, small and large.</strong> The real competition, run with a prompt tuned on validation data only, over the same passage. The strongest of these is the number to beat.</li>
-              <li><strong>Zero-shot LLM.</strong> Reported to show what prompt work is worth.</li>
+              <li><strong>The routed ensemble.</strong> All k models voted through the label model, over the same passages, scored on the gold set. This is the teacher, and it is the number that matters.</li>
+              <li><strong>Each single model in the ensemble.</strong> Few-shot, one row per model, prompt tuned on the development set only. Shows which teachers carried the vote.</li>
+              <li><strong>Zero-shot single model.</strong> Reported to show what prompt work is worth.</li>
               <li><strong>Off-the-shelf finance encoder.</strong> Existing public models on the same task where one exists, to show the delta from doing this properly.</li>
             </ul>
           </div>
@@ -1262,6 +1284,18 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <li><strong>Out-of-domain robustness.</strong> Measured and published as a limitation, not a pass condition.</li>
             </ul>
           </div>
+        </div>
+
+        <div class="callout info" style="margin-top:1.2rem">
+          <h3>Every comparison is paired</h3>
+          <p>The gold set is 1,000 examples, and the long-evidence split cuts each headline into halves
+            of a few hundred. At those sizes a single model's own confidence interval spans several
+            points, and two overlapping intervals say almost nothing about which model is better.</p>
+          <p style="margin-top:.5rem"><strong>So nothing is compared that way.</strong> The student and
+            its comparator are scored on the same examples, and the bootstrap runs over the per-example
+            difference. That cancels the shared difficulty of the examples and resolves gaps far smaller
+            than the individual intervals suggest. It matters most exactly where this project needs it:
+            the student against the ensemble, and 8,192 against the 512 control on the far half.</p>
         </div>
       </section>
 
@@ -1429,6 +1463,26 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
                 <td>Synthetic data is out of the default plan. If it is added, it runs as a controlled A/B on one task with everything else fixed.</td>
               </tr>
               <tr>
+                <td><strong>Correlated teachers</strong></td>
+                <td>New risk. The label model assumes its labelling functions fail independently. Large models trained on overlapping data fail in the same places, so k of them agreeing is weaker evidence than it looks.</td>
+                <td>Pick models from different families. Add non-LLM heuristic labelling functions. Measure pairwise agreement on the human development set and report it next to every label-model number.</td>
+              </tr>
+              <tr>
+                <td><strong>Label model theatre</strong></td>
+                <td>New risk. A learned label model feels more rigorous than counting votes, and on highly correlated inputs it often is not better.</td>
+                <td>Plain majority vote is a required baseline for the label model. If it wins, use it, and say so.</td>
+              </tr>
+              <tr>
+                <td><strong>Distillation dressed as victory</strong></td>
+                <td>New risk. Training on ensemble labels and then claiming to beat one of its members is close to circular.</td>
+                <td>The headline comparison is against the ensemble. Single-model comparisons are labelled as distillation results wherever they appear.</td>
+              </tr>
+              <tr>
+                <td><strong>Long passages, large bill</strong></td>
+                <td>New risk. Labelling cost scales with passage length times the number of models. The move to 8,192 tokens multiplies the labelling budget several times over, and it is easy not to notice until the invoice arrives.</td>
+                <td>A 500-row pilot at each length before any full run. A hard dollar ceiling in the runner. Response caching, so a prompt fix does not re-buy every label.</td>
+              </tr>
+              <tr>
                 <td><strong>Loss-function overcorrection</strong></td>
                 <td>Inverse-frequency class weighting swung the model too far toward rare classes.</td>
                 <td>Class weighting is a tuned knob measured on validation macro-F1, with the unweighted run always reported next to it.</td>
@@ -1466,20 +1520,25 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>Length ladder</td><td>512, 2,048 and 8,192 trained and published on every task. The shipped length is chosen on validation.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Truncation gate</td><td>Under 5% at the shipped length, asserted before training starts.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Long-evidence split</td><td>Gold rows tagged with evidence distance at annotation time. Results reported on both halves.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Long-context training hardware</td><td>Whether a free T4 can train at 8,192 at a workable speed, or whether the long rungs need a rented L4 or A100. Settled by the smoke check in Slice 1.</td><td><span class="status compromised">Open</span></td></tr>
-              <tr><td>Data sources</td><td>Public labelled sets, plus a human-annotated gold set, plus LLM silver labels in a separate track.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Compute</td><td>Colab T4 free tier.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Success bar</td><td>Beat the strongest few-shot LLM baseline on the gold set.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Data sources</td><td>Public labelled sets, a human-annotated gold set, and weakly supervised training labels from k routed models.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Training labels at scale</td><td>Each passage labelled by k different models through one router, plus heuristics, combined by a weak-supervision label model.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Test labels</td><td>Human only. Weak supervision never touches the test split.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Compute</td><td>Paid serverless GPU with per-second billing, Ampere class or newer. This also settles the open question about whether the long rungs of the ladder were trainable.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Success bar</td><td>Match the routed ensemble on the gold set, over the same passages, at a far lower cost per passage.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Slicing</td><td>One vertical slice per task, end to end.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Open source scope</td><td>Weights, datasets, code, write-up, demo.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Base encoder</td><td>ModernBERT-base, with DeBERTa-v3-base as the architecture control.</td><td><span class="status notrun">Assumed</span></td></tr>
-              <tr><td>Adaptation method</td><td>LoRA first, given the T4 ceiling and the prior result that LoRA beat the tested full fine-tune.</td><td><span class="status notrun">Assumed</span></td></tr>
-              <tr><td>LLM baseline</td><td>Claude, one small and one large model, few-shot with a validation-tuned prompt.</td><td><span class="status notrun">Assumed</span></td></tr>
-              <tr><td>Gold set size</td><td>1,000 examples per task, 300 of them double-annotated.</td><td><span class="status notrun">Assumed</span></td></tr>
+              <tr><td>Adaptation method</td><td>Full fine-tune and LoRA both run and compared. Paid Ampere-class hardware makes both affordable, so the prior LoRA result gets re-tested rather than inherited.</td><td><span class="status notrun">Assumed</span></td></tr>
+              <tr><td>Labelling functions</td><td>Five routed models from different families, plus two or three cheap heuristic functions per task.</td><td><span class="status notrun">Assumed</span></td></tr>
+              <tr><td>Label model</td><td>Snorkel's label model, with plain majority vote as the required comparison.</td><td><span class="status notrun">Assumed</span></td></tr>
+              <tr><td>Gold set size</td><td>1,000 examples per task, 300 of them double-annotated, plus a separate 200-example development set for tuning labelling functions.</td><td><span class="status notrun">Assumed</span></td></tr>
+              <tr><td>Labelling length</td><td>Labelling functions read the same passage the student reads, at the length being trained. Short-passage labels do not transfer to a long-context student.</td><td><span class="status notrun">Assumed</span></td></tr>
               <tr><td>Build order</td><td>Forward-looking, then aspect sentiment, then fact versus opinion.</td><td><span class="status notrun">Assumed</span></td></tr>
               <tr><td>Repository licence</td><td>Depends on what the source datasets allow. Decide before the first dataset upload.</td><td><span class="status compromised">Open</span></td></tr>
               <tr><td>Annotator count</td><td>Whether a second human annotator is available decides how agreement is measured. See <a href="PROGRAM_DESIGN.html#annotation">annotation program</a>.</td><td><span class="status compromised">Open</span></td></tr>
               <tr><td>Aspect vocabulary</td><td>Whether callers get a suggested finance aspect list, or bring their own strings.</td><td><span class="status compromised">Open</span></td></tr>
+              <tr><td>Labelling budget</td><td>A ceiling in dollars. It decides how many passages, at what length, through how many models. 8,192-token passages make this the largest cost in the project.</td><td><span class="status compromised">Open</span></td></tr>
+              <tr><td>Router provider</td><td>Which router, and the exact k models behind it. Model availability shifts, so the chosen set is pinned and recorded per run.</td><td><span class="status compromised">Open</span></td></tr>
             </tbody>
           </table>
         </div>
