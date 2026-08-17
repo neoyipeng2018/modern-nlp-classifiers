@@ -1314,7 +1314,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               </tr>
               <tr>
                 <td><strong>Label quality</strong></td>
-                <td>The weak-supervision label model beats both plain majority vote and the best single labelling function, measured on a development set held out from the borrowed human-labelled data and separate from the test set. This is what makes weak-to-strong possible: if combining the cheap teachers does not beat the best one of them, the student has nothing extra to learn and the ceiling is just that teacher.</td>
+                <td>The weak-supervision label model beats both plain majority vote and the best single labelling function, measured on the development set held out from the borrowed human-labelled data, separate from both test sets, and never on reference labels. This is what makes weak-to-strong possible: if combining the cheap teachers does not beat the best one of them, the student has nothing extra to learn and the ceiling is just that teacher.</td>
                 <td>Each task</td>
               </tr>
               <tr>
@@ -1620,6 +1620,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>Beating the frontier model</td><td>Claimable only on the referee benchmark, where both are scored against human labels. Never on the reference's own labels, where it scores 100% by construction.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Weak-to-strong result</td><td>Student agreement with the reference, reported next to the teacher ensemble's agreement with the reference. Higher means the student beat its own teachers.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Which frontier reference</td><td><code>gpt-sol-5.6</code> at medium reasoning effort. The effort setting is part of the pin, not a tuning knob, because it changes both the answers and the bill. Every response is cached and published, so the benchmark survives the model being retired.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Reference scope</td><td>Test split only. It never labels training rows, never labels the development set, and never tunes a prompt. Gate 4 is tuned on the borrowed human development set alone, which keeps the weak-to-strong result something found rather than engineered.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Reference determinism</td><td>Not assumed. A reasoning model re-run on the same passage can return a different label, so the cached responses are the test set. Re-labelling is a new experiment with a new registry row, never a refresh.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Slicing</td><td>One vertical slice per task, end to end.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Open source scope</td><td>Weights, datasets, code, write-up, demo.</td><td><span class="status supported">Decided</span></td></tr>

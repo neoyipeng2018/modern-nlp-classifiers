@@ -935,6 +935,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
                 <li><strong>One model, one version, one effort setting.</strong> Not a router, not a fallback chain, not "whatever was current". <code>gpt-sol-5.6</code> at medium effort, written into the config and the model card. A different effort setting is a different reference.</li>
                 <li><strong>Verify the identifier resolves before buying anything.</strong> A single call at Gate 1, with the exact string, checking that the model exists, that medium effort is accepted, and that the returned metadata names the version you think you pinned. A typo here is discovered after the labelling spend otherwise.</li>
                 <li><strong>It never votes in Track C.</strong> A model cannot both teach the student and grade it. This separation is the whole point of the track.</li>
+                <li><strong>It touches the test split and nothing else.</strong> Not the training rows, not the development set, not the labelling-function prompts. Using it as a bigger cheaper ruler for Gate 4 tuning was considered and rejected. Tuning the teachers to match the reference would lift the headline while turning the weak-to-strong result into something engineered rather than found.</li>
                 <li><strong>Every response is cached and published, including the reasoning token counts.</strong> Hosted models get deprecated. The cached labels are the durable artifact, so the benchmark still runs in two years when the model is gone.</li>
                 <li><strong>Do not assume determinism.</strong> A reasoning model asked the same question twice can answer differently, so the cache is not an optimisation, it is the test set. Nothing re-queries the reference once the set is frozen.</li>
                 <li><strong>It reads the same passage the student reads,</strong> at the same rung, or the comparison is not like for like.</li>
@@ -1090,7 +1091,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <div class="flow-arrow">&darr;</div>
           <div class="flow-step"><strong>4. Diagnose</strong><span>Coverage, overlap, conflict, and pairwise agreement per function, measured on the human development set.</span></div>
           <div class="flow-arrow">&darr;</div>
-          <div class="flow-step"><strong>5. Fit the label model</strong><span>Snorkel's label model against plain majority vote. Whichever wins on the development set is the one used.</span></div>
+          <div class="flow-step"><strong>5. Fit the label model</strong><span>Snorkel's label model against plain majority vote. Whichever wins on the borrowed human development set is the one used. The reference model is not consulted here, or anywhere outside the test split.</span></div>
           <div class="flow-arrow">&darr;</div>
           <div class="flow-step"><strong>6. Train the student</strong><span>Soft labels, noise-aware loss. Low-confidence rows dropped by a threshold chosen on validation data.</span></div>
         </div>
@@ -1605,7 +1606,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <div class="priority"><span>Gate</span><strong>4</strong></div>
             <div>
               <h3>Weak labels are worth buying</h3>
-              <p class="small muted">On the human development set, at the length rung about to be
+              <p class="small muted">On the borrowed human development set, and only that set, at the length rung about to be
                 labelled, the label model beats both plain majority vote and the best single labelling
                 function. Coverage, conflict, pairwise agreement and measured cost per row are all
                 recorded.</p>

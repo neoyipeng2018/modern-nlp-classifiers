@@ -697,7 +697,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <ul class="compact-list">
               <li>Build machinery for a later slice on the grounds that it will be needed. It will be needed differently.</li>
               <li>Start before the previous slice's model is released.</li>
-              <li>Skip the annotation because the public data looks good enough.</li>
+              <li>Adopt a borrowed benchmark, or a frontier reference, without clearing Gate 1 on its licence, its label definitions and its overlap with training data.</li>
               <li>Ship a number without a registry row.</li>
             </ul>
           </div>
@@ -738,7 +738,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <h4>New in this slice</h4>
               <ul class="compact-list">
                 <li>Everything. Data schema, ingest, passage builder, splits, input builder, training loop, evaluation harness, registry, baselines, cards, CI.</li>
-                <li>The first codebook and the first annotation round, including the evidence-distance field and the split into gold and development sets.</li>
+                <li>The first codebook, transcribed from somebody else's three class definitions, plus the passage reconstructor and the context-sensitivity probe that stand in for the evidence-distance field.</li>
+                <li>Both benchmarks: the reference set labelled by <code>gpt-sol-5.6</code>, and the borrowed human referee set, split and hashed apart.</li>
                 <li>The whole weak-supervision pipeline: router client, labelling functions, label matrix, label model.</li>
                 <li>The serverless training job, its cost accounting, and the per-rung cost of both training and labelling.</li>
                 <li>The truncation gate, and the first length ladder.</li>
