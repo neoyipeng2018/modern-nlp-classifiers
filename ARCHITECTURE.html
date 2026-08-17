@@ -801,7 +801,9 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td class="mono">aspect</td><td>string?</td><td>Required for <code>absa</code>, absent otherwise.</td></tr>
               <tr><td class="mono">label</td><td>string</td><td>The adjudicated label, from the task's label set.</td></tr>
               <tr><td class="mono">label_source</td><td>enum</td><td><code>public</code>, <code>human</code>, <code>weak</code>, or <code>reference</code>. This is the track. It is never dropped. A <code>reference</code> row was labelled by the pinned frontier model and carries the headline; a <code>human</code> row is the referee.</td></tr>
-              <tr><td class="mono">reference_model</td><td>string?</td><td>Exact pinned identifier of the frontier model that produced a <code>reference</code> label, including its version. Changing it makes a new dataset, not an updated one.</td></tr>
+              <tr><td class="mono">reference_model</td><td>string?</td><td>Exact pinned identifier of the frontier model that produced a <code>reference</code> label. <code>gpt-sol-5.6</code> for this project. Changing it makes a new dataset, not an updated one.</td></tr>
+              <tr><td class="mono">reference_effort</td><td>string?</td><td>Reasoning effort the reference ran at. <code>medium</code> for this project. Part of the pin, because it changes both the answers and the cost.</td></tr>
+              <tr><td class="mono">reference_reasoning_tokens</td><td>int?</td><td>Reasoning tokens billed for this row. Summed into the cost ratio denominator, which would otherwise be flattered by exactly what the effort setting costs.</td></tr>
               <tr><td class="mono">reference_raw</td><td>string?</td><td>The cached raw response. Kept so the label can be re-parsed without re-buying it, and so the benchmark still runs after the model is retired.</td></tr>
               <tr><td class="mono">borrowed_from</td><td>string?</td><td>The published dataset a <code>human</code> row came from, with its revision. Present on every Track B row and absent everywhere else.</td></tr>
               <tr><td class="mono">borrowed_row_id</td><td>string?</td><td>The row's identifier in the source dataset, so our splits can be republished as identifiers rather than as a mirror of somebody else's labels.</td></tr>
@@ -1324,7 +1326,7 @@ def routed(ex) -&gt; int | ABSTAIN:
   "run_id": "fls-a3f21c-20260901T1412",
   "task": "fls",
   "test_hash": "sha256:7c1e...",
-  "reference": {"model": "...", "prompt_version": "...", "n": 5000,
+  "reference": {"model": "gpt-sol-5.6", "effort": "medium", "prompt_version": "...", "n": 5000,
                 "agreement_student": 0.000, "agreement_teacher_ensemble": 0.000,
                 "weak_to_strong_delta": 0.000},
   "referee": {"source": "FinanceMTEB/FLS", "revision": "...", "split": "test", "n": 1000,

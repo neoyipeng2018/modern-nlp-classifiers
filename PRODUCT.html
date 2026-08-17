@@ -1226,7 +1226,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
                 </tr>
                 <tr>
                   <td><strong>The reference</strong></td>
-                  <td>One pinned frontier model, Claude or ChatGPT, chosen and version-pinned at Gate 1</td>
+                  <td><code>gpt-sol-5.6</code>, reasoning effort medium</td>
                   <td>It labels the test set. The headline metric is how often the student agrees with it. It cannot be beaten on its own labels, for the reason below.</td>
                 </tr>
                 <tr>
@@ -1304,7 +1304,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               </tr>
               <tr>
                 <td><strong>Cost</strong></td>
-                <td>Measured cost per 1,000 passages is at least 50&times; lower than the pinned frontier reference, counting real token usage at recorded prices, over identical passages. The reference is the comparator because it is what a practitioner would otherwise call, not the cheap teacher ensemble, which nobody was choosing. The teachers' cost is reported too, as the one-off price of building the model. Labelling and training cost is reported separately and is never netted out of this ratio.</td>
+                <td>Measured cost per 1,000 passages is at least 50&times; lower than <code>gpt-sol-5.6</code> at medium reasoning effort, counting real token usage at recorded prices, over identical passages. Reasoning tokens are billed and are counted, because leaving them out would flatter the ratio by exactly the amount the reasoning setting costs. The reference is the comparator because it is what a practitioner would otherwise call, not the cheap teacher ensemble, which nobody was choosing. The teachers' cost is reported too, as the one-off price of building the model. Labelling and training cost is reported separately and is never netted out of this ratio.</td>
                 <td>Each model</td>
               </tr>
               <tr>
@@ -1351,7 +1351,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <li><strong>Majority class.</strong> The floor. Catches a broken metric.</li>
               <li><strong>TF-IDF plus logistic regression.</strong> The cheap classical baseline. If a fine-tuned encoder cannot clearly beat it, the task is trivial or the data is broken.</li>
               <li><strong>The same encoder at 512 tokens.</strong> The internal control for the whole long-context claim. Identical data, identical recipe, shorter input. Any long-context gain is measured against this and nothing else.</li>
-              <li><strong>The pinned frontier reference.</strong> One model, Claude or ChatGPT, at a pinned version. It writes the test labels, so its agreement with itself is 100% by construction and that number is never reported as a result. On the referee benchmark it is scored like any other system, and that is where it can be beaten.</li>
+              <li><strong>The pinned frontier reference.</strong> <code>gpt-sol-5.6</code> at medium reasoning effort. It writes the test labels, so its agreement with itself is 100% by construction and that number is never reported as a result. On the referee benchmark it is scored like any other system, and that is where it can be beaten.</li>
               <li><strong>The routed teacher ensemble.</strong> All k cheap models voted through the label model, over the same passages. Its agreement with the reference is the number the student is trying to exceed, because exceeding it is the weak-to-strong result.</li>
               <li><strong>Each single model in the ensemble.</strong> Few-shot, one row per model, prompt tuned on the development set only. Shows which teachers carried the vote.</li>
               <li><strong>Zero-shot single model.</strong> Reported to show what prompt work is worth.</li>
@@ -1619,7 +1619,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>Model roles</td><td>Three, kept apart. Cheap router models teach, a pinned frontier model is the reference, borrowed human labels are the referee.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Beating the frontier model</td><td>Claimable only on the referee benchmark, where both are scored against human labels. Never on the reference's own labels, where it scores 100% by construction.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Weak-to-strong result</td><td>Student agreement with the reference, reported next to the teacher ensemble's agreement with the reference. Higher means the student beat its own teachers.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Which frontier reference</td><td>Claude or ChatGPT, one of them, pinned to an exact version. Not yet chosen. Every reference response is cached and published, so the benchmark survives the model being deprecated.</td><td><span class="status compromised">Open</span></td></tr>
+              <tr><td>Which frontier reference</td><td><code>gpt-sol-5.6</code> at medium reasoning effort. The effort setting is part of the pin, not a tuning knob, because it changes both the answers and the bill. Every response is cached and published, so the benchmark survives the model being retired.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Reference determinism</td><td>Not assumed. A reasoning model re-run on the same passage can return a different label, so the cached responses are the test set. Re-labelling is a new experiment with a new registry row, never a refresh.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Slicing</td><td>One vertical slice per task, end to end.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Open source scope</td><td>Weights, datasets, code, write-up, demo.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Base encoder</td><td>ModernBERT-base, with DeBERTa-v3-base as the architecture control.</td><td><span class="status notrun">Assumed</span></td></tr>
