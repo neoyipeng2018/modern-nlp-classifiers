@@ -701,7 +701,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         <div class="flow">
           <div class="flow-step"><strong>1. Ingest</strong><span>Raw documents in, passages and sentences out. Structure preserved, sentence splitting, deduplication, document and position recorded on every row.</span></div>
           <div class="flow-arrow">&darr;</div>
-          <div class="flow-step"><strong>2. Label</strong><span>Three tracks. Public sets are mapped to the codebook. Test and development sets are borrowed whole from published human-labelled datasets, then matched back into their source documents so the passage can be rebuilt. Everything else goes through k routed models and a label model. Each writes its own provenance.</span></div>
+          <div class="flow-step"><strong>2. Label</strong><span>Four tracks. Public sets are mapped to the codebook. The reference test set is labelled once by one pinned frontier model and cached. The referee set is borrowed whole from published human-labelled datasets, then matched back into its source documents so the passage can be rebuilt. Training labels go through k cheap routed models and a label model. Each writes its own provenance.</span></div>
           <div class="flow-arrow">&darr;</div>
           <div class="flow-step"><strong>3. Split and freeze</strong><span>The borrowed set becomes test plus development and is hashed, along with its reconstructed passages. Training and validation splits come from the other tracks. Leakage checks run here and can fail the build, including the check that no borrowed row leaked into training.</span></div>
           <div class="flow-arrow">&darr;</div>
@@ -795,12 +795,14 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td class="mono">target_span</td><td>[int,&nbsp;int]</td><td>Character offsets of the target inside <code>passage</code>. Validated on load: the slice must equal <code>target</code> exactly.</td></tr>
               <tr><td class="mono">passage_unit</td><td>enum</td><td><code>paragraph</code>, <code>section</code>, <code>qa_turn</code>, <code>item</code>. What natural boundary the passage was cut at. Never a fixed token window.</td></tr>
               <tr><td class="mono">passage_tokens</td><td>int</td><td>Token count under the model tokenizer, computed at build time. Drives the length distribution report and the truncation gate.</td></tr>
-              <tr><td class="mono">context_sensitive</td><td>bool?</td><td>Replaces the old <code>evidence_distance</code> field, which needed an annotator this project no longer has. True when the routed ensemble's answer changed once the rebuilt passage was added to the bare sentence. Defines the long-evidence split, and every result on that split is graded one level lower because a model produced it.</td></tr>
+              <tr><td class="mono">context_sensitive</td><td>bool?</td><td>Replaces the old <code>evidence_distance</code> field, which needed an annotator this project no longer has. True when the pinned frontier reference's answer changed once the rebuilt passage was added to the bare sentence. Defines the long-evidence split, and every result on that split is graded one level lower because a model produced it.</td></tr>
               <tr><td class="mono">probe_version</td><td>string?</td><td>Which pinned ensemble produced <code>context_sensitive</code>. A different model list is a different split, not a refresh of the old one.</td></tr>
               <tr><td class="mono">passage_match</td><td>enum?</td><td><code>exact</code>, <code>fuzzy</code>, or <code>none</code>. How the borrowed sentence was matched back into its source document. <code>none</code> rows keep their label and are scored at sentence length only.</td></tr>
               <tr><td class="mono">aspect</td><td>string?</td><td>Required for <code>absa</code>, absent otherwise.</td></tr>
               <tr><td class="mono">label</td><td>string</td><td>The adjudicated label, from the task's label set.</td></tr>
-              <tr><td class="mono">label_source</td><td>enum</td><td><code>public</code>, <code>human</code>, or <code>weak</code>. This is the track. It is never dropped.</td></tr>
+              <tr><td class="mono">label_source</td><td>enum</td><td><code>public</code>, <code>human</code>, <code>weak</code>, or <code>reference</code>. This is the track. It is never dropped. A <code>reference</code> row was labelled by the pinned frontier model and carries the headline; a <code>human</code> row is the referee.</td></tr>
+              <tr><td class="mono">reference_model</td><td>string?</td><td>Exact pinned identifier of the frontier model that produced a <code>reference</code> label, including its version. Changing it makes a new dataset, not an updated one.</td></tr>
+              <tr><td class="mono">reference_raw</td><td>string?</td><td>The cached raw response. Kept so the label can be re-parsed without re-buying it, and so the benchmark still runs after the model is retired.</td></tr>
               <tr><td class="mono">borrowed_from</td><td>string?</td><td>The published dataset a <code>human</code> row came from, with its revision. Present on every Track B row and absent everywhere else.</td></tr>
               <tr><td class="mono">borrowed_row_id</td><td>string?</td><td>The row's identifier in the source dataset, so our splits can be republished as identifiers rather than as a mirror of somebody else's labels.</td></tr>
               <tr><td class="mono">lf_votes</td><td>dict?</td><td>One entry per labelling function, keyed by function name. Abstention is recorded explicitly, never as a guess. Present on <code>weak</code> rows.</td></tr>
@@ -824,7 +826,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <h3>Splitting rules</h3>
             <ul class="compact-list">
               <li><strong>Group by document</strong> where a document identifier exists. All sentences from one document land in the same split. Sentence-level random splitting leaks context and inflates scores. For FiQA the grouping key is the target company, because there is no document.</li>
-              <li><strong>Test is borrowed human labels only.</strong> Nothing from Track A or Track C ever enters the test split.</li>
+              <li><strong>Two test splits, kept apart.</strong> The reference split carries the headline and the referee split carries the match-or-exceed claim. Nothing from Track A or Track C ever enters either one.</li>
+              <li><strong>The reference never votes in Track C.</strong> The harness fails the build if the pinned reference identifier appears in the labelling-function model list. A model may teach or it may grade, never both.</li>
               <li><strong>A borrowed row is banned everywhere else.</strong> These datasets ship train splits that look like free training data. Any row whose <code>borrowed_row_id</code> appears in test or development is refused in training, and the build fails on an overlap.</li>
               <li><strong>Grouping is unverifiable on some borrowed sets.</strong> Two of the three ship no document identifier, so <code>doc_id</code> is absent and grouped splitting cannot be enforced. Fall back to near-duplicate checking on full text and say so in the model card rather than implying a grouped split that never happened.</li>
               <li><strong>Validation comes from the same tracks as training.</strong> Otherwise validation stops predicting test behaviour.</li>
@@ -1321,9 +1324,13 @@ def routed(ex) -&gt; int | ABSTAIN:
   "run_id": "fls-a3f21c-20260901T1412",
   "task": "fls",
   "test_hash": "sha256:7c1e...",
-  "benchmark": {"source": "FinanceMTEB/FLS", "revision": "...", "split": "test",
-                "passage_match_rate": 0.00, "human_agreement": "not published by source"},
-  "n_test": 1000,
+  "reference": {"model": "...", "prompt_version": "...", "n": 5000,
+                "agreement_student": 0.000, "agreement_teacher_ensemble": 0.000,
+                "weak_to_strong_delta": 0.000},
+  "referee": {"source": "FinanceMTEB/FLS", "revision": "...", "split": "test", "n": 1000,
+              "passage_match_rate": 0.00, "human_agreement": "not published by source",
+              "macro_f1_student": 0.000, "macro_f1_reference": 0.000, "delta_ci95": [0.000, 0.000]},
+  "n_test": 5000,
   "max_length": 8192,
   "truncation": {"rows_trimmed_pct": 0.0, "near_target_loss_pct": 0.0, "rows_dropped": 0,
                  "tokens_p50": 0, "tokens_p95": 0},
@@ -1666,8 +1673,8 @@ t.scan(document=doc, tasks=["fls", "factop"])</code></pre>
               </tr>
               <tr>
                 <td><strong>Test set</strong></td>
-                <td>Borrowed human labels, frozen and hashed, with the codebook written to match them</td>
-                <td>A public test split adopted without rewriting the codebook to match it. Its label definitions would differ from ours, which makes the headline number mean something slightly different from what it says. The defence is no longer annotating our own set. It is Gate 1.</td>
+                <td>Two frozen hashed splits. A reference split for the fidelity headline, a borrowed human split as the referee</td>
+                <td>Reporting agreement with the reference as if it were accuracy. It is fidelity to one model's opinion. Also: claiming to beat the frontier model on labels that same model wrote, which is arithmetically impossible and would be caught by nobody but the author.</td>
               </tr>
               <tr>
                 <td><strong>Primary metric</strong></td>
