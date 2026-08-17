@@ -821,7 +821,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <p class="small"><strong>No "mixed" class, on purpose.</strong> Sentences that state a number and
                 then judge it are common. The codebook forces them into one bucket by a written rule.
                 A third class was rejected because annotator agreement drops and the label stops
-                being useful downstream.</p>
+                being useful downstream. Note that the nearest public benchmark, FinArg, draws its own two
+                classes differently, which is the open decision on this task.</p>
             </div>
           </article>
         </div>
@@ -939,8 +940,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         </div>
         <p class="section-intro">
           These rules are the product. Weights are replaceable, a clear label definition is not.
-          Every rule below has to survive contact with a real annotation round, and the rule wins
-          over intuition when they disagree.
+          They are no longer written from scratch. The benchmark is borrowed from published datasets
+          that other people annotated, so each codebook is transcribed from what those annotators
+          actually did. Where our old rule and theirs disagree, theirs wins and the difference is
+          recorded. A codebook that quietly differs from the labels it is scored against produces a
+          headline that means something other than what it says.
         </p>
 
         <h3>Aspect sentiment</h3>
@@ -995,16 +999,24 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             world that has not happened yet, at the time the text was written?</p>
           <div class="split">
             <div class="subcard">
-              <h4>forward_looking</h4>
+              <h4>specific_fls</h4>
               <ul class="compact-list">
-                <li>Guidance, outlooks, targets, plans, and expectations.</li>
-                <li>Hedged predictions. "We expect", "should", "we anticipate" all count.</li>
-                <li>Conditional futures. "If demand holds, we will expand capacity."</li>
-                <li>Announced-but-not-completed actions. "The acquisition is expected to close in Q4."</li>
+                <li>Guidance and outlooks that name a figure, a range, a date or a named action.</li>
+                <li>Targets and plans concrete enough that a reader could later check whether they happened.</li>
+                <li>Announced-but-not-completed actions with a stated timeline. "The acquisition is expected to close in Q4."</li>
               </ul>
             </div>
             <div class="subcard">
-              <h4>not_forward_looking</h4>
+              <h4>non_specific_fls</h4>
+              <ul class="compact-list">
+                <li>Forward-looking in form, but with nothing checkable attached.</li>
+                <li>Hedged predictions with no figure. "We expect conditions to improve."</li>
+                <li>Conditional futures. "If demand holds, we will expand capacity."</li>
+                <li>Legal safe-harbour boilerplate, which is dull, frequent, and lands here.</li>
+              </ul>
+            </div>
+            <div class="subcard">
+              <h4>not_fls</h4>
               <ul class="compact-list">
                 <li>Reported results, historic comparisons, completed events.</li>
                 <li>Present-tense description of current state. "Inventory stands at 42 days."</li>
@@ -1013,10 +1025,18 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               </ul>
             </div>
           </div>
+          <div class="callout warning" style="margin-top:.9rem">
+            <p><strong>This label used to be binary and is not any more.</strong> The borrowed benchmark
+              separates specific from non-specific forward-looking statements, so the model does too. The
+              split above is our reading of their scheme and it is provisional. Before Phase 1 training,
+              read a sample of their labelled rows and rewrite these three definitions to match what the
+              annotators plainly did. Their rows are the authority, not this table.</p>
+          </div>
           <ul class="compact-list" style="margin-top:.9rem">
             <li><strong>Tense is a hint, not the rule.</strong> "Capacity comes online next quarter" is present tense and forward-looking.</li>
-            <li><strong>Legal safe-harbour boilerplate is forward-looking.</strong> It is dull, it is frequent, and excluding it would be a judgement call the model cannot learn. Include it, and report how much of the positive class it is.</li>
-            <li><strong>Split-nature sentences take the positive label.</strong> If any clause makes a claim about the future, the sentence is forward-looking.</li>
+            <li><strong>Legal safe-harbour boilerplate is forward-looking.</strong> It is dull, it is frequent, and excluding it would be a judgement call the model cannot learn. Include it, and report how much of the non-specific class it is.</li>
+            <li><strong>Split-nature sentences are forward-looking.</strong> If any clause makes a claim about the future, the sentence is one of the two forward-looking classes. Whether it is specific depends on whether that clause carries something checkable.</li>
+            <li><strong>Specific against non-specific is the hard boundary,</strong> not forward-looking against not. Expect most confusion there, and report the three-way matrix rather than collapsing to binary.</li>
           </ul>
         </div>
 
@@ -1046,16 +1066,28 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           </div>
           <ul class="compact-list" style="margin-top:.9rem">
             <li><strong>Truth is not the test. Checkability is.</strong> A wrong number is still a fact.</li>
-            <li><strong>The mixed-sentence rule.</strong> If a sentence states a checkable thing and then judges it, label it <code>opinion</code>. The judgement is the part a downstream consumer must not treat as evidence. Write this rule into the annotation tool so it is applied every time.</li>
+            <li><strong>The mixed-sentence rule.</strong> If a sentence states a checkable thing and then judges it, label it <code>opinion</code>. The judgement is the part a downstream consumer must not treat as evidence.</li>
             <li><strong>Attribution flips it.</strong> "Margins will improve" is opinion. "Management said margins will improve" is fact.</li>
             <li><strong>Overlap with forward-looking is expected.</strong> The two labels are not independent, and the write-up must report the confusion between them rather than pretend they are separate.</li>
           </ul>
+          <div class="callout warning" style="margin-top:.9rem">
+            <p><strong>This codebook has no matching benchmark, and that is an open decision.</strong> The
+              nearest public human-labelled set is FinArg, which labels earnings-call sentences
+              <code>premise</code> or <code>claim</code>. That is a related question, not this one. Its own
+              rows make the gap plain: a sentence opening "I think a lot is happening" is a premise there,
+              and is squarely <code>opinion</code> here. Either this task is renamed to premise versus claim
+              and adopts their definitions, or it keeps the rules above and ships without an accuracy claim.
+              The recommendation is the rename. See the benchmark program in
+              <a href="PROGRAM_DESIGN.html#annotation">Program design</a>.</p>
+          </div>
         </div>
 
         <div class="callout" style="margin-top:1.2rem">
           <p><strong>The codebook is versioned.</strong> It lives at <code>docs/codebook/</code> in the repo,
             one Markdown file per task, with a version number. Every labelled example records the
-            codebook version it was labelled under. A codebook change without a version bump is a bug.</p>
+            codebook version it was labelled under. A codebook change without a version bump is a bug.
+            Each file also carries a differences section, listing every place our wording departs from the
+            borrowed annotators' apparent rule, so a reader can see exactly what the score is measuring.</p>
         </div>
       </section>
 
@@ -1109,13 +1141,13 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           </div>
           <div class="quarantine">
             <h3>Calibration claims</h3>
-            <p>Calibration numbers get reported. "The model is well calibrated" was quarantined last time and stays quarantined until a reliability curve on the gold set says otherwise.</p>
+            <p>Calibration numbers get reported. "The model is well calibrated" was quarantined last time and stays quarantined until a reliability curve on the frozen test set says otherwise.</p>
             <p class="do-not">Report, never claim</p>
           </div>
           <div class="quarantine">
             <h3>Machine-labelled test data</h3>
-            <p>Training labels come from an ensemble of routed models. Test labels never do. A model scored against labels its own teachers produced cannot tell you anything about whether it beat them.</p>
-            <p class="do-not">Human gold only</p>
+            <p>Training labels come from an ensemble of routed models. Test labels never do. A model scored against labels its own teachers produced cannot tell you anything about whether it beat them. Since nobody here annotates, the test labels are borrowed from published datasets that people labelled. The one place this rule bends is the fact-versus-opinion fork, where keeping the original label definition would mean shipping with no human test set at all, and therefore with no accuracy claim.</p>
+            <p class="do-not">Human-labelled test sets only</p>
           </div>
           <div class="quarantine">
             <h3>A production service</h3>
@@ -1152,7 +1184,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <div class="card">
             <h3>NLP practitioners and reviewers</h3>
             <p class="small muted">Wants to reproduce the numbers, check the protocol, and reuse the
-              gold sets as a benchmark. Cares more about the evidence trail than the headline score.</p>
+              frozen splits and the reconstruction recipe as a benchmark. Cares more about the evidence trail than the headline score.</p>
           </div>
         </div>
         <div class="callout info" style="margin-top:1rem">
@@ -1171,9 +1203,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <span class="status supported">Decided</span>
         </div>
         <p class="section-intro">
-          Success is matching what a routed ensemble of large models can do on a frozen human gold set,
-          reading the same passage they read, at a tiny fraction of the cost. Each of the three models
-          clears the bar on its own. A model that misses still ships, with the miss stated in the card.
+          Success is matching what a routed ensemble of large models can do on a frozen human-labelled
+          test set, reading the same passage they read, at a tiny fraction of the cost. Each of the three
+          models clears the bar on its own. A model that misses still ships, with the miss stated in the
+          card. The test sets are now borrowed from published datasets rather than annotated here, which
+          keeps the bar honest and changes what parts of it can be measured.
         </p>
 
         <div class="callout warning">
@@ -1188,11 +1222,16 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         </div>
 
         <div class="callout info">
-          <p><strong>The long-evidence subset.</strong> Every gold set is tagged at annotation time with
-            whether the label needed evidence outside the target sentence, and roughly how far away it
-            was. That tag splits the test set into a near half and a long half. Headline numbers are
-            reported on the whole set and on both halves. Without this split, a long-context gain
-            averages away into nothing and nobody can tell whether the extra tokens did anything.</p>
+          <p><strong>The long-evidence subset, and what it costs to borrow the benchmark.</strong> The
+            old plan had an annotator tag every row with how far away the deciding evidence sat. Borrowed
+            sets have no such field and no annotator to add one. What replaces it is a context-sensitivity
+            probe: run the ensemble on the bare sentence and again on the rebuilt passage, and call the
+            rows whose answer changes the long half. Headline numbers are still reported on the whole set
+            and on both halves, because without the split a long-context gain averages away into nothing.
+            But the split is now model-derived rather than human-recorded, so every result on it is graded
+            one level lower, permanently. The borrowed sets also ship bare sentences, so this only works at
+            all where the passage could be rebuilt from the source corpus. Where it could not, the task
+            reports no long-context result and says so.</p>
         </div>
 
         <div class="table-wrap">
@@ -1207,12 +1246,12 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <tbody>
               <tr>
                 <td><strong>Quality</strong></td>
-                <td>Macro-F1 on the frozen gold test set is at or above the routed ensemble's own macro-F1 on that same set, tested as a paired bootstrap of the per-example difference. "At or above" means the interval on the difference does not put the ensemble clearly ahead. Every model in the ensemble gets the same passage the student got.</td>
+                <td>Macro-F1 on the frozen borrowed test set is at or above the routed ensemble's own macro-F1 on that same set, tested as a paired bootstrap of the per-example difference. "At or above" means the interval on the difference does not put the ensemble clearly ahead. Every model in the ensemble gets the same passage the student got. The ensemble is also scored on fresh unlabelled passages from the same corpora, and a large gap between the two is reported as suspected contamination of the benchmark.</td>
                 <td>Each model</td>
               </tr>
               <tr>
                 <td><strong>Length ladder</strong></td>
-                <td>The 512, 2,048 and 8,192 configurations are all trained and all reported, three seeds each, on the whole gold set and on both halves of the long-evidence split. The shipped length is whichever won on validation, and the losing lengths stay in the table.</td>
+                <td>The 512, 2,048 and 8,192 configurations are all trained and all reported, three seeds each, on the whole test set and on both halves of the context-sensitivity split. The shipped length is whichever won on validation, and the losing lengths stay in the table. Where passages could not be rebuilt, the ladder reports cost and agreement with the ensemble instead of accuracy, and the card says which of the two ran.</td>
                 <td>Each task</td>
               </tr>
               <tr>
@@ -1232,12 +1271,12 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               </tr>
               <tr>
                 <td><strong>Label quality</strong></td>
-                <td>The weak-supervision label model beats both plain majority vote and the best single labelling function, measured on a human-labelled development set that is separate from the test set.</td>
+                <td>The weak-supervision label model beats both plain majority vote and the best single labelling function, measured on a development set held out from the borrowed human-labelled data and separate from the test set.</td>
                 <td>Each task</td>
               </tr>
               <tr>
                 <td><strong>Human ceiling</strong></td>
-                <td>Inter-annotator agreement on the gold set is measured and published. Model scores are read against that ceiling, never against 100%.</td>
+                <td>The source dataset's published inter-annotator agreement is quoted with its citation, and where the source published none, the card says "not published by the source" rather than inventing a figure. Model scores are read against that ceiling where it exists, never against 100%. A label-noise probe gives a floor: rows where the whole ensemble agrees with itself and disagrees with the borrowed label are sampled and read by hand.</td>
                 <td>Each task</td>
               </tr>
               <tr>
@@ -1257,8 +1296,9 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               </tr>
             </tbody>
           </table>
-          <p class="table-caption">Every gate is measured on the frozen gold test set, never on validation data.
-            The gold set is built before any model is trained and is not looked at during development.</p>
+          <p class="table-caption">Every gate is measured on the frozen borrowed test set, never on validation
+            data. The set is adopted, re-split, reconstructed and hashed before any model is trained, and is
+            not looked at during development.</p>
         </div>
 
         <div class="grid-2" style="margin-top:1.2rem">
@@ -1268,7 +1308,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <li><strong>Majority class.</strong> The floor. Catches a broken metric.</li>
               <li><strong>TF-IDF plus logistic regression.</strong> The cheap classical baseline. If a fine-tuned encoder cannot clearly beat it, the task is trivial or the data is broken.</li>
               <li><strong>The same encoder at 512 tokens.</strong> The internal control for the whole long-context claim. Identical data, identical recipe, shorter input. Any long-context gain is measured against this and nothing else.</li>
-              <li><strong>The routed ensemble.</strong> All k models voted through the label model, over the same passages, scored on the gold set. This is the teacher, and it is the number that matters.</li>
+              <li><strong>The routed ensemble.</strong> All k models voted through the label model, over the same passages, scored on the test set. This is the teacher, and it is the number that matters. It is also scored on fresh unlabelled passages, because it may have read the benchmark during pretraining.</li>
               <li><strong>Each single model in the ensemble.</strong> Few-shot, one row per model, prompt tuned on the development set only. Shows which teachers carried the vote.</li>
               <li><strong>Zero-shot single model.</strong> Reported to show what prompt work is worth.</li>
               <li><strong>Off-the-shelf finance encoder.</strong> Existing public models on the same task where one exists, to show the delta from doing this properly.</li>
@@ -1278,7 +1318,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <h3>What is deliberately not a gate</h3>
             <ul class="compact-list">
               <li><strong>Beating published state of the art.</strong> Prior benchmark protocols are not comparable to this one, and forcing the comparison is how the last project produced numbers it had to retract.</li>
-              <li><strong>A round number like 90%.</strong> The gold set defines the ceiling, and it is unknown until agreement is measured.</li>
+              <li><strong>A round number like 90%.</strong> The borrowed set defines the ceiling, and where its annotators' agreement was never published, the ceiling is simply unknown and gets reported as unknown.</li>
               <li><strong>Long context winning.</strong> The ladder is run and published either way. A task where 512 wins is a real finding, and it ships as the short model with the ladder in the card.</li>
               <li><strong>Calibration quality.</strong> Reported, not gated.</li>
               <li><strong>Out-of-domain robustness.</strong> Measured and published as a limitation, not a pass condition.</li>
@@ -1288,9 +1328,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 
         <div class="callout info" style="margin-top:1.2rem">
           <h3>Every comparison is paired</h3>
-          <p>The gold set is 1,000 examples, and the long-evidence split cuts each headline into halves
-            of a few hundred. At those sizes a single model's own confidence interval spans several
-            points, and two overlapping intervals say almost nothing about which model is better.</p>
+          <p>The borrowed test sets run from 500 to 1,000 examples, and the context-sensitivity split
+            cuts each headline into halves of a few hundred. At those sizes a single model's own confidence
+            interval spans several points, and two overlapping intervals say almost nothing about which
+            model is better. FiQA is the smallest of the three and the least forgiving.</p>
           <p style="margin-top:.5rem"><strong>So nothing is compared that way.</strong> The student and
             its comparator are scored on the same examples, and the bootstrap runs over the per-example
             difference. That cancels the shared difficulty of the examples and resolves gaps far smaller
@@ -1315,7 +1356,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <div class="card">
             <h3>Supported</h3>
             <p class="small muted">A saved run with a config, a seed, a logged artifact, and an
-              evaluation on the frozen gold set. Safe to put in a headline.</p>
+              evaluation on the frozen borrowed test set. Safe to put in a headline. Results on the
+              context-sensitivity split never reach this grade, because a model produced that split.</p>
           </div>
           <div class="card">
             <h3>Reported</h3>
@@ -1358,9 +1400,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <ul class="checklist">
               <li>Weights on Hugging Face under <code>neoyipeng/&lt;model&gt;</code>.</li>
               <li>Model card with the label definitions copied in full, not linked.</li>
-              <li>Gold test set results with confidence intervals and the human agreement ceiling.</li>
+              <li>Test set results with confidence intervals, plus the source's published human agreement ceiling or a plain statement that the source never published one.</li>
+              <li>The benchmark's provenance: which public dataset, what licence, what re-split, and the passage reconstruction match rate.</li>
               <li>Every baseline number from the table above, in one comparison table.</li>
-              <li>The full length ladder, with results on the near and long halves of the gold set.</li>
+              <li>The full length ladder, with results on the near and long halves of the context-sensitivity split, or a plain statement that passages could not be rebuilt and no such split exists.</li>
               <li>The measured truncation rate at the shipped length.</li>
               <li>Cost and latency measurements per length, with the hardware and prices stated.</li>
               <li>Named limitations, including the out-of-domain results.</li>
@@ -1371,13 +1414,15 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <div class="card">
             <h3>Per dataset</h3>
             <ul class="checklist">
-              <li>Gold test set on Hugging Face, with per-example annotator labels kept.</li>
-              <li>The evidence-distance tag on every gold row, so the long-evidence split is reproducible by anyone.</li>
+              <li>A link to the borrowed source dataset, never a mirror of it, plus our re-split as row identifiers so anyone can rebuild the exact splits.</li>
+              <li>The reconstruction artifact: for every recovered row, the source document identifier and character offsets, so anyone can rebuild the same passages without us redistributing text we do not own.</li>
+              <li>The context-sensitivity flag on every recovered row, with the ensemble version that produced it, so the long half is reproducible by anyone.</li>
               <li>Passage length distribution in tokens, so readers can see what the length ladder was actually exercising.</li>
               <li>Dataset card with source, licence, and collection method for every row.</li>
               <li>The codebook version used, published alongside.</li>
               <li>Human and LLM-labelled rows in separate splits, never merged.</li>
-              <li>Agreement statistics, including where annotators disagreed most.</li>
+              <li>The source's agreement statistics where it published any, quoted with a citation, and a plain "not published by the source" where it did not.</li>
+              <li>The label-noise probe result, so a reader knows roughly how clean the borrowed labels are.</li>
               <li>Redistribution check done per source, with anything unclear excluded.</li>
             </ul>
           </div>
@@ -1514,31 +1559,33 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>Domain</td><td>Finance only.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Model shape</td><td>Three separate single-task encoders.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>ABSA input</td><td>Aspect is supplied by the caller. No extraction.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>FLS labels</td><td>Binary.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Fact/opinion labels</td><td>Binary. Mixed sentences resolve to opinion.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>FLS labels</td><td>Three classes: specific FLS, non-specific FLS, and not FLS. Follows the borrowed benchmark, which is not binary.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Fact/opinion labels</td><td>Binary. Mixed sentences resolve to opinion. Whether this task keeps that definition at all is now open, because no public benchmark matches it.</td><td><span class="status compromised">Reopened</span></td></tr>
               <tr><td>Input unit</td><td>A passage with a marked target span, up to 8,192 tokens. Replaces the earlier 512-token cap.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Length ladder</td><td>512, 2,048 and 8,192 trained and published on every task. The shipped length is chosen on validation.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Truncation gate</td><td>Under 5% at the shipped length, asserted before training starts.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Long-evidence split</td><td>Gold rows tagged with evidence distance at annotation time. Results reported on both halves.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Data sources</td><td>Public labelled sets, a human-annotated gold set, and weakly supervised training labels from k routed models.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Long-evidence split</td><td>Was: annotator-recorded evidence distance. Now: a context-sensitivity probe, the rows where the ensemble's answer changes once the rebuilt passage is added. Results reported on both halves and graded one level lower, because a model made the split.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Data sources</td><td>Public labelled sets for training, a borrowed human-labelled benchmark for test and development, and weakly supervised training labels from k routed models. Nobody on this project annotates.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Training labels at scale</td><td>Each passage labelled by k different models through one router, plus heuristics, combined by a weak-supervision label model.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Test labels</td><td>Human only. Weak supervision never touches the test split.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Test labels</td><td>Human only, borrowed from published datasets. Weak supervision never touches the test split.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Compute</td><td>Paid serverless GPU with per-second billing, Ampere class or newer. This also settles the open question about whether the long rungs of the ladder were trainable.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Success bar</td><td>Match the routed ensemble on the gold set, over the same passages, at a far lower cost per passage.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Success bar</td><td>Match the routed ensemble on the borrowed test set, over the same passages, at a far lower cost per passage.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Slicing</td><td>One vertical slice per task, end to end.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Open source scope</td><td>Weights, datasets, code, write-up, demo.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Base encoder</td><td>ModernBERT-base, with DeBERTa-v3-base as the architecture control.</td><td><span class="status notrun">Assumed</span></td></tr>
               <tr><td>Adaptation method</td><td>Full fine-tune and LoRA both run and compared. Paid Ampere-class hardware makes both affordable, so the prior LoRA result gets re-tested rather than inherited.</td><td><span class="status notrun">Assumed</span></td></tr>
               <tr><td>Labelling functions</td><td>Five routed models from different families, plus two or three cheap heuristic functions per task.</td><td><span class="status notrun">Assumed</span></td></tr>
               <tr><td>Label model</td><td>Snorkel's label model, with plain majority vote as the required comparison.</td><td><span class="status notrun">Assumed</span></td></tr>
-              <tr><td>Gold set size</td><td>1,000 examples per task, 300 of them double-annotated, plus a separate 200-example development set for tuning labelling functions.</td><td><span class="status notrun">Assumed</span></td></tr>
+              <tr><td>Benchmark and size</td><td>FLS: <code>FinanceMTEB/FLS</code>, published 1,000-row test split kept. ABSA: <code>pauri32/fiqa-2018</code>, re-split to 500 test grouped by company. Fact/opinion: unresolved, see the fork. Each task also holds out 200 rows for development.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Labelling length</td><td>Labelling functions read the same passage the student reads, at the length being trained. Short-passage labels do not transfer to a long-context student.</td><td><span class="status notrun">Assumed</span></td></tr>
-              <tr><td>Build order</td><td>Forward-looking, then aspect sentiment, then fact versus opinion.</td><td><span class="status notrun">Assumed</span></td></tr>
+              <tr><td>Build order</td><td>Forward-looking, then aspect sentiment, then fact versus opinion. Unchanged, and now better justified: forward-looking has the strongest benchmark and the best chance of recovering its passages.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Repository licence</td><td>Depends on what the source datasets allow. Decide before the first dataset upload.</td><td><span class="status compromised">Open</span></td></tr>
-              <tr><td>Annotator count</td><td>Whether a second human annotator is available decides how agreement is measured. See <a href="PROGRAM_DESIGN.html#annotation">annotation program</a>.</td><td><span class="status compromised">Open</span></td></tr>
-              <tr><td>Aspect vocabulary</td><td>Whether callers get a suggested finance aspect list, or bring their own strings.</td><td><span class="status compromised">Open</span></td></tr>
+              <tr><td>Annotator count</td><td>Closed. There is no second annotator because there is no first one. The ceiling is whatever the source dataset published, or "not published" where it published nothing. See <a href="PROGRAM_DESIGN.html#annotation">benchmark program</a>.</td><td><span class="status supported">Closed</span></td></tr>
+              <tr><td>Aspect vocabulary</td><td>Closed by adoption. Aspects come from FiQA's published taxonomy, and callers may still bring their own strings at inference.</td><td><span class="status supported">Closed</span></td></tr>
               <tr><td>Labelling budget</td><td>A ceiling in dollars. It decides how many passages, at what length, through how many models. 8,192-token passages make this the largest cost in the project.</td><td><span class="status compromised">Open</span></td></tr>
               <tr><td>Router provider</td><td>Which router, and the exact k models behind it. Model availability shifts, so the chosen set is pinned and recorded per run.</td><td><span class="status compromised">Open</span></td></tr>
+              <tr><td>Fact-versus-opinion fork</td><td>Rename the task to premise versus claim and adopt FinArg, keeping a human benchmark, or keep the current definition and ship with no accuracy claim. Recommendation is the rename. Decide before Phase 3.</td><td><span class="status compromised">Open</span></td></tr>
+              <tr><td>Passage reconstruction bar</td><td>60% of a task's test rows must recover a real passage from the source corpus, or that task drops to a sentence-level headline. Whether 60% is the right line is a judgement, not a measurement.</td><td><span class="status notrun">Assumed</span></td></tr>
             </tbody>
           </table>
         </div>

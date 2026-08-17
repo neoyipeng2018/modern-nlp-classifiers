@@ -701,15 +701,15 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         <div class="flow">
           <div class="flow-step"><strong>1. Ingest</strong><span>Raw documents in, passages and sentences out. Structure preserved, sentence splitting, deduplication, document and position recorded on every row.</span></div>
           <div class="flow-arrow">&darr;</div>
-          <div class="flow-step"><strong>2. Label</strong><span>Three tracks. Public sets are mapped to the codebook. Gold and development sets are annotated by hand. Everything else goes through k routed models and a label model. Each writes its own provenance.</span></div>
+          <div class="flow-step"><strong>2. Label</strong><span>Three tracks. Public sets are mapped to the codebook. Test and development sets are borrowed whole from published human-labelled datasets, then matched back into their source documents so the passage can be rebuilt. Everything else goes through k routed models and a label model. Each writes its own provenance.</span></div>
           <div class="flow-arrow">&darr;</div>
-          <div class="flow-step"><strong>3. Split and freeze</strong><span>Gold becomes the test set and is hashed. Training and validation splits come from the other tracks. Leakage checks run here and can fail the build.</span></div>
+          <div class="flow-step"><strong>3. Split and freeze</strong><span>The borrowed set becomes test plus development and is hashed, along with its reconstructed passages. Training and validation splits come from the other tracks. Leakage checks run here and can fail the build, including the check that no borrowed row leaked into training.</span></div>
           <div class="flow-arrow">&darr;</div>
           <div class="flow-step"><strong>4. Build inputs</strong><span>Passage assembled around the target span, aspect injected for ABSA, trimmed to the configured length by a rule that never cuts the target. Truncation rate measured and asserted here.</span></div>
           <div class="flow-arrow">&darr;</div>
           <div class="flow-step"><strong>5. Train</strong><span>Config-driven fine-tune at each rung of the length ladder, as a serverless GPU job. Writes a registry row, checkpoints to a persistent volume, records its own dollar cost.</span></div>
           <div class="flow-arrow">&darr;</div>
-          <div class="flow-step"><strong>6. Evaluate</strong><span>Same harness for the model and every baseline. Checks the gold hash before it will score anything. Emits one report card.</span></div>
+          <div class="flow-step"><strong>6. Evaluate</strong><span>Same harness for the model and every baseline. Checks the test-set hash before it will score anything. Emits one report card.</span></div>
           <div class="flow-arrow">&darr;</div>
           <div class="flow-step"><strong>7. Release</strong><span>Weights, dataset and model card to Hugging Face, with numbers copied from the registry rather than retyped.</span></div>
         </div>
@@ -795,22 +795,25 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td class="mono">target_span</td><td>[int,&nbsp;int]</td><td>Character offsets of the target inside <code>passage</code>. Validated on load: the slice must equal <code>target</code> exactly.</td></tr>
               <tr><td class="mono">passage_unit</td><td>enum</td><td><code>paragraph</code>, <code>section</code>, <code>qa_turn</code>, <code>item</code>. What natural boundary the passage was cut at. Never a fixed token window.</td></tr>
               <tr><td class="mono">passage_tokens</td><td>int</td><td>Token count under the model tokenizer, computed at build time. Drives the length distribution report and the truncation gate.</td></tr>
-              <tr><td class="mono">evidence_distance</td><td>enum?</td><td><code>in_target</code>, <code>near</code>, <code>far</code>, or <code>unknown</code>. Recorded by the annotator on gold rows. Defines the long-evidence split.</td></tr>
+              <tr><td class="mono">context_sensitive</td><td>bool?</td><td>Replaces the old <code>evidence_distance</code> field, which needed an annotator this project no longer has. True when the routed ensemble's answer changed once the rebuilt passage was added to the bare sentence. Defines the long-evidence split, and every result on that split is graded one level lower because a model produced it.</td></tr>
+              <tr><td class="mono">probe_version</td><td>string?</td><td>Which pinned ensemble produced <code>context_sensitive</code>. A different model list is a different split, not a refresh of the old one.</td></tr>
+              <tr><td class="mono">passage_match</td><td>enum?</td><td><code>exact</code>, <code>fuzzy</code>, or <code>none</code>. How the borrowed sentence was matched back into its source document. <code>none</code> rows keep their label and are scored at sentence length only.</td></tr>
               <tr><td class="mono">aspect</td><td>string?</td><td>Required for <code>absa</code>, absent otherwise.</td></tr>
               <tr><td class="mono">label</td><td>string</td><td>The adjudicated label, from the task's label set.</td></tr>
               <tr><td class="mono">label_source</td><td>enum</td><td><code>public</code>, <code>human</code>, or <code>weak</code>. This is the track. It is never dropped.</td></tr>
-              <tr><td class="mono">annotator_labels</td><td>list?</td><td>Every individual annotator's label, kept even after adjudication.</td></tr>
+              <tr><td class="mono">borrowed_from</td><td>string?</td><td>The published dataset a <code>human</code> row came from, with its revision. Present on every Track B row and absent everywhere else.</td></tr>
+              <tr><td class="mono">borrowed_row_id</td><td>string?</td><td>The row's identifier in the source dataset, so our splits can be republished as identifiers rather than as a mirror of somebody else's labels.</td></tr>
               <tr><td class="mono">lf_votes</td><td>dict?</td><td>One entry per labelling function, keyed by function name. Abstention is recorded explicitly, never as a guess. Present on <code>weak</code> rows.</td></tr>
               <tr><td class="mono">lf_set_version</td><td>string?</td><td>Which set of labelling functions produced the votes, including the pinned router model identifiers and the passage length they read.</td></tr>
               <tr><td class="mono">label_probs</td><td>dict?</td><td>The label model's probability for each class. This is what the student actually trains on.</td></tr>
               <tr><td class="mono">label_model_version</td><td>string?</td><td>Which fitted label model produced those probabilities.</td></tr>
               <tr><td class="mono">codebook_version</td><td>string</td><td>Which definition this label was made under.</td></tr>
               <tr><td class="mono">source_dataset</td><td>string</td><td>Name of the originating corpus or collection run.</td></tr>
-              <tr><td class="mono">source_licence</td><td>string</td><td>Licence of the source text. Unknown is not an acceptable value.</td></tr>
+              <tr><td class="mono">source_licence</td><td>string</td><td>Licence of the source text. Unknown is not an acceptable value. On borrowed rows there are two licences to track, one for the text and one for the labels, and both are recorded.</td></tr>
               <tr><td class="mono">doc_id</td><td>string</td><td>Document identifier, used for leakage checks and for grouped splitting.</td></tr>
               <tr><td class="mono">doc_type</td><td>enum</td><td><code>filing</code>, <code>transcript_prepared</code>, <code>transcript_qa</code>, <code>news</code>, <code>social</code>. Drives per-source reporting.</td></tr>
               <tr><td class="mono">sentence_index</td><td>int</td><td>Position in the document.</td></tr>
-              <tr><td class="mono">split</td><td>enum</td><td><code>train</code>, <code>val</code>, or <code>test</code>. Test is gold only.</td></tr>
+              <tr><td class="mono">split</td><td>enum</td><td><code>train</code>, <code>val</code>, or <code>test</code>. Test carries borrowed human labels only.</td></tr>
               <tr><td class="mono">original_label</td><td>string?</td><td>For public sources, the label before mapping to this codebook. Kept so the mapping stays auditable.</td></tr>
             </tbody>
           </table>
@@ -820,8 +823,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <div class="card">
             <h3>Splitting rules</h3>
             <ul class="compact-list">
-              <li><strong>Group by document.</strong> All sentences from one document land in the same split. Sentence-level random splitting leaks context and inflates scores.</li>
-              <li><strong>Test is gold only.</strong> Nothing from Track A or Track C ever enters the test split.</li>
+              <li><strong>Group by document</strong> where a document identifier exists. All sentences from one document land in the same split. Sentence-level random splitting leaks context and inflates scores. For FiQA the grouping key is the target company, because there is no document.</li>
+              <li><strong>Test is borrowed human labels only.</strong> Nothing from Track A or Track C ever enters the test split.</li>
+              <li><strong>A borrowed row is banned everywhere else.</strong> These datasets ship train splits that look like free training data. Any row whose <code>borrowed_row_id</code> appears in test or development is refused in training, and the build fails on an overlap.</li>
+              <li><strong>Grouping is unverifiable on some borrowed sets.</strong> Two of the three ship no document identifier, so <code>doc_id</code> is absent and grouped splitting cannot be enforced. Fall back to near-duplicate checking on full text and say so in the model card rather than implying a grouped split that never happened.</li>
               <li><strong>Validation comes from the same tracks as training.</strong> Otherwise validation stops predicting test behaviour.</li>
               <li><strong>Near-duplicate check across splits</strong> after splitting, not before. Boilerplate that repeats across documents is the main offender.</li>
             </ul>
@@ -914,9 +919,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td><code>8,192</code></td><td class="subtle-cell">An MD&amp;A subsection, a long exchange</td><td>The native ceiling. Tests whether the far tail of the passage carries anything.</td></tr>
             </tbody>
           </table>
-          <p class="table-caption">Three seeds per rung, per task. Reported on the whole gold set and on both
-            halves of the long-evidence split. The shipped length is chosen on validation and the losing
-            rungs stay in the published table.</p>
+          <p class="table-caption">Three seeds per rung, per task. Reported on the whole test set and on both
+            halves of the context-sensitivity split, where passages could be rebuilt. Where they could not,
+            the ladder reports cost and agreement with the ensemble instead. The shipped length is chosen on
+            validation and the losing rungs stay in the published table.</p>
         </div>
 
         <div class="grid-2" style="margin-top:1.1rem">
@@ -1280,7 +1286,8 @@ def routed(ex) -&gt; int | ABSTAIN:
           <div class="card">
             <h3>What it enforces</h3>
             <ul class="compact-list">
-              <li><strong>Gold hash check.</strong> The test file's hash must match the one in the config. A mismatch aborts with an error, not a warning.</li>
+              <li><strong>Test hash check.</strong> The test file's hash must match the one in the config, and so must the hash of its reconstructed passages. A mismatch aborts with an error, not a warning.</li>
+              <li><strong>Borrowed-row check.</strong> No example id in the test or development set may appear in any training source. This is the specific way a borrowed benchmark gets ruined, because these datasets ship train splits that look like free data.</li>
               <li><strong>Development set separation.</strong> Refuses to score against the test split if the run's development hash overlaps it, which is what stops label-model tuning leaking into the benchmark.</li>
               <li><strong>Split check.</strong> Refuses to score a model against any split it was trained on, by comparing example ids.</li>
               <li><strong>Complete predictions.</strong> Every test row must get a prediction. Missing or unparseable outputs are counted as errors and reported, never silently dropped.</li>
@@ -1313,15 +1320,18 @@ def routed(ex) -&gt; int | ABSTAIN:
 <pre><code>{
   "run_id": "fls-a3f21c-20260901T1412",
   "task": "fls",
-  "gold_hash": "sha256:7c1e...",
+  "test_hash": "sha256:7c1e...",
+  "benchmark": {"source": "FinanceMTEB/FLS", "revision": "...", "split": "test",
+                "passage_match_rate": 0.00, "human_agreement": "not published by source"},
   "n_test": 1000,
   "max_length": 8192,
   "truncation": {"rows_trimmed_pct": 0.0, "near_target_loss_pct": 0.0, "rows_dropped": 0,
                  "tokens_p50": 0, "tokens_p95": 0},
   "macro_f1": {"value": 0.000, "ci95": [0.000, 0.000], "method": "bootstrap-10000"},
-  "per_class": {"forward_looking": {...}, "not_forward_looking": {...}},
+  "per_class": {"specific_fls": {...}, "non_specific_fls": {...}, "not_fls": {...}},
   "by_doc_type": {"filing": {...}, "transcript_qa": {...}},
-  "by_evidence_distance": {"in_target": {...}, "near": {...}, "far": {...}},
+  "by_context_sensitive": {"true": {...}, "false": {...}, "probe_version": "..."},
+  "ensemble_contamination_check": {"on_benchmark": 0.000, "on_fresh_passages": 0.000, "gap": 0.000},
   "vs_short_control": {"control_run_id": "fls-...-512", "macro_f1_delta": 0.000,
                        "delta_ci95": [0.000, 0.000], "delta_on_far": 0.000,
                        "method": "paired-bootstrap-10000"},
@@ -1532,7 +1542,8 @@ t.scan(document=doc, tasks=["fls", "factop"])</code></pre>
               <li>Registry writing and reading, including the crashed-run partial row.</li>
               <li>Config resolution and hash stability, so the same config always hashes the same.</li>
               <li>A CPU smoke train: two steps on ten fake examples, proving the loop runs end to end.</li>
-              <li>The harness refuses a wrong gold hash. This test is the safety net for the project's main failure mode, so it is written first.</li>
+              <li>The harness refuses a wrong test hash. This test is the safety net for the project's main failure mode, so it is written first.</li>
+              <li>The harness refuses a borrowed row that appears in training. Same reason, new failure mode. A fixture puts one test row into a training file, and the build must fail.</li>
               <li>The harness refuses a run whose development set overlaps the test set.</li>
               <li>Label matrix construction, including abstentions and a function that throws.</li>
               <li>Label model and majority vote against a tiny fixture with known answers.</li>
@@ -1567,11 +1578,11 @@ t.scan(document=doc, tasks=["fls", "factop"])</code></pre>
           </div>
           <div class="protocol-step">
             <div class="n">3</div>
-            <div><h4>Generate the model card</h4><p>Template plus report card plus codebook. Includes limitations and the human ceiling automatically.</p></div>
+            <div><h4>Generate the model card</h4><p>Template plus report card plus codebook. Includes limitations automatically, and the human ceiling where the source published one, or the words "not published by the source" where it did not.</p></div>
           </div>
           <div class="protocol-step">
             <div class="n">4</div>
-            <div><h4>Upload the dataset</h4><p>Gold set with per-annotator labels, dataset card, codebook version, and licence per source.</p></div>
+            <div><h4>Upload the dataset artifact</h4><p>Not a mirror of somebody else's labels. A link to the borrowed source, our splits as row identifiers, and the reconstruction as document identifiers with character offsets, so anyone can rebuild the exact passages. Plus the dataset card, codebook version, and licence per source.</p></div>
           </div>
           <div class="protocol-step">
             <div class="n">5</div>
@@ -1655,8 +1666,8 @@ t.scan(document=doc, tasks=["fls", "factop"])</code></pre>
               </tr>
               <tr>
                 <td><strong>Test set</strong></td>
-                <td>Human gold only, frozen and hashed</td>
-                <td>Public test splits as the headline. Their label definitions differ from the codebook, which makes the headline number mean something slightly different from what it says.</td>
+                <td>Borrowed human labels, frozen and hashed, with the codebook written to match them</td>
+                <td>A public test split adopted without rewriting the codebook to match it. Its label definitions would differ from ours, which makes the headline number mean something slightly different from what it says. The defence is no longer annotating our own set. It is Gate 1.</td>
               </tr>
               <tr>
                 <td><strong>Primary metric</strong></td>
