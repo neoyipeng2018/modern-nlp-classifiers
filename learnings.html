@@ -1,0 +1,1976 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Evidence-graded handoff of ModernFinBERT experiments, results, failures, caveats, and next steps.">
+  <title>ModernFinBERT — Experimental Learnings &amp; Future-Work Handoff</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172126;
+      --muted: #5b686d;
+      --paper: #f5f2ea;
+      --surface: #fffdf8;
+      --surface-2: #ece8de;
+      --line: #d8d2c4;
+      --navy: #183a4a;
+      --teal: #087f79;
+      --teal-soft: #dff2ef;
+      --blue: #2d5f92;
+      --blue-soft: #e5edf8;
+      --amber: #a15c08;
+      --amber-soft: #fff0d7;
+      --red: #a43c34;
+      --red-soft: #fae6e3;
+      --violet: #66559a;
+      --violet-soft: #eee9fb;
+      --shadow: 0 12px 35px rgba(31, 41, 43, .08);
+      --radius: 18px;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --serif: Iowan Old Style, "Palatino Linotype", Palatino, Georgia, serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 88% 0%, rgba(8, 127, 121, .10), transparent 25rem),
+        var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.58;
+    }
+    a { color: var(--blue); text-underline-offset: 3px; }
+    a:hover { color: var(--teal); }
+    code {
+      font-family: var(--mono);
+      font-size: .88em;
+      background: var(--surface-2);
+      border-radius: 5px;
+      padding: .08rem .3rem;
+      overflow-wrap: anywhere;
+    }
+    .skip-link {
+      position: fixed;
+      z-index: 100;
+      left: 1rem;
+      top: -5rem;
+      padding: .7rem 1rem;
+      color: white;
+      background: var(--navy);
+      border-radius: .5rem;
+    }
+    .skip-link:focus { top: 1rem; }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      background: var(--navy);
+      color: white;
+      padding: 4.5rem max(1.25rem, calc((100vw - 1380px) / 2)) 2.2rem;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 34rem;
+      height: 34rem;
+      right: -12rem;
+      top: -18rem;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 50%;
+      box-shadow:
+        0 0 0 5rem rgba(255,255,255,.035),
+        0 0 0 10rem rgba(255,255,255,.025);
+    }
+    .hero-inner { position: relative; z-index: 1; max-width: 1000px; }
+    .eyebrow {
+      margin: 0 0 .8rem;
+      color: #9edbd5;
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3, h4 { line-height: 1.14; }
+    h1 {
+      max-width: 900px;
+      margin: 0;
+      font-family: var(--serif);
+      font-size: clamp(2.5rem, 6vw, 5.4rem);
+      font-weight: 650;
+      letter-spacing: -.035em;
+    }
+    .hero .lede {
+      max-width: 850px;
+      margin: 1.2rem 0 0;
+      color: #dce9ec;
+      font-size: clamp(1rem, 2vw, 1.28rem);
+    }
+    .audit-strip {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: .75rem;
+      max-width: 1200px;
+      margin-top: 2.3rem;
+    }
+    .audit-stat {
+      min-height: 86px;
+      padding: .85rem 1rem;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 12px;
+      background: rgba(255,255,255,.055);
+      backdrop-filter: blur(8px);
+    }
+    .audit-stat strong {
+      display: block;
+      color: white;
+      font-size: 1.15rem;
+    }
+    .audit-stat span {
+      display: block;
+      margin-top: .16rem;
+      color: #b8cbd0;
+      font-size: .78rem;
+      line-height: 1.3;
+    }
+
+    .page {
+      display: grid;
+      grid-template-columns: 245px minmax(0, 1fr);
+      gap: 2rem;
+      width: min(1380px, calc(100% - 2.5rem));
+      margin: 2rem auto 6rem;
+      align-items: start;
+    }
+    .sidebar {
+      position: sticky;
+      top: 1rem;
+      max-height: calc(100vh - 2rem);
+      overflow: auto;
+      padding: 1rem;
+      background: rgba(255,253,248,.9);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .sidebar-title {
+      margin: 0 0 .65rem;
+      color: var(--muted);
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+    .toc {
+      display: grid;
+      gap: .1rem;
+      margin-bottom: 1.1rem;
+    }
+    .toc a {
+      padding: .35rem .5rem;
+      color: var(--ink);
+      border-radius: 7px;
+      font-size: .86rem;
+      text-decoration: none;
+    }
+    .toc a:hover, .toc a:focus { background: var(--teal-soft); color: var(--teal); }
+    .sidebar hr { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; }
+    .legend {
+      display: grid;
+      gap: .5rem;
+      font-size: .76rem;
+      color: var(--muted);
+    }
+    .legend-row {
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      gap: .45rem;
+      align-items: start;
+    }
+    .search {
+      width: 100%;
+      padding: .68rem .72rem;
+      color: var(--ink);
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      font: inherit;
+      font-size: .85rem;
+    }
+    .search:focus { outline: 3px solid rgba(8,127,121,.18); border-color: var(--teal); }
+    .search-note { margin: .4rem 0 0; color: var(--muted); font-size: .7rem; }
+
+    main { min-width: 0; }
+    section {
+      scroll-margin-top: 1rem;
+      margin-bottom: 2.8rem;
+    }
+    .section-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 1rem;
+      align-items: end;
+      min-width: 0;
+      margin-bottom: 1rem;
+    }
+    .section-head > * { min-width: 0; }
+    .section-kicker {
+      margin: 0 0 .25rem;
+      color: var(--teal);
+      font-size: .73rem;
+      font-weight: 850;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+    h2 {
+      margin: 0;
+      color: var(--navy);
+      font-family: var(--serif);
+      font-size: clamp(1.85rem, 3.2vw, 2.75rem);
+      letter-spacing: -.025em;
+    }
+    h3 {
+      margin: 0 0 .55rem;
+      color: var(--navy);
+      font-size: 1.08rem;
+    }
+    h4 { margin: 0 0 .35rem; font-size: .92rem; }
+    .section-intro {
+      max-width: 880px;
+      margin: .45rem 0 1.1rem;
+      color: var(--muted);
+    }
+
+    .card {
+      padding: 1.15rem;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: 0 7px 22px rgba(31, 41, 43, .045);
+    }
+    .card p:last-child, .callout p:last-child { margin-bottom: 0; }
+    .grid-2, .grid-3, .grid-4, .grid-5 {
+      display: grid;
+      gap: 1rem;
+    }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .stack { display: grid; gap: 1rem; }
+    .number-card { position: relative; overflow: hidden; padding-top: 3.1rem; }
+    .number-card::before {
+      content: attr(data-number);
+      position: absolute;
+      top: .45rem;
+      right: .8rem;
+      color: rgba(24,58,74,.12);
+      font-family: var(--serif);
+      font-size: 3.3rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .number-card h3 { min-height: 2.45em; }
+    .number-card p { margin: .3rem 0 0; color: var(--muted); font-size: .88rem; }
+    .metric-value {
+      display: block;
+      color: var(--navy);
+      font-family: var(--serif);
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -.03em;
+    }
+    .metric-label { color: var(--muted); font-size: .75rem; }
+
+    .callout {
+      padding: 1.05rem 1.2rem;
+      border-left: 5px solid var(--teal);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      background: var(--teal-soft);
+    }
+    .callout.warning { border-color: var(--amber); background: var(--amber-soft); }
+    .callout.danger { border-color: var(--red); background: var(--red-soft); }
+    .callout.info { border-color: var(--blue); background: var(--blue-soft); }
+    .callout strong { color: var(--navy); }
+
+    .pill, .status {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      width: fit-content;
+      border-radius: 999px;
+      font-size: .68rem;
+      font-weight: 850;
+      letter-spacing: .045em;
+      line-height: 1;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .pill { padding: .34rem .52rem; background: var(--surface-2); color: var(--navy); }
+    .status { padding: .32rem .5rem; }
+    .status::before {
+      content: "";
+      width: .42rem;
+      height: .42rem;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .supported { color: var(--teal); background: var(--teal-soft); }
+    .reported { color: var(--blue); background: var(--blue-soft); }
+    .compromised { color: var(--red); background: var(--red-soft); }
+    .notrun { color: var(--amber); background: var(--amber-soft); }
+    .historical { color: var(--violet); background: var(--violet-soft); }
+    .muted { color: var(--muted); }
+    .small { font-size: .78rem; }
+    .tiny { font-size: .7rem; }
+
+    .table-wrap {
+      overflow-x: auto;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: 0 7px 22px rgba(31, 41, 43, .04);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .82rem;
+    }
+    th, td {
+      padding: .74rem .76rem;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      color: var(--navy);
+      background: #f0ede4;
+      font-size: .7rem;
+      font-weight: 850;
+      letter-spacing: .055em;
+      text-transform: uppercase;
+    }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: rgba(8,127,121,.035); }
+    td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .best { color: var(--teal); font-weight: 800; }
+    .bad { color: var(--red); }
+    .subtle-cell { color: var(--muted); }
+    .source-links { line-height: 1.8; }
+    .source-links a { white-space: nowrap; }
+    .table-caption {
+      margin: .65rem .2rem 0;
+      color: var(--muted);
+      font-size: .74rem;
+    }
+
+    .decision {
+      border-top: 5px solid var(--line);
+    }
+    .decision.recommended { border-top-color: var(--teal); }
+    .decision.caution { border-top-color: var(--amber); }
+    .decision.blocked { border-top-color: var(--red); }
+    .decision .model-name { font-family: var(--mono); font-size: .78rem; }
+    .decision ul, .compact-list { margin: .55rem 0 0; padding-left: 1.12rem; }
+    .decision li, .compact-list li { margin: .32rem 0; }
+    .compact-list { color: var(--muted); font-size: .85rem; }
+
+    .evidence-ladder {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: .8rem;
+      counter-reset: evidence;
+    }
+    .evidence-ladder .card { counter-increment: evidence; }
+    .evidence-ladder .card::before {
+      content: counter(evidence, upper-alpha);
+      display: grid;
+      place-items: center;
+      width: 2rem;
+      height: 2rem;
+      margin-bottom: .65rem;
+      color: white;
+      background: var(--navy);
+      border-radius: 50%;
+      font-weight: 850;
+    }
+
+    .timeline {
+      position: relative;
+      display: grid;
+      gap: .8rem;
+      padding-left: 1.35rem;
+    }
+    .timeline::before {
+      content: "";
+      position: absolute;
+      left: .31rem;
+      top: .3rem;
+      bottom: .3rem;
+      width: 2px;
+      background: var(--line);
+    }
+    .timeline-item {
+      position: relative;
+      padding: .95rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+    .timeline-item::before {
+      content: "";
+      position: absolute;
+      left: -1.37rem;
+      top: 1.15rem;
+      width: .68rem;
+      height: .68rem;
+      background: var(--teal);
+      border: 3px solid var(--paper);
+      border-radius: 50%;
+    }
+    .timeline-item.failed::before { background: var(--red); }
+    .timeline-item.old::before { background: var(--amber); }
+    .timeline-item p { margin: .35rem 0 0; color: var(--muted); font-size: .83rem; }
+    .timeline-meta { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+
+    .bar-set { display: grid; gap: .55rem; }
+    .bar-row {
+      display: grid;
+      grid-template-columns: 110px minmax(0, 1fr) 55px;
+      gap: .65rem;
+      align-items: center;
+      font-size: .78rem;
+    }
+    .bar-track {
+      overflow: hidden;
+      height: .65rem;
+      background: var(--surface-2);
+      border-radius: 999px;
+    }
+    .bar-fill { height: 100%; background: var(--teal); border-radius: inherit; }
+    .bar-fill.red { background: var(--red); }
+    .bar-fill.amber { background: var(--amber); }
+
+    .quarantine-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+    .quarantine {
+      position: relative;
+      padding: 1.1rem;
+      background: var(--surface);
+      border: 1px solid #e1b4af;
+      border-radius: var(--radius);
+    }
+    .quarantine .do-not {
+      margin: .65rem 0 .25rem;
+      color: var(--red);
+      font-size: .73rem;
+      font-weight: 850;
+      letter-spacing: .055em;
+      text-transform: uppercase;
+    }
+    .quarantine p { margin: .35rem 0; color: var(--muted); font-size: .84rem; }
+
+    .protocol {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .protocol-step {
+      display: grid;
+      grid-template-columns: 2.2rem minmax(0,1fr);
+      gap: .7rem;
+      padding: .9rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+    .protocol-step .n {
+      display: grid;
+      place-items: center;
+      align-self: start;
+      width: 2.1rem;
+      height: 2.1rem;
+      color: white;
+      background: var(--navy);
+      border-radius: 50%;
+      font-weight: 800;
+    }
+    .protocol-step p { margin: .2rem 0 0; color: var(--muted); font-size: .82rem; }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .45rem;
+      margin: 0 0 .8rem;
+    }
+    .filter-button {
+      appearance: none;
+      padding: .48rem .7rem;
+      color: var(--navy);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      cursor: pointer;
+      font: inherit;
+      font-size: .73rem;
+      font-weight: 750;
+    }
+    .filter-button:hover, .filter-button[aria-pressed="true"] {
+      color: white;
+      background: var(--navy);
+      border-color: var(--navy);
+    }
+    .ledger-row[hidden] { display: none; }
+    .empty-state {
+      display: none;
+      padding: 1rem;
+      color: var(--muted);
+      text-align: center;
+    }
+    .empty-state.visible { display: block; }
+
+    .next-card { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 1rem; }
+    .priority {
+      align-self: start;
+      padding: .55rem .45rem;
+      color: white;
+      background: var(--navy);
+      border-radius: 10px;
+      font-weight: 850;
+      text-align: center;
+    }
+    .priority span { display: block; font-size: .65rem; letter-spacing: .08em; text-transform: uppercase; }
+    .priority strong { font-size: 1.35rem; }
+    .gate {
+      margin-top: .65rem;
+      padding: .55rem .7rem;
+      background: var(--surface-2);
+      border-radius: 8px;
+      font-size: .78rem;
+    }
+
+    .artifact-map { columns: 2; column-gap: 2rem; }
+    .artifact-map li { break-inside: avoid; margin: .42rem 0; }
+    .footer {
+      padding: 2rem 1.25rem 3rem;
+      color: #c5d3d7;
+      background: var(--navy);
+      text-align: center;
+      font-size: .78rem;
+    }
+    .footer a { color: #a8e1dc; }
+    .back-top {
+      position: fixed;
+      right: 1rem;
+      bottom: 1rem;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      width: 2.7rem;
+      height: 2.7rem;
+      color: white;
+      background: var(--navy);
+      border: 1px solid rgba(255,255,255,.25);
+      border-radius: 50%;
+      box-shadow: var(--shadow);
+      text-decoration: none;
+    }
+
+    @media (max-width: 1100px) {
+      .page { grid-template-columns: 1fr; }
+      .sidebar { position: relative; top: auto; max-height: none; }
+      .toc { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .grid-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .grid-4, .evidence-ladder { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 760px) {
+      .hero { padding-top: 3rem; }
+      .audit-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .page { width: min(100% - 1.2rem, 1380px); gap: 1.2rem; }
+      .toc { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid-2, .grid-3, .grid-4, .grid-5, .evidence-ladder,
+      .quarantine-grid, .protocol { grid-template-columns: 1fr; }
+      .section-head { grid-template-columns: 1fr; }
+      .section-head .pill { max-width: 100%; white-space: normal; line-height: 1.25; }
+      .artifact-map { columns: 1; }
+      .next-card { grid-template-columns: 68px minmax(0,1fr); }
+      .bar-row { grid-template-columns: 88px minmax(0,1fr) 48px; }
+    }
+    @media print {
+      :root { --paper: white; --surface: white; }
+      body { background: white; font-size: 10pt; }
+      .hero { padding: 1.5rem; background: white; color: var(--ink); border-bottom: 2px solid var(--navy); }
+      .hero .lede, .audit-stat span { color: var(--muted); }
+      .audit-stat strong { color: var(--ink); }
+      .audit-stat { border-color: var(--line); }
+      .hero::after, .sidebar, .back-top, .controls { display: none !important; }
+      .page { display: block; width: 100%; margin: 1rem 0; }
+      section { break-before: page; margin: 0; padding: 1rem 0; }
+      #executive { break-before: auto; }
+      .card, .table-wrap, .quarantine, .timeline-item { box-shadow: none; break-inside: avoid; }
+      a { color: var(--ink); text-decoration: none; }
+      .footer { background: white; color: var(--muted); border-top: 1px solid var(--line); }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to findings</a>
+
+  <header class="hero" id="top">
+    <div class="hero-inner">
+      <p class="eyebrow">Evidence-graded future-work handoff · audited 16 August 2026</p>
+      <h1>ModernFinBERT experimental learnings</h1>
+      <p class="lede">
+        What the repository actually establishes, what it only reports, what failed, and what should happen next.
+        This document keeps v1 research checkpoints, the shipped v1 model, v2-short, v2-medium, and the abandoned
+        long-context track separate so future work starts from the right evidence.
+      </p>
+    </div>
+    <div class="audit-strip" aria-label="Repository audit snapshot">
+      <div class="audit-stat"><strong>3 model lines</strong><span>v1 production · v2-short · v2-medium</span></div>
+      <div class="audit-stat"><strong>41 notebooks</strong><span>all inspected; none retain cell outputs</span></div>
+      <div class="audit-stat"><strong>2,482 files</strong><span>project files outside .git and the bundled environment</span></div>
+      <div class="audit-stat"><strong>176 tracked</strong><span>plus ignored data, checkpoints, logs, and outputs</span></div>
+      <div class="audit-stat"><strong>HEAD c1e1e00</strong><span>main; working tree contains newer benchmark work</span></div>
+    </div>
+  </header>
+
+  <div class="page">
+    <aside class="sidebar" aria-label="Document navigation">
+      <p class="sidebar-title">Jump to</p>
+      <nav class="toc">
+        <a href="#executive">Read this first</a>
+        <a href="#evidence">Evidence rules</a>
+        <a href="#benchmark">Latest benchmark</a>
+        <a href="#v2">v2 curriculum</a>
+        <a href="#v1">v1 experiments</a>
+        <a href="#entity">Entity diagnosis</a>
+        <a href="#data">Data &amp; provenance</a>
+        <a href="#quarantine">Claims quarantine</a>
+        <a href="#ledger">Experiment ledger</a>
+        <a href="#operations">Operational lessons</a>
+        <a href="#next">Next work</a>
+        <a href="#sources">Source map</a>
+      </nav>
+      <hr>
+      <p class="sidebar-title">Search the ledger</p>
+      <label>
+        <span class="tiny muted">Experiment, metric, model, or caveat</span>
+        <input class="search" id="ledger-search" type="search" placeholder="e.g. calibration">
+      </label>
+      <p class="search-note">Search and status filters combine.</p>
+      <hr>
+      <p class="sidebar-title">Evidence key</p>
+      <div class="legend">
+        <div class="legend-row"><span class="status supported">A · saved</span><span>Structured result, run log, or direct artifact.</span></div>
+        <div class="legend-row"><span class="status reported">B · reported</span><span>Paper or notebook summary; raw run evidence missing.</span></div>
+        <div class="legend-row"><span class="status compromised">C · limited</span><span>Ran, but leakage or protocol breaks the intended inference.</span></div>
+        <div class="legend-row"><span class="status notrun">D · no result</span><span>Planned, failed before a useful result, or syntactically broken.</span></div>
+      </div>
+    </aside>
+
+    <main id="main">
+      <section id="executive">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Executive handoff</p>
+            <h2>Read this first</h2>
+          </div>
+          <span class="pill">Decision-oriented summary</span>
+        </div>
+        <p class="section-intro">
+          The most valuable outcome of this project is not one leaderboard number. It is a set of protocol,
+          data, and training lessons that explain when the reported numbers are trustworthy—and when they are not.
+        </p>
+
+        <div class="grid-5">
+          <article class="card number-card" data-number="01">
+            <h3>Protocol dominates the headline</h3>
+            <p>ModernBERT scored 86.88% in FPB cross-validation but 80.44% when FPB was excluded from training: a 6.44-point protocol gap.</p>
+          </article>
+          <article class="card number-card" data-number="02">
+            <h3>v2-short is the best short/OOD v2</h3>
+            <p>It beats v2-medium on nearly every external short-text view and reaches 69.52 macro-F1 on FiQA.</p>
+          </article>
+          <article class="card number-card" data-number="03">
+            <h3>Stage 2 helps its own domain</h3>
+            <p>Focal loss, rank 32, and F1-based selection improve internal medium text, but do not improve general short-text transfer.</p>
+          </article>
+          <article class="card number-card" data-number="04">
+            <h3>Entity reasoning is unproven</h3>
+            <p>Pair formatting does not yield entity-specific sentiment: all models remain around 43–44 macro-F1 on conflict rows.</p>
+          </article>
+          <article class="card number-card" data-number="05">
+            <h3>There is no usable long model</h3>
+            <p>The old Stage 3 truncated 52.8%; the replacement stopped before training when 78.2% truncation exposed malformed chunks.</p>
+          </article>
+        </div>
+
+        <div class="callout danger" style="margin-top:1rem">
+          <strong>Do not reuse the repository’s most flattering numbers without their protocol.</strong>
+          The shipped v1 model trained on all FPB, so its latest 99.92% FPB score is memorization, not generalization.
+          The Claude comparison also loads this production model on rows drawn from the same aggregate corpus, and the calibration
+          result fits and evaluates on the production training set. Both need clean reruns.
+        </div>
+
+        <h3 style="margin-top:1.5rem">Model choice today</h3>
+        <div class="grid-3">
+          <article class="card decision caution">
+            <span class="status compromised">Use narrowly</span>
+            <h3 style="margin-top:.7rem">v1 production</h3>
+            <div class="model-name">neoyipeng/ModernFinBERT-base</div>
+            <ul class="compact-list">
+              <li>Full fine-tune on the complete aggregate corpus, all FPB, and 410 augmented rows.</li>
+              <li>Good as the existing simple-sentence production artifact.</li>
+              <li>No unbiased FPB estimate remains for these exact released weights.</li>
+              <li>Uses a one-hot/BCE training path while downstream treats outputs as mutually exclusive classes.</li>
+            </ul>
+          </article>
+          <article class="card decision recommended">
+            <span class="status supported">Best short/OOD evidence</span>
+            <h3 style="margin-top:.7rem">v2-short</h3>
+            <div class="model-name">neoyipeng/ModernFinBERT-v2-short</div>
+            <ul class="compact-list">
+              <li>Prefer for headlines, comments, tweets, and short financial passages.</li>
+              <li>Best external v2 results on FPB, FiQA, Twitter F1, and entity-conflict rows.</li>
+              <li>Stage 1 test: 76.95% accuracy / 77.11 macro-F1.</li>
+              <li>Entity input is optional formatting, not demonstrated reasoning.</li>
+            </ul>
+          </article>
+          <article class="card decision caution">
+            <span class="status reported">Canonical medium release</span>
+            <h3 style="margin-top:.7rem">v2-medium</h3>
+            <div class="model-name">neoyipeng/ModernFinBERT-v2-medium</div>
+            <ul class="compact-list">
+              <li>Use only when the 4K-token medium-text distribution matches the task.</li>
+              <li>Internal medium: 69.71% accuracy / 58.86 macro-F1.</li>
+              <li>Regresses most external short-text tests versus v2-short.</li>
+              <li>Canonical v2 endpoint because Stage 3 was abandoned.</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="callout info" style="margin-top:1rem">
+          <strong>Terminology for future work:</strong> call v2 an <em>entity-conditioned input experiment</em>, not an
+          entity-aware model. Reserve “entity-aware” for a model that passes controlled entity-removal, entity-swap,
+          and multi-entity conflict tests.
+        </div>
+      </section>
+
+      <section id="evidence">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">How to read the rest</p>
+            <h2>Evidence rules and repository state</h2>
+          </div>
+        </div>
+        <p class="section-intro">
+          Results live across committed prose, uncommitted analysis, ignored Kaggle output, logs, JSON, generated checkpoints,
+          and hard-coded notebook summaries. The grades below prevent a plan or stale sentence from becoming a “finding.”
+        </p>
+
+        <div class="evidence-ladder">
+          <article class="card">
+            <h3>Saved run evidence</h3>
+            <p class="small muted">Structured JSON, training log, checkpoint state, or directly inspected data artifact. Highest local confidence, still subject to protocol quality.</p>
+          </article>
+          <article class="card">
+            <h3>Reported result</h3>
+            <p class="small muted">A metric retained in the paper, README, recipe notes, or notebook source, but no raw output remains. Preserve it with attribution and caveats.</p>
+          </article>
+          <article class="card">
+            <h3>Compromised inference</h3>
+            <p class="small muted">The computation may be real, but leakage, in-sample evaluation, test-driven checkpoint selection, or mismatched model identity prevents the intended claim.</p>
+          </article>
+          <article class="card">
+            <h3>No usable result</h3>
+            <p class="small muted">Designed but never run, failed before producing evidence, superseded, or broken. Keep the hypothesis, never the implied outcome.</p>
+          </article>
+        </div>
+
+        <div class="grid-2" style="margin-top:1rem">
+          <article class="card">
+            <h3>Notebook reality</h3>
+            <span class="metric-value">0 / 41</span>
+            <span class="metric-label">notebooks with retained output cells</span>
+            <p class="small muted">Every execution count is null. Numeric notebook prose is a hard-coded summary, not stored execution evidence. Use saved logs and JSON first.</p>
+          </article>
+          <article class="card">
+            <h3>Audit snapshot</h3>
+            <p class="small">
+              HEAD is <code>c1e1e00</code> on <code>main</code>, matching <code>origin/main</code>. The working tree has
+              modified <a href="research.md">research.md</a>, <a href="TODOS.md">TODOS.md</a>, and
+              <a href="notebooks/02_benchmark_inference.ipynb">NB02</a>; tracked <code>plan.md</code> is deleted; and the
+              newest benchmark notebook, log, metadata, and root JSON are untracked. Critical processed data and Kaggle
+              outputs are ignored.
+            </p>
+          </article>
+        </div>
+
+        <div class="callout warning" style="margin-top:1rem">
+          <strong>Newest evidence is also easiest to lose.</strong>
+          The most complete three-model benchmark is the ignored
+          <a href="kaggle_output/benchmark_results_v1_vs_v2.json">Kaggle JSON</a>, which is newer than the untracked
+          two-model <a href="benchmark_results_v1_vs_v2.json">root JSON</a>. Preserve the notebook, log, exact model revisions,
+          dataset revisions, and output together before extending this work.
+        </div>
+        <div class="callout info" style="margin-top:.75rem">
+          <strong>Portable versus workstation-only evidence:</strong>
+          <code>notebooks/results/**</code> and <code>results/**</code> are tracked. All 3.3 GB of processed parquets and
+          annotation batches, <code>kaggle_push*/</code>, <code>kaggle_output*/</code>, and the large calibration run directory
+          are ignored. A fresh clone will therefore lose the newest benchmark and much of the data lineage unless they are
+          deliberately archived.
+        </div>
+      </section>
+
+      <section id="benchmark">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Newest cross-model evidence</p>
+            <h2>v1 vs v2-short vs v2-medium</h2>
+          </div>
+          <span class="status supported">A · ignored JSON + log</span>
+        </div>
+        <p class="section-intro">
+          Each cell is accuracy / macro-F1. The benchmark is valuable because it exposes transfer trade-offs, but it is not
+          a single clean leaderboard: every dataset has a different relationship to the training corpora.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Evaluation view</th>
+                <th class="numeric">v1 production</th>
+                <th class="numeric">v2-short</th>
+                <th class="numeric">v2-medium</th>
+                <th>Interpretation</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>FPB 50% agreement</td>
+                <td class="numeric bad">.9992 / .9991</td>
+                <td class="numeric best">.8287 / .8065</td>
+                <td class="numeric">.8157 / .7921</td>
+                <td class="subtle-cell">v1 trained on all FPB; exclude its score from generalization claims.</td>
+              </tr>
+              <tr>
+                <td>FPB all-agree</td>
+                <td class="numeric bad">1.000 / 1.000</td>
+                <td class="numeric best">.9382 / .9252</td>
+                <td class="numeric">.9231 / .9080</td>
+                <td class="subtle-cell">All-agree is a cleaner subset of the 50%-agreement set, not an independent dataset.</td>
+              </tr>
+              <tr>
+                <td>FiQA (961)</td>
+                <td class="numeric">.5775 / .5708</td>
+                <td class="numeric best">.7544 / .6952</td>
+                <td class="numeric">.7357 / .6757</td>
+                <td class="subtle-cell">Strongest genuine OOD win for v2; labels discretized at ±0.2.</td>
+              </tr>
+              <tr>
+                <td>Twitter validation (2,388)</td>
+                <td class="numeric">.8513 / .8025</td>
+                <td class="numeric best">.8488 / .8129</td>
+                <td class="numeric">.8405 / .8034</td>
+                <td class="subtle-cell">Essentially tied; overlap with v2 tweet sources was not audited.</td>
+              </tr>
+              <tr>
+                <td>FinEntity sentence-majority (979)</td>
+                <td class="numeric best">.6966 / .7012</td>
+                <td class="numeric">.6711 / .6790</td>
+                <td class="numeric">.6782 / .6858</td>
+                <td class="subtle-cell">Medium recovers slightly over short but remains behind v1.</td>
+              </tr>
+              <tr>
+                <td>FinEntity per-entity (2,131)</td>
+                <td class="numeric best">.7443 / .7434</td>
+                <td class="numeric">.7203 / .7243</td>
+                <td class="numeric">.7227 / .7263</td>
+                <td class="subtle-cell">v1’s natural “entity: text” prefix beats v2 pair formatting.</td>
+              </tr>
+              <tr>
+                <td>FinEntity conflicts (364)</td>
+                <td class="numeric">.4560 / .4364</td>
+                <td class="numeric best">.4973 / .4428</td>
+                <td class="numeric">.4588 / .4300</td>
+                <td class="subtle-cell">All are poor; NEU F1 is .2415 / .1266 / .1562, the clearest failure of entity-specific reasoning.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="grid-3" style="margin-top:1rem">
+          <article class="card">
+            <span class="metric-value">+17.69 pp</span>
+            <span class="metric-label">v2-short accuracy over v1 on FiQA</span>
+            <p class="small muted">Macro-F1 improves +12.44 points. This is v2’s strongest demonstrated contribution: general financial-commentary transfer.</p>
+          </article>
+          <article class="card">
+            <span class="metric-value">−1.95 pp</span>
+            <span class="metric-label">v2-medium F1 versus v2-short on FiQA</span>
+            <p class="small muted">Stage 2 also loses 1.44 F1 on FPB, .95 on Twitter, and 1.28 on conflict rows.</p>
+          </article>
+          <article class="card">
+            <span class="metric-value">≈ .44 F1</span>
+            <span class="metric-label">best conflict-row macro-F1</span>
+            <p class="small muted">Supplying a gold entity is not enough. The learning signal and representation need redesign.</p>
+          </article>
+        </div>
+
+        <h3 style="margin-top:1.5rem">Benchmark caveats that must travel with the numbers</h3>
+        <div class="grid-2">
+          <ul class="card compact-list">
+            <li>v1 FPB is in-sample because the released production model trained on all FPB.</li>
+            <li>FiQA continuous scores are mapped with arbitrary −0.2 / +0.2 thresholds.</li>
+            <li>Twitter label IDs are remapped; possible training-source overlap is unaudited.</li>
+            <li>FinEntity uses its training split as evaluation and supplies oracle gold entities.</li>
+          </ul>
+          <ul class="card compact-list">
+            <li>v1 receives <code>entity: text</code>; v2 receives a sentence pair. Input formatting is uncontrolled.</li>
+            <li>ModernBERT has no token-type embeddings; the pair contributes a separator, not segment IDs.</li>
+            <li>Sentence-majority ties depend on row order in the current implementation.</li>
+            <li>FPB all-agree is nested within 50%-agreement, so do not treat both as independent replications.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="v2">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Curriculum track</p>
+            <h2>What the v2 stages taught us</h2>
+          </div>
+        </div>
+        <p class="section-intro">
+          The surviving recipe is short-context Stage 1 followed by a carefully selected medium-context Stage 2.
+          The curriculum teaches a general lesson: preserve a regression suite across prior stages, because improvement
+          on the new distribution can conceal broad forgetting.
+        </p>
+
+        <div class="timeline">
+          <article class="timeline-item">
+            <div class="timeline-meta">
+              <span class="status supported">Stage 1 · saved log</span>
+              <span class="pill">Shipped v2-short</span>
+            </div>
+            <h3 style="margin-top:.55rem">Short-context foundation</h3>
+            <p>
+              34,597 train rows; max 512; ModernBERT + Unsloth LoRA r16/α32; three epochs; CE; learning rate 2e−4;
+              effective batch 128. Validation rises .7313/.7320 → .7540/.7555 → .7598/.7610.
+              Test: <strong>.7695 accuracy / .7711 macro-F1</strong>.
+            </p>
+          </article>
+          <article class="timeline-item old">
+            <div class="timeline-meta">
+              <span class="status supported">Old Stage 2 · saved log</span>
+              <span class="pill">Superseded</span>
+            </div>
+            <h3 style="margin-top:.55rem">Inverse-frequency weighting overcorrected</h3>
+            <p>
+              29,465 medium rows; max 4096; r16; weighted CE [4.18, 1.15, .53]; one end-of-epoch evaluation.
+              Medium: <strong>.6314/.5428</strong>; short: <strong>.7473/.7480</strong>. NEG precision fell to .35 and the
+              loss stayed relatively flat. Do not reuse this weighting recipe.
+            </p>
+          </article>
+          <article class="timeline-item old">
+            <div class="timeline-meta">
+              <span class="status supported">Old Stage 3 · saved log</span>
+              <span class="pill">Negative result</span>
+            </div>
+            <h3 style="margin-top:.55rem">Long-context training did not solve long context</h3>
+            <p>
+              8,000-row subsample; max 6144; r16; 125 steps. <strong>52.8% of rows were still truncated</strong>.
+              Long: .6264/.5422; medium: .6846/.5262; short: .7540/.7557; NEU recall .20.
+              More context length did not repair malformed examples.
+            </p>
+          </article>
+          <article class="timeline-item">
+            <div class="timeline-meta">
+              <span class="status reported">Stage 2 v3 · release + run note</span>
+              <span class="pill">Shipped v2-medium</span>
+            </div>
+            <h3 style="margin-top:.55rem">Focal loss and frequent macro-F1 selection worked internally</h3>
+            <p>
+              Fresh LoRA r32/α64 after merging Stage 1; focal γ=2; one epoch; ~500-row stratified interim validation;
+              checkpoint every 50 steps by macro-F1; final full validation. Medium: <strong>.6971/.5886</strong>;
+              short: <strong>.7561/.7580</strong>. Relative to old Stage 2: +6.57 accuracy and +4.58 F1 points on medium.
+            </p>
+          </article>
+          <article class="timeline-item failed">
+            <div class="timeline-meta">
+              <span class="status notrun">Stage 3 v3 · no train step</span>
+              <span class="pill">Abandoned</span>
+            </div>
+            <h3 style="margin-top:.55rem">Preprocessing assertion correctly stopped the run</h3>
+            <p>
+              Two operational failures came first: incompatible evaluation/save intervals, then an unbound Hugging Face secret
+              after a Kaggle CLI push. The third attempt measured <strong>78.2% truncation at 4096</strong> and stopped.
+              Stage 2 is the canonical endpoint; there is no v2-long release.
+            </p>
+          </article>
+        </div>
+
+        <div class="grid-2" style="margin-top:1rem">
+          <article class="card">
+            <h3>External regression after Stage 2</h3>
+            <div class="bar-set" aria-label="v2-medium macro-F1 change versus v2-short">
+              <div class="bar-row"><span>FPB 50</span><div class="bar-track"><div class="bar-fill red" style="width:72%"></div></div><strong>−1.44</strong></div>
+              <div class="bar-row"><span>FiQA</span><div class="bar-track"><div class="bar-fill red" style="width:98%"></div></div><strong>−1.95</strong></div>
+              <div class="bar-row"><span>Twitter</span><div class="bar-track"><div class="bar-fill red" style="width:48%"></div></div><strong>−0.95</strong></div>
+              <div class="bar-row"><span>Entity sent.</span><div class="bar-track"><div class="bar-fill" style="width:34%"></div></div><strong>+0.68</strong></div>
+              <div class="bar-row"><span>Per entity</span><div class="bar-track"><div class="bar-fill" style="width:10%"></div></div><strong>+0.20</strong></div>
+              <div class="bar-row"><span>Conflict</span><div class="bar-track"><div class="bar-fill red" style="width:64%"></div></div><strong>−1.28</strong></div>
+            </div>
+            <p class="tiny muted">Macro-F1 percentage-point change; bar lengths are normalized for readability, not a shared axis.</p>
+          </article>
+          <article class="card">
+            <h3>Stage-boundary invariants</h3>
+            <ul class="compact-list">
+              <li>Merge the previous adapter into the base before adding a fresh LoRA adapter.</li>
+              <li>Evaluate the new distribution and every earlier-stage regression set.</li>
+              <li>Select checkpoints with macro-F1, not loss alone, on imbalanced data.</li>
+              <li>Use a small stratified validation sample during 4K-token training, then one full final evaluation.</li>
+              <li>Persist the canonical v3 checkpoint/log locally; the current local Stage 2 checkpoint is the old r16 weighted-CE run.</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="callout warning" style="margin-top:1rem">
+          <strong>Do not attribute the v3 gain to one knob.</strong>
+          Focal loss, LoRA rank 32, fresh-adapter handling, frequent evaluation, and macro-F1 checkpoint selection changed together.
+          A factorial or at least one-factor-at-a-time ablation is required for a causal claim.
+        </div>
+        <div class="callout danger" style="margin-top:.75rem">
+          <strong>The current notebooks are not exact run recipes.</strong>
+          The retained Stage 1 log used one GPU, batch 64 × accumulation 2, and 813 optimizer steps; the current notebook uses
+          batch 32 × 2 and comments roughly 1,623 steps. The current v3 medium notebook uses batch 16 × 2, implying roughly
+          921 one-GPU steps, while the recipe’s 461-step arithmetic is inherited from the old batch-64 baseline. Recover the
+          missing v3 log or model revision before claiming exact reproducibility.
+        </div>
+      </section>
+
+      <section id="v1">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Paper-era track</p>
+            <h2>Durable v1 findings</h2>
+          </div>
+          <span class="pill">Research checkpoints ≠ shipped production weights</span>
+        </div>
+        <p class="section-intro">
+          v1 contains the project’s best controlled experimentation, but several results survive only as paper/notebook summaries.
+          Keep exact protocol generations separate: held-out ModernBERT scores of .8044, .8091, and .8093 are distinct runs,
+          not replicates to average.
+        </p>
+
+        <div class="grid-3">
+          <article class="card">
+            <h3>Evaluation protocol gap</h3>
+            <span class="metric-value">−6.44 pp</span>
+            <span class="metric-label">accuracy from FPB CV to FPB-held-out</span>
+            <p class="small muted">10-fold CV: .8688±.0096 accuracy / .8540±.0139 F1. FPB excluded from training: .8044/.7705.</p>
+          </article>
+          <article class="card">
+            <h3>Architecture direction</h3>
+            <span class="metric-value">+7.84 pp</span>
+            <span class="metric-label">ModernBERT over BERT, held-out FPB accuracy</span>
+            <p class="small muted">Modern .8093/.7793 vs BERT .7309/.6051. In 10-fold head-to-head the gain is only +1.09 points and p=.093.</p>
+          </article>
+          <article class="card">
+            <h3>Robustness</h3>
+            <span class="metric-value">±0.89 pp</span>
+            <span class="metric-label">five-seed FPB accuracy SD</span>
+            <p class="small muted">Mean .8044 accuracy / .7705 F1; individual seed rows are missing from the paper and notebooks.</p>
+          </article>
+        </div>
+
+        <h3 style="margin-top:1.5rem">Targeted augmentation: promising, but keep the two studies separate</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Study</th>
+                <th>Augmentation</th>
+                <th>Evaluation</th>
+                <th class="numeric">Baseline</th>
+                <th class="numeric">Augmented</th>
+                <th>Learning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Original targeted DataBoost</td>
+                <td>246 standard-prompt paraphrases from 82 validation errors</td>
+                <td>Aggregate test</td>
+                <td class="numeric">.7729 / .6660</td>
+                <td class="numeric best">.8021 / .7443</td>
+                <td>+2.92 accuracy / +7.84 F1 points. This does <strong>not</strong> establish a Verbalized Sampling effect.</td>
+              </tr>
+              <tr>
+                <td>VS-CoT augmentation</td>
+                <td>410 unique rows, five variants per error</td>
+                <td>Held-out FPB 50</td>
+                <td class="numeric">.8091 / .7810</td>
+                <td class="numeric best">.8256 / .8052</td>
+                <td>+1.65 accuracy / +2.42 F1 points for LoRA; retained CSV exists.</td>
+              </tr>
+              <tr>
+                <td>VS-CoT + full fine-tune</td>
+                <td>Same 410-row set</td>
+                <td>Held-out FPB 50</td>
+                <td class="numeric">.7722 / .6937</td>
+                <td class="numeric best">.8137 / .7977</td>
+                <td>+4.15 accuracy / +10.40 F1 points, but LoRA+augmentation still wins overall.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="table-caption">
+          Both augmentation sets are derived from validation errors. Reusing that validation set for selection contaminates validation estimates;
+          FPB and untouched aggregate test results are safer. The 246-row artifact is not retained, while
+          <a href="data/vs_augmented_errors.csv">the 410-row VS-CoT file is</a>.
+        </p>
+
+        <div class="grid-2" style="margin-top:1rem">
+          <article class="card">
+            <span class="status reported">Negative result</span>
+            <h3 style="margin-top:.7rem">Self-training with tweets hurt</h3>
+            <p class="small">
+              Adding 3,217 high-confidence pseudo-labeled tweets moved FPB from .8256/.8052 to .8054/.7700 and aggregate test
+              from .8083/.7633 to .7833/.7187. Validation fell .8354 → .8292, so the run stopped.
+            </p>
+            <p class="small muted">
+              Lesson: a nearly one-hot teacher provides poor confidence ranking, and domain-mismatched pseudo-labels amplify
+              bias rather than add supervision. The auxiliary pseudo-label “accuracy” check also omitted the Twitter label remap,
+              and the summary used FPB to choose a model, so retain the negative direction—not every diagnostic statistic.
+            </p>
+          </article>
+          <article class="card">
+            <span class="status reported">Regularization signal</span>
+            <h3 style="margin-top:.7rem">LoRA beat the tested full fine-tune</h3>
+            <p class="small">
+              LoRA exceeds full FT by +3.69 accuracy points without augmentation and +1.19 with it. This supports a
+              small-data regularization interpretation, but only one full-FT recipe was tested.
+            </p>
+            <p class="small muted">The shipped v1 deliberately uses full FT, so this research conclusion and the production choice should not be conflated.</p>
+          </article>
+        </div>
+
+        <div class="grid-2" style="margin-top:1rem">
+          <article class="card">
+            <h3>Where augmentation helped most</h3>
+            <p class="small">
+              The paper’s class-F1 view moves NEG roughly 46.5 → 59.3 (+12.8), NEU 82.4 → 85.5 (+3.1),
+              and POS 71.1 → 78.9 (+7.7). Error-targeted data helps the minority and confusing boundary classes most.
+            </p>
+            <p class="small muted">These values belong to the 246-row standard-prompt generation; do not relabel the class gains as VS-CoT evidence.</p>
+          </article>
+          <article class="card">
+            <h3>Cross-validation class behavior</h3>
+            <p class="small">
+              In the reported 10-fold FPB run, class F1 is NEU .8984±.0082, POS .8081±.0217, and NEG
+              .8556±.0355. NEG varies most across folds; neutral is easiest and most stable.
+            </p>
+            <p class="small muted">Because the held fold selected checkpoints, treat the exact means as optimistic.</p>
+          </article>
+        </div>
+
+        <div class="grid-2" style="margin-top:1rem">
+          <article class="card">
+            <h3>Local inference evidence</h3>
+            <div class="table-wrap" style="box-shadow:none;border-radius:10px">
+              <table>
+                <thead><tr><th>Device / mode</th><th class="numeric">Latency / throughput</th></tr></thead>
+                <tbody>
+                  <tr><td>CPU single, p50</td><td class="numeric">26.24 ms</td></tr>
+                  <tr><td>CPU batch 32</td><td class="numeric">71.6 samples/s</td></tr>
+                  <tr><td>MPS single, p50</td><td class="numeric">43.75 ms</td></tr>
+                  <tr><td>MPS batch 32</td><td class="numeric">106.7 samples/s</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="small muted">MPS is slower for one row and faster batched. The repository has no completed T4/GPU memory profile; claims of ~2 ms or 500–1000× speedup are unsupported locally.</p>
+          </article>
+          <article class="card">
+            <h3>Dedup and source audit</h3>
+            <p class="small">
+              The saved audit finds zero exact, fuzzy &gt;.90, or MiniLM semantic &gt;.95 matches between 9,123 non-FPB
+              train+validation rows and 4,846 FPB rows.
+            </p>
+            <p class="small muted">
+              This is useful evidence, not proof of independence: it covers FPB only, depends on one encoder and threshold,
+              and its 9,123 count includes the 480-row validation set while the paper reports 8,643 training rows.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="entity">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Postmortem</p>
+            <h2>Why entity conditioning did not become entity reasoning</h2>
+          </div>
+        </div>
+        <p class="section-intro">
+          The failure is explainable. The model rarely sees counterexamples where the target entity’s sentiment differs from the
+          sentence label, often receives no specific entity at all, and uses a backbone with no token-type embeddings.
+        </p>
+
+        <div class="grid-4">
+          <article class="card">
+            <span class="metric-value">95.21%</span>
+            <span class="metric-label">short-train entity label = sentence label</span>
+            <p class="small muted">Only 1,656 training rows disagree, so the easiest strategy is to ignore the entity.</p>
+          </article>
+          <article class="card">
+            <span class="metric-value">35.74%</span>
+            <span class="metric-label">short-train specific entity coverage</span>
+            <p class="small muted">64.26% are blank or generic sentinel inputs such as NONE/MARKET.</p>
+          </article>
+          <article class="card">
+            <span class="metric-value">63.08%</span>
+            <span class="metric-label">Stage 2 entity labels that are POS</span>
+            <p class="small muted">The medium distribution teaches a strong positive prior; FinEntity is neutral-heavy.</p>
+          </article>
+          <article class="card">
+            <span class="metric-value">.4428</span>
+            <span class="metric-label">best conflict macro-F1</span>
+            <p class="small muted">v2-short is the best of three, but the absolute score does not demonstrate disambiguation.</p>
+          </article>
+        </div>
+
+        <div class="grid-2" style="margin-top:1rem">
+          <article class="card">
+            <h3>Representation mismatch</h3>
+            <ul class="compact-list">
+              <li>ModernBERT does not emit <code>token_type_ids</code>; sentence-pair formatting supplies only separator tokens.</li>
+              <li>The natural v1 <code>entity: text</code> prefix may better match pretrained language patterns than a bare pair.</li>
+              <li>Gold entity names in FinEntity are oracle inputs, so production entity extraction is not tested.</li>
+              <li>Current annotations are frequently regex/dictionary entities with the sentence label copied over, not independent entity judgments.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Minimum proof for an entity-aware claim</h3>
+            <ul class="compact-list">
+              <li>Gold multi-entity sentences with opposing labels, including SEntFiN/FinEntity-style conflicts.</li>
+              <li>Prefix vs sentence-pair vs inline <code>[ENT]…[/ENT]</code> marker ablation on identical data.</li>
+              <li>Entity removal, shuffle, and swap counterfactuals; predictions must change in the expected direction.</li>
+              <li>Neutral-balanced sampling, far fewer generic/blank entities, and grouped document splits.</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="callout info" style="margin-top:1rem">
+          <strong>Suggested redesign:</strong> begin with marker-based spans on a conflict-rich gold set. Only consider a
+          backbone with learned segment embeddings or custom segment features after proving that better supervision and simple
+          markers are insufficient.
+        </div>
+      </section>
+
+      <section id="data">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">The hidden experimental variable</p>
+            <h2>Data, labels, and provenance</h2>
+          </div>
+        </div>
+
+        <h3>v1 source mixture</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th class="numeric">Total</th>
+                <th class="numeric">Train</th>
+                <th>NEG / NEU / POS</th>
+                <th>Length / domain lesson</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>3 · Earnings narrative</td><td class="numeric">513</td><td class="numeric">462</td><td>11.3 / 53.4 / 35.3%</td><td>Median 32 words; mean 53.6; max 260.</td></tr>
+              <tr><td>4 · Financial news</td><td class="numeric">1,730</td><td class="numeric">1,557</td><td>3.4 / 58.7 / 37.9%</td><td>Median 60; 68% match mining/TSX/resource terms.</td></tr>
+              <tr><td>5 · FPB</td><td class="numeric">4,846</td><td class="numeric">4,361</td><td>12.5 / 59.4 / 28.1%</td><td>Median 21; must be excluded for honest FPB holdout.</td></tr>
+              <tr><td>8 · Earnings Q&amp;A</td><td class="numeric">2,711</td><td class="numeric">2,440</td><td>7.9 / 57.7 / 34.4%</td><td>Median 161; max 2,596; material 512-token truncation.</td></tr>
+              <tr><td>9 · Tweets</td><td class="numeric">4,649</td><td class="numeric">4,184</td><td>13.9 / 68.4 / 17.6%</td><td>Median 15; very different language and prior.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="table-caption">
+          Total sentiment corpus: 14,449 rows; non-FPB training: 8,643. Non-FPB labels come from their source datasets,
+          not from LLM generation. Historical text claiming otherwise was corrected in commit <code>ff46f39</code>.
+        </p>
+
+        <h3 style="margin-top:1.5rem">v2 dataset anatomy</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Dataset</th>
+                <th>Split sizes</th>
+                <th>Entity coverage</th>
+                <th>Label agreement</th>
+                <th>Key warning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Short</td>
+                <td>34,597 / 4,325 / 4,325</td>
+                <td>35.74% specific</td>
+                <td>95.21% train</td>
+                <td>Most rows teach sentence sentiment; 64.26% entity input is empty/generic.</td>
+              </tr>
+              <tr>
+                <td>Medium</td>
+                <td>29,465 / 3,683 / 3,684</td>
+                <td>58.15% specific</td>
+                <td>77.04% train</td>
+                <td>POS-heavy entity prior (63.08%); about 42.5% generic/empty.</td>
+              </tr>
+              <tr>
+                <td>Long</td>
+                <td>28,820 / 3,602 / 3,603</td>
+                <td>73.93% specific</td>
+                <td>84.17% train</td>
+                <td>Character-capped 32K chunks; 78.2% exceed 4096 ModernBERT tokens.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout info" style="margin-top:1rem">
+          <strong>Short-corpus funnel:</strong>
+          151,328 raw combined rows → 148,283 “deduped” rows → 43,247 capped/balanced rows → the
+          34,597/4,325/4,325 split. Final source counts are 15,000 tweets, 15,000 Nosible, 9,929 FinanceMTEB FinSent,
+          2,621 SubjECTive-QA, and 697 Aiera. The deduped file is not a strict subset of raw—11 neutral Nosible texts appear
+          only afterward—and <code>all_annotated.parquet</code> and <code>all_balanced.parquet</code> are byte-identical,
+          so the named post-annotation balancing stage performed no change.
+        </div>
+
+        <div class="grid-2" style="margin-top:1rem">
+          <article class="card">
+            <h3>Raw augmentation duplicates</h3>
+            <p class="small">
+              The raw augmentation CSVs contain 4,102 rows but only 1,164 unique normalized synthetic texts and 782 unique
+              originals. They are cumulative snapshots, not independent shards.
+            </p>
+            <p class="small muted">Never concatenate the raw directory. Use the curated 410-row artifact or rebuild from a manifest with family IDs.</p>
+          </article>
+          <article class="card">
+            <h3>Long-data provenance break</h3>
+            <p class="small">
+              <a href="scripts/chunk_sources.py">scripts/chunk_sources.py</a> actually tokenizes with ModernBERT and filters
+              500–3,072 tokens, despite comments about a 4.5 chars/token heuristic. The ignored long parquet has no token-count
+              column and text is capped at exactly 32,000 characters.
+            </p>
+            <p class="small muted">Therefore the current script cannot explain the current long dataset. Trace the generating code, tokenizer revision, and hashes before rechunking.</p>
+          </article>
+        </div>
+
+        <div class="grid-2" style="margin-top:1rem">
+          <article class="card">
+            <h3>Medium split leakage warning</h3>
+            <p class="small">
+              Exact texts do not cross medium splits, but normalized first-200-character prefixes overlap 94 times
+              train→validation, 97 times train→test, and 20 times validation→test. These are likely adjacent chunks from
+              the same documents.
+            </p>
+            <p class="small muted">The builder prints leakage counts but does not fail. Future splits must group by source document before sampling chunks.</p>
+          </article>
+          <article class="card">
+            <h3>Annotation merge is not reconstructible</h3>
+            <p class="small">
+              All 217 short annotation batches exist, but their entity coverage and label counts differ materially from the
+              final parquet. A second NONE pass and 279 early-index manual overrides exist, yet no single merge driver explains
+              the final 43,247 rows.
+            </p>
+            <p class="small muted">The medium builder also joins annotations by row order using <code>.values</code>, not by a stable key.</p>
+          </article>
+        </div>
+
+        <div class="callout warning" style="margin-top:1rem">
+          <strong>Processed data is locally present but not reproducibly built by the committed pipeline.</strong>
+          Short entity annotation provenance and the exact long-dataset generator are missing; some surviving annotation scripts
+          extract entities with regex/dictionaries and then copy the sentence label. Audit claims, licenses, split grouping,
+          and exact hashes before publishing a dataset card.
+        </div>
+      </section>
+
+      <section id="quarantine">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Do not propagate</p>
+            <h2>Claims quarantine</h2>
+          </div>
+          <span class="status compromised">Requires correction or rerun</span>
+        </div>
+        <p class="section-intro">
+          These statements appear in current or historical repo material but are either invalid, stale, or too strong for the retained evidence.
+        </p>
+
+        <div class="quarantine-grid">
+          <article class="quarantine">
+            <h3>“The model is already well calibrated.”</h3>
+            <p>The saved run uses the production model on its 14,859-row training set, fits and evaluates with one fold, and gets 99.973% accuracy. Temperature T=1.00025 changes almost nothing and slightly worsens ECE (.0002421628 → .0002421686).</p>
+            <div class="do-not">Replace with</div>
+            <p>Calibration is unknown out of sample; rerun with grouped out-of-fold logits or a locked external set.</p>
+          </article>
+          <article class="quarantine">
+            <h3>“ModernFinBERT fairly beat Claude by 10 points.”</h3>
+            <p>The JSON says .8313/.7957 versus .7275/.7033 on 723 rows, but the script loads the production v1 trained on the aggregate corpus that contributed those rows. The benchmark gave Claude condensed rules, not the full skill.</p>
+            <div class="do-not">Replace with</div>
+            <p>The saved comparison is contaminated for v1; rerun with a truly held-out checkpoint, frozen blind set, explicit model ID, and failure accounting.</p>
+          </article>
+          <article class="quarantine">
+            <h3>“v1 reaches 99.92% on FPB.”</h3>
+            <p>The exact released v1 was trained on all FPB. This is an in-sample identity check, not a benchmark. The honest held-out research generation is around 80–81% accuracy.</p>
+            <div class="do-not">Replace with</div>
+            <p>Use the released v1 only with an external locked test or rebuild a model that never sees the FPB evaluation rows.</p>
+          </article>
+          <article class="quarantine">
+            <h3>“v2 is entity-aware.”</h3>
+            <p>Entity labels mostly equal sentence labels, 64% of short inputs have no specific entity, ModernBERT lacks segment embeddings, and conflict macro-F1 is only ~.44.</p>
+            <div class="do-not">Replace with</div>
+            <p>v2 accepts entity-conditioned input; learned entity-specific behavior has not been demonstrated.</p>
+          </article>
+          <article class="quarantine">
+            <h3>“v1 uses standard three-class cross-entropy.”</h3>
+            <p>Many v1 notebooks pass one-hot float labels to Transformers, which auto-selects multi-label BCEWithLogitsLoss. Inference then applies argmax/softmax as though training were single-label CE. The local production config confirms multi-label mode.</p>
+            <div class="do-not">Replace with</div>
+            <p>Document the historical BCE path; future training should use integer class IDs and explicit single-label configuration.</p>
+          </article>
+          <article class="quarantine">
+            <h3>“10-fold CV is an unbiased final estimate.”</h3>
+            <p>FPB CV selects the best epoch on each test fold and then reports that fold; production CV can also split paraphrase families across folds. Exact metrics are optimistic.</p>
+            <div class="do-not">Replace with</div>
+            <p>Use nested validation inside each training fold and grouped family splits.</p>
+          </article>
+          <article class="quarantine">
+            <h3>“The long data was token-aware chunked.”</h3>
+            <p>The current script filters 500–3,072 tokenizer tokens, but the actual long parquet is character-capped and 78.2% truncates at 4K. The retained code and artifact do not share a provenance chain.</p>
+            <div class="do-not">Replace with</div>
+            <p>The long dataset’s generator is unknown; hash and trace it before any new Stage 3 run.</p>
+          </article>
+          <article class="quarantine">
+            <h3>“Notebook source proves the run happened.”</h3>
+            <p>All 41 notebooks have null execution counts and zero output cells. NB17 variants also contain collapsed, syntactically invalid source. Several tables are hard-coded summaries.</p>
+            <div class="do-not">Replace with</div>
+            <p>A run is supported only when its log, structured result, checkpoint state, or external artifact is retained.</p>
+          </article>
+          <article class="quarantine">
+            <h3>“The +7.84 F1 gain proves Verbalized Sampling.”</h3>
+            <p>The 246-example study that produced +7.84 aggregate-test F1 used standard prompting. A separate 410-row artifact uses VS-CoT and feeds later LoRA/full-FT experiments.</p>
+            <div class="do-not">Replace with</div>
+            <p>Targeted augmentation helped; the incremental effect of VS-CoT over standard prompting remains untested.</p>
+          </article>
+          <article class="quarantine">
+            <h3>“Architecture alone explains ModernBERT’s gain.”</h3>
+            <p>The clean held-out gap is large, but checkpoint scale, pretraining data, tokenizer, and architecture move together. In same-protocol CV, the +1.09-point edge is not significant (p=.093).</p>
+            <div class="do-not">Replace with</div>
+            <p>ModernBERT is directionally stronger under tested recipes; isolate pretraining and scale before making a causal architecture claim.</p>
+          </article>
+          <article class="quarantine">
+            <h3>“The current notebook exactly reproduces the release.”</h3>
+            <p>Stage 1 batch size and optimizer-step counts drift from the retained log, while the v3 medium recipe inherits 461-step arithmetic from the older weighted-CE run. Hugging Face revisions are unpinned.</p>
+            <div class="do-not">Replace with</div>
+            <p>The current sources describe intended recipes; exact executed v3 lineage is incomplete until the missing log, config, and model revision are recovered.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="ledger">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Complete experiment memory</p>
+            <h2>Experiment ledger</h2>
+          </div>
+          <span class="pill"><span id="visible-count">34</span> visible</span>
+        </div>
+        <p class="section-intro">
+          This ledger includes completed experiments, negative results, invalid historical runs, and notebooks that were only plans.
+          Search from the left navigation or filter by evidence status.
+        </p>
+
+        <div class="controls" aria-label="Experiment status filters">
+          <button class="filter-button" type="button" data-filter="all" aria-pressed="true">All</button>
+          <button class="filter-button" type="button" data-filter="supported" aria-pressed="false">A · saved</button>
+          <button class="filter-button" type="button" data-filter="reported" aria-pressed="false">B · reported</button>
+          <button class="filter-button" type="button" data-filter="compromised" aria-pressed="false">C · limited</button>
+          <button class="filter-button" type="button" data-filter="notrun" aria-pressed="false">D · no result</button>
+        </div>
+
+        <div class="table-wrap">
+          <table id="ledger-table">
+            <thead>
+              <tr>
+                <th>Experiment</th>
+                <th>Evidence</th>
+                <th>Outcome and retained learning</th>
+                <th>Primary source</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="ledger-row searchable" data-status="reported">
+                <td>v1 NB01 · held-out architecture baseline</td>
+                <td><span class="status reported">B · reported</span></td>
+                <td>ModernBERT .8044/.7705 FPB50; .9298/.9148 all-agree; .7771/.6958 aggregate test. A separate generation reports .8091/.7810—keep versions distinct.</td>
+                <td><a href="notebooks/archive/v1/01_architecture_comparison.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="reported">
+                <td>v1 original DataBoost · 246 rows</td>
+                <td><span class="status reported">B · reported</span></td>
+                <td>Aggregate test .7729/.6660 → .8021/.7443. Targeted standard-prompt paraphrases help; attribution to VS is invalid.</td>
+                <td><a href="paper/main.tex">paper source</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="reported">
+                <td>v1 NB02A · 410 VS-CoT rows</td>
+                <td><span class="status reported">B · reported</span></td>
+                <td>LoRA FPB50 .8091/.7810 → .8256/.8052; all-agree .9324/.9192 → .9514/.9417. Validation-derived augmentation contaminates validation reuse.</td>
+                <td><a href="notebooks/archive/v1/02A_databoost_vs.ipynb">notebook</a> · <a href="data/vs_augmented_errors.csv">data</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="notrun">
+                <td>v1 NB02 · abandoned Claude augmentation</td>
+                <td><span class="status notrun">D · no result</span></td>
+                <td>Stops after baseline/error collection; three paraphrases per sample planned. Superseded by NB02A.</td>
+                <td><a href="notebooks/archive/not_in_paper/02_databoost.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="notrun">
+                <td>v1 NB03A · adapter test evaluation</td>
+                <td><span class="status notrun">D · no result</span></td>
+                <td>Planned external comparison of NB01/NB02 adapters; missing local dependencies and no outputs.</td>
+                <td><a href="notebooks/archive/not_in_paper/03A_test_evaluation.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="notrun">
+                <td>v1 NB03 · direct Claude API plan</td>
+                <td><span class="status notrun">D · no result</span></td>
+                <td>Planned ~4,846 calls; API failures silently mapped to neutral, which would invalidate a completed comparison. Superseded by blind skill benchmark.</td>
+                <td><a href="notebooks/archive/v1/03_claude_comparison.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="compromised">
+                <td>Blind skill benchmark · Claude vs v1</td>
+                <td><span class="status compromised">C · limited</span></td>
+                <td>JSON: v1 .8313/.7957 vs Claude .7275/.7033 on 723. v1 production trained on contributing corpus; cannot support a fair held-out claim. Prior non-blind 95.7% run had explicit ground-truth leakage and is discarded.</td>
+                <td><a href="results/fair_comparison_results.json">JSON</a> · <a href="skills/financial-sentiment-engine/BENCHMARK.md">protocol</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="compromised">
+                <td>v1 NB04 · FPB 10-fold CV</td>
+                <td><span class="status compromised">C · limited</span></td>
+                <td>.8688±.0096 accuracy / .8540±.0139 F1. Each held fold selected its best epoch, making the estimate optimistic; direction remains useful.</td>
+                <td><a href="notebooks/archive/v1/04_kfold_cv.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="compromised">
+                <td>v1 NB05 / NB08 · contaminated comparisons</td>
+                <td><span class="status compromised">C · invalid</span></td>
+                <td>Wrong FPB source ID (6 instead of 5) leaked benchmark data into training. Claims such as BERT 95.19%, Modern 91.19%, and rank-48 gains were removed in commit faa32a4; never revive them.</td>
+                <td><a href="paper/main.tex">history referenced in paper</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="reported">
+                <td>v1 NB06 · five seeds</td>
+                <td><span class="status reported">B · reported</span></td>
+                <td>FPB50 .8044±.0089/.7705±.0098; all-agree .9298±.0025/.9148±.0035; aggregate .7771±.0053/.6958±.0062. Individual seed results are not retained.</td>
+                <td><a href="notebooks/archive/v1/06_multi_seed.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="reported">
+                <td>v1 NB07 · tweet self-training</td>
+                <td><span class="status reported">B · negative</span></td>
+                <td>3,217 pseudo labels reduce FPB, aggregate test, and validation performance. Domain mismatch and overconfident teacher; stop after round one.</td>
+                <td><a href="notebooks/archive/v1/07_self_training.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="supported">
+                <td>v1 NB09A · dedup audit</td>
+                <td><span class="status supported">A · saved</span></td>
+                <td>Zero exact, fuzzy &gt;.90, or semantic &gt;.95 matches between non-FPB train+validation and FPB. Limited to this dataset, encoder, and threshold.</td>
+                <td><a href="dedup_audit_results.json">JSON</a> · <a href="dedup_semantic_results.json">semantic JSON</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="compromised">
+                <td>v1 NB09B · BERT/Modern/rank CV</td>
+                <td><span class="status compromised">C · partial</span></td>
+                <td>Paper head-to-head: Modern .8636 vs BERT .8527, 7/10 wins, p=.093. The notebook has no output and rank 48 completed only two folds; no clean rank conclusion.</td>
+                <td><a href="notebooks/archive/v1/09b_fpb_crossval.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="reported">
+                <td>v1 NB09C · clean held-out BERT vs Modern</td>
+                <td><span class="status reported">B · reported</span></td>
+                <td>Modern .8093/.7793 vs BERT .7309/.6051 on FPB50. Stale hardcodes .9119 and .9519 are superseded.</td>
+                <td><a href="notebooks/archive/v1/09c_clean_holdout.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="notrun">
+                <td>v1 NB09D · sample efficiency</td>
+                <td><span class="status notrun">D · no result</span></td>
+                <td>Planned 36 runs across six sample sizes, two models, three seeds. Useful future design; never executed.</td>
+                <td><a href="notebooks/archive/not_in_paper/09d_sample_efficiency.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="notrun">
+                <td>v1 NB09E · full-FT plan</td>
+                <td><span class="status notrun">D · superseded</span></td>
+                <td>Planned BERT/Modern full fine-tune; no outputs. NB12 is the relevant completed full-FT experiment.</td>
+                <td><a href="notebooks/archive/not_in_paper/09e_full_finetune.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="notrun">
+                <td>v1 NB10 · finbert-tone deep dive</td>
+                <td><span class="status notrun">D · no result</span></td>
+                <td>Zero-shot paper metric .7914/.7530 is reported elsewhere; planned rank-64, label smoothing, focal, and curriculum techniques have no results.</td>
+                <td><a href="notebooks/archive/not_in_paper/10_finbert_tone_deep_dive.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="supported">
+                <td>v1 NB11 · provenance audit</td>
+                <td><span class="status supported">A · saved</span></td>
+                <td>Quantifies 14,449 rows, source priors, lengths, and mining concentration. Its claim that non-FPB labels were LLM-generated is stale and false.</td>
+                <td><a href="results/data_provenance_audit.json">JSON</a> · <a href="notebooks/archive/v1/11_data_provenance_audit.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="reported">
+                <td>v1 NB12 · full FT + DataBoost</td>
+                <td><span class="status reported">B · reported</span></td>
+                <td>Full FT .7722/.6937 → .8137/.7977 FPB50 with 410 rows; LoRA+DB .8256/.8052 remains stronger. Supports regularization hypothesis, not a universal LoRA result.</td>
+                <td><a href="notebooks/archive/v1/12_full_ft_databoost.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="notrun">
+                <td>v1 NB13 · DeBERTa baseline</td>
+                <td><span class="status notrun">D · failed</span></td>
+                <td>Collapsed to one-class predictions under copied LoRA/checkpointing recipe. No numeric output; inconclusive, not evidence that DeBERTa is worse.</td>
+                <td><a href="notebooks/archive/v1/13_deberta_baseline.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="compromised">
+                <td>v1 NB14 · production training</td>
+                <td><span class="status compromised">C · limited</span></td>
+                <td>Full FT on all aggregate splits, all FPB, and 410 rows = 14,859; published v1. Reported CV .8141±.0109/.7766±.0079 has no result file and risks fold-selection plus paraphrase-family leakage.</td>
+                <td><a href="notebooks/archive/v1/14_production_model.ipynb">notebook</a> · <a href="MODEL_CARD.md">model card</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="notrun">
+                <td>v1 NB15 · error analysis</td>
+                <td><span class="status notrun">D · no result</span></td>
+                <td>No result JSON and no outputs. “31% of errors above .9 confidence” and linguistic categories remain unsupported hypotheses; current model ID would also be in-sample on FPB.</td>
+                <td><a href="notebooks/archive/v1/15_error_analysis.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="compromised">
+                <td>v1 NB16 · confidence calibration</td>
+                <td><span class="status compromised">C · invalid</span></td>
+                <td>Production training-set fit/evaluation; T=1.00025; ECE slightly worsens. Cannot support deployment calibration.</td>
+                <td><a href="results/calibration_comparison.json">JSON</a> · <a href="notebooks/archive/v1/16_confidence_calibration.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="notrun">
+                <td>v1 NB17 / 17A / 17B · earnings improvement</td>
+                <td><span class="status notrun">D · broken</span></td>
+                <td>Collapsed one-line source creates syntax errors; no CSV or results. The ~69→78 target is a goal, not an observed gain.</td>
+                <td><a href="notebooks/archive/v1/17a_earnings_error_mining.ipynb">17A</a> · <a href="notebooks/archive/v1/17b_earnings_improvement.ipynb">17B</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="notrun">
+                <td>v1 NB18 · long-context ablation</td>
+                <td><span class="status notrun">D · no result</span></td>
+                <td>Planned 512/1024/2048 × three seeds; no outputs. Design selects length using short FPB and is superseded by v2 long evidence.</td>
+                <td><a href="notebooks/archive/v1/18_longctx_ablation.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="notrun">
+                <td>v1 NB19 · old multi-benchmark</td>
+                <td><span class="status notrun">D · superseded</span></td>
+                <td>Planned FPB/Twitter/FiQA comparison; no outputs. Replaced by current three-model NB02.</td>
+                <td><a href="notebooks/archive/v1/19_multi_benchmark.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="notrun">
+                <td>v2 NB20 · dataset collection plan</td>
+                <td><span class="status notrun">D · diverged</span></td>
+                <td>Notebook plan was not executed as written. Actual ignored pipeline diverges and lacks reproducible short/long provenance; risks include shuffled original test splits and ungrouped documents.</td>
+                <td><a href="notebooks/archive/v1/20_dataset_collection.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="supported">
+                <td>v2 Stage 1 · short</td>
+                <td><span class="status supported">A · saved</span></td>
+                <td>Three epochs; .7695/.7711 test; balanced class behavior; released v2-short. Most trustworthy v2 training run locally.</td>
+                <td><a href="notebooks/results/01a_short/modernfinbert-v2-train-short.log">log</a> · <a href="notebooks/01a_train_short.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="supported">
+                <td>v2 Stage 2 · old weighted CE</td>
+                <td><span class="status supported">A · saved</span></td>
+                <td>Medium .6314/.5428; short .7473/.7480. Inverse weights overcorrect NEG and only end-of-epoch selection is too coarse.</td>
+                <td><a href="notebooks/results/01c_medium/modernfinbert-v2-medium.log">log</a> · <a href="notebooks/archive/01c_finetune_medium__pre_v3.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="supported">
+                <td>v2 Stage 3 · old long</td>
+                <td><span class="status supported">A · negative</span></td>
+                <td>52.8% truncation at 6144; long .6264/.5422; medium F1 regresses; NEU recall .20. Do not ship or resume this checkpoint.</td>
+                <td><a href="notebooks/results/01b_long/modernfinbert-v2-finetune-long.log">log</a> · <a href="notebooks/archive/01b_finetune_long__pre_v3.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="reported">
+                <td>v2 Stage 2 v3 · focal/r32</td>
+                <td><span class="status reported">B · release note</span></td>
+                <td>Medium .6971/.5886; short .7561/.7580. Canonical v2-medium, but its exact v3 raw checkpoint/log is not retained locally.</td>
+                <td><a href="notebooks/results/v2_recipe_v3_runs.md">run ledger</a> · <a href="notebooks/01c_finetune_medium.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="notrun">
+                <td>v2 Stage 3 v3 · retry</td>
+                <td><span class="status notrun">D · stopped</span></td>
+                <td>No training step: save/eval mismatch, secret loss, then 78.2% pre-truncation failure at 4096. Correct decision was to abandon Stage 3.</td>
+                <td><a href="notebooks/01b_finetune_long.ipynb">notebook</a> · <a href="notebooks/results/v2_recipe_v3_runs.md">run ledger</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="supported">
+                <td>Current NB02 · three-model benchmark</td>
+                <td><span class="status supported">A · saved</span></td>
+                <td>v2-short wins most external short/OOD views; v2-medium improves only slightly on FinEntity sentence/per-entity; entity conflicts fail across all models.</td>
+                <td><a href="kaggle_output/benchmark_results_v1_vs_v2.json">JSON</a> · <a href="notebooks/02_benchmark_inference.ipynb">notebook</a></td>
+              </tr>
+              <tr class="ledger-row searchable" data-status="notrun">
+                <td>NB03 · GPU memory profile</td>
+                <td><span class="status notrun">D · no result</span></td>
+                <td>Planned synthetic fp16 vs 4-bit profiling from sequence 64–8192 and batch 1–64. No outputs, so no learned memory limits.</td>
+                <td><a href="notebooks/03_gpu_memory_test.ipynb">notebook</a></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="empty-state" id="empty-state">No experiments match the current search and filter.</div>
+        </div>
+      </section>
+
+      <section id="operations">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Reproducibility and execution</p>
+            <h2>Operational lessons worth keeping</h2>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <article class="card">
+            <h3>T4-safe v2 training</h3>
+            <ul class="compact-list">
+              <li>Use explicit SDPA for long sequences; Flash Attention 2 is not reliable on T4 sm75.</li>
+              <li>Disable Unsloth fast generation and TorchDynamo for variable long lengths.</li>
+              <li>Use 8-bit AdamW and gradient checkpointing.</li>
+              <li>Keep evaluation/save intervals compatible when loading the best checkpoint.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Run provenance</h3>
+            <ul class="compact-list">
+              <li>A Kaggle CLI push does not preserve secret bindings.</li>
+              <li>Record commit, dirty diff, notebook hash, data hashes, model revision, package lock, seed, and hardware.</li>
+              <li>Save machine-readable metrics beside logs and checkpoint state.</li>
+              <li>Do not rely on generated checkpoint READMEs; they are boilerplate.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Current environment gaps</h3>
+            <ul class="compact-list">
+              <li>The local <code>venv</code> has packages but no usable Python launcher/activate script.</li>
+              <li><a href="setup_environment.sh">setup_environment.sh</a> references obsolete <code>Data.ipynb</code>.</li>
+              <li><a href="requirements.txt">requirements.txt</a> is broad and unpinned; Kaggle notebooks install ad hoc versions.</li>
+              <li>Critical data/checkpoints are ignored and not tied to a versioned manifest.</li>
+            </ul>
+          </article>
+        </div>
+
+        <h3 style="margin-top:1.5rem">Protocol template for every future experiment</h3>
+        <div class="protocol">
+          <article class="protocol-step"><div class="n">1</div><div><h4>Freeze the question</h4><p>State the one causal comparison, primary metric, dataset, split unit, and stop rule before training.</p></div></article>
+          <article class="protocol-step"><div class="n">2</div><div><h4>Lock provenance</h4><p>Hash raw/processed data, record source licenses and families, freeze benchmark rows, model revision, environment, and prompt.</p></div></article>
+          <article class="protocol-step"><div class="n">3</div><div><h4>Separate selection from evaluation</h4><p>Use train/validation for checkpointing and one untouched test. In CV, nest validation inside each training fold.</p></div></article>
+          <article class="protocol-step"><div class="n">4</div><div><h4>Retain evidence</h4><p>Save per-example predictions, labels, logits, IDs, metrics, seed, config, and logs—not only notebook prose.</p></div></article>
+          <article class="protocol-step"><div class="n">5</div><div><h4>Run regression views</h4><p>Evaluate prior-stage domains, class metrics, truncation, entity conflicts, and calibration before advancing.</p></div></article>
+          <article class="protocol-step"><div class="n">6</div><div><h4>Publish the nulls</h4><p>Record failures and non-significant results with the same completeness as wins; never backfill a planned table as evidence.</p></div></article>
+        </div>
+      </section>
+
+      <section id="next">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Prioritized future work</p>
+            <h2>What to do next—and the gate for continuing</h2>
+          </div>
+        </div>
+        <p class="section-intro">
+          The first priority is evidence integrity, not another large training run. Each item below has a decision gate so a
+          weak intermediate result does not expand into an expensive experiment by momentum alone.
+        </p>
+
+        <div class="stack">
+          <article class="card next-card">
+            <div class="priority"><span>Priority</span><strong>P0</strong></div>
+            <div>
+              <h3>Preserve the newest benchmark and create an experiment registry</h3>
+              <p class="small muted">Commit or deliberately archive the three-model notebook, log, JSON, exact model revisions, dataset revisions, and a manifest linking every headline metric to its artifact. Reconcile the two-model root JSON and update research.md with v2-short.</p>
+              <div class="gate"><strong>Gate:</strong> every number in README, paper, model cards, and this handoff resolves to one model identity, protocol, and retained artifact—or is explicitly graded “reported only.”</div>
+            </div>
+          </article>
+          <article class="card next-card">
+            <div class="priority"><span>Priority</span><strong>P0</strong></div>
+            <div>
+              <h3>Repair evaluation validity</h3>
+              <p class="small muted">Rerun calibration on grouped out-of-fold or locked external logits. Rerun the Claude comparison with a checkpoint that never saw the 723 rows, exact model ID, fixed prompt/rules, retries, and per-example outputs. Separate production-v1 from held-out-v1 cards.</p>
+              <div class="gate"><strong>Gate:</strong> no evaluation row or paraphrase family appears in training or checkpoint selection; calibration improves ECE/Brier/NLL on untouched data without material accuracy loss.</div>
+            </div>
+          </article>
+          <article class="card next-card">
+            <div class="priority"><span>Priority</span><strong>P1</strong></div>
+            <div>
+              <h3>Test entity learning, not entity formatting</h3>
+              <p class="small muted">Build a gold, conflict-rich, neutral-balanced set; compare prefix, sentence pair, and inline markers on identical splits; add entity remove/shuffle/swap counterfactuals. Audit whether annotations are regex proxies or independent judgments.</p>
+              <div class="gate"><strong>Gate:</strong> conflict macro-F1 improves materially across seeds and predictions respond correctly to entity swaps. If not, stop calling the task entity-aware and reconsider the backbone/objective.</div>
+            </div>
+          </article>
+          <article class="card next-card">
+            <div class="priority"><span>Priority</span><strong>P1</strong></div>
+            <div>
+              <h3>Resolve augmentation causality</h3>
+              <p class="small muted">Run a grouped, multi-seed factorial: no augmentation vs standard targeted paraphrase vs VS-CoT, with equal sample counts and independent validation/test. Keep original-paraphrase families together.</p>
+              <div class="gate"><strong>Gate:</strong> VS-CoT must beat standard prompting with confidence intervals on locked test data; otherwise retain the simpler conclusion that targeted augmentation helps.</div>
+            </div>
+          </article>
+          <article class="card next-card">
+            <div class="priority"><span>Priority</span><strong>P1</strong></div>
+            <div>
+              <h3>Rebuild long data before long training</h3>
+              <p class="small muted">Trace the exact current artifact first. Then rechunk original documents with the exact ModernBERT tokenizer, split oversized speaker turns/sections, cache token lengths, group by document, and reannotate only the regenerated chunks.</p>
+              <div class="gate"><strong>Gate:</strong> pre-truncation p50/p95/p99 are documented, &lt;10% of training examples truncate at the chosen limit, and a dry-run memory profile succeeds. More GPU is not a substitute for passing this gate.</div>
+            </div>
+          </article>
+          <article class="card next-card">
+            <div class="priority"><span>Priority</span><strong>P2</strong></div>
+            <div>
+              <h3>Run clean architecture and adaptation studies</h3>
+              <p class="small muted">Multi-seed ModernBERT/BERT/DeBERTa comparisons need architecture-specific stable recipes and common data. DAPT → TAPT → supervised or contrastive training remains a high-upside hypothesis, not an observed gain; validate corpus licenses and dedup first.</p>
+              <div class="gate"><strong>Gate:</strong> pre-register primary OOD and held-out metrics; require consistent improvement across seeds and report significance. A one-class collapse is a recipe failure, not an architecture verdict.</div>
+            </div>
+          </article>
+          <article class="card next-card">
+            <div class="priority"><span>Priority</span><strong>P2</strong></div>
+            <div>
+              <h3>Finish the public documentation only after evidence cleanup</h3>
+              <p class="small muted">Regenerate the paper PDF; remove placeholder email/TBDs; correct trainable parameter and latency claims; add latest benchmark and Stage 3 outcome; create distinct v1-production, v1-research, v2-short, and v2-medium model cards.</p>
+              <div class="gate"><strong>Gate:</strong> automated link/claim checks pass and every public metric carries dataset, split, model revision, evidence grade, and contamination note where relevant.</div>
+            </div>
+          </article>
+        </div>
+
+        <h3 style="margin-top:1.5rem">Suggested skills for the next agent</h3>
+        <div class="grid-3">
+          <article class="card"><h3>research</h3><p class="small muted">Verify dataset licenses, model facts, DAPT corpora, and benchmark protocols against primary sources; capture citations in repo Markdown.</p></article>
+          <article class="card"><h3>tdd</h3><p class="small muted">Build tokenizer/chunker invariants, split-family tests, label-mode checks, and artifact-schema tests before pipeline changes.</p></article>
+          <article class="card"><h3>implement</h3><p class="small muted">Apply a written, evidence-gated spec to the data pipeline or experiment registry after the audit decisions are fixed.</p></article>
+          <article class="card"><h3>code-review</h3><p class="small muted">Review claims and implementation together: documented standards on one axis, experiment spec/protocol on the other.</p></article>
+          <article class="card"><h3>domain-modeling</h3><p class="small muted">Define model identity, dataset family, split unit, run, checkpoint, evidence grade, and claim as explicit domain concepts.</p></article>
+          <article class="card"><h3>Repo-local skills</h3><p class="small muted">Use verbalized-sampling-augment only on a clean error set; use financial-sentiment-engine only with a fully blind, failure-accounted benchmark.</p></article>
+        </div>
+      </section>
+
+      <section id="sources">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Where the evidence lives</p>
+            <h2>Artifact map and audit scope</h2>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <article class="card">
+            <h3>Primary source map</h3>
+            <ul class="artifact-map compact-list">
+              <li><a href="README.md">README.md</a> — current project framing, mixed v1/v2.</li>
+              <li><a href="MODEL_CARD.md">MODEL_CARD.md</a> — v1 production description; stale calibration/TBDs.</li>
+              <li><a href="notebooks/RECIPE.md">notebooks/RECIPE.md</a> — canonical v2 recipe.</li>
+              <li><a href="notebooks/results/v2_recipe_v3_runs.md">v2 run ledger</a> — v3 results and failure history.</li>
+              <li><a href="research.md">research.md</a> — current analysis; working-tree version adds two-model benchmark interpretation.</li>
+              <li><a href="paper/main.tex">paper/main.tex</a> — v1 paper source, metrics, and remaining TBDs.</li>
+              <li><a href="paper/main.pdf">paper/main.pdf</a> — older rendered paper; source is newer.</li>
+              <li><a href="results/data_provenance_audit.json">data provenance JSON</a>.</li>
+              <li><a href="results/inference_benchmark.json">inference JSON</a>.</li>
+              <li><a href="results/calibration_comparison.json">calibration JSON</a>.</li>
+              <li><a href="results/fair_comparison_results.json">Claude comparison JSON</a>.</li>
+              <li><a href="dedup_audit_results.json">dedup audit JSON</a>.</li>
+              <li><a href="kaggle_output/benchmark_results_v1_vs_v2.json">latest three-model JSON</a>.</li>
+              <li><a href="data/vs_augmented_errors.csv">410-row VS-CoT artifact</a>.</li>
+              <li><a href="reference/fpb_benchmarks.md">FPB protocol reference</a>.</li>
+              <li><a href="reference/financial_sentiment_datasets_research.md">future dataset research</a>.</li>
+              <li><a href="skills/financial-sentiment-engine/BENCHMARK.md">blind benchmark notes</a>.</li>
+              <li><a href="TODOS.md">TODOS.md</a> — open work; contains naming overlaps and completed/attempted ideas.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Scope and method</h3>
+            <p class="small muted">
+              The audit covered every project-authored document, script, notebook, structured result, log, artifact metadata file,
+              paper source, skill document, and repository history relevant to experimental claims. It inspected ignored processed
+              data and annotation batches through schema, aggregate statistics, sampled logic, and provenance relationships.
+            </p>
+            <p class="small muted">
+              Opaque model weights, optimizer tensors, archives, images, and PDFs were inventoried and—where useful—checked through
+              metadata or rendering rather than interpreted byte-for-byte. Third-party environment packages and internal Git object
+              bytes were not treated as project knowledge. No secrets or local credential values are reproduced here.
+            </p>
+            <p class="small muted">
+              Exact duplicate notebook families were counted but not reinterpreted as independent evidence:
+              Kaggle pushes 13–16 mirror their archived v1 notebooks; Kaggle 17A mirrors archive 17A; the root and notebooks/02
+              benchmark notebooks share cell source; the older Kaggle push 02 is a two-model variant.
+            </p>
+          </article>
+        </div>
+
+        <div class="callout info" style="margin-top:1rem">
+          <strong>Historical reconstruction note:</strong>
+          tracked <code>plan.md</code> is deleted in the current working tree but remains readable at HEAD and is still linked by
+          README/RECIPE. Git milestones worth preserving are <code>faa32a4</code> (remove contaminated experiments),
+          <code>ff46f39</code> (correct label provenance), <code>e2f4118</code> (introduce v2),
+          <code>61f0993</code> (split failed 8K workflow), <code>67e9061</code> (v3 recipe),
+          <code>69040ae</code> (abandon Stage 3), and <code>c1e1e00</code> (initial v1-v2 benchmark).
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <a class="back-top" href="#top" aria-label="Back to top">↑</a>
+  <footer class="footer">
+    <p>
+      ModernFinBERT experimental handoff · generated from the repository state at <code>c1e1e00</code> plus the
+      current working tree · 16 August 2026.
+    </p>
+    <p>This is a decision document, not a replacement for the linked raw artifacts.</p>
+  </footer>
+
+  <script>
+    (function () {
+      var search = document.getElementById("ledger-search");
+      var rows = Array.prototype.slice.call(document.querySelectorAll(".ledger-row"));
+      var buttons = Array.prototype.slice.call(document.querySelectorAll(".filter-button"));
+      var count = document.getElementById("visible-count");
+      var empty = document.getElementById("empty-state");
+      var activeFilter = "all";
+
+      function applyFilters() {
+        var query = search.value.trim().toLowerCase();
+        var visible = 0;
+        rows.forEach(function (row) {
+          var statusMatch = activeFilter === "all" || row.dataset.status === activeFilter;
+          var textMatch = !query || row.textContent.toLowerCase().indexOf(query) !== -1;
+          var show = statusMatch && textMatch;
+          row.hidden = !show;
+          if (show) visible += 1;
+        });
+        count.textContent = String(visible);
+        empty.classList.toggle("visible", visible === 0);
+      }
+
+      search.addEventListener("input", applyFilters);
+      buttons.forEach(function (button) {
+        button.addEventListener("click", function () {
+          activeFilter = button.dataset.filter;
+          buttons.forEach(function (other) {
+            other.setAttribute("aria-pressed", String(other === button));
+          });
+          applyFilters();
+        });
+      });
+      applyFilters();
+    }());
+  </script>
+</body>
+</html>
