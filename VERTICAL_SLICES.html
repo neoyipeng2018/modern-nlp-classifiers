@@ -1,0 +1,1177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Four end-to-end slices: forward-looking plus the shared harness, aspect sentiment, fact versus opinion, and the suite release. Each with scope, work items, exit gates and what is deferred.">
+  <title>ModernFin Triad — Vertical Slices</title>
+  <style>
+/* Shared design system for the ModernFin Triad planning documents.
+   Inlined into each generated HTML file by assets/build.py so every
+   document stays a single self-contained file. Derived from learnings.html. */
+
+:root {
+  color-scheme: light;
+  --ink: #172126;
+  --muted: #5b686d;
+  --paper: #f5f2ea;
+  --surface: #fffdf8;
+  --surface-2: #ece8de;
+  --line: #d8d2c4;
+  --navy: #183a4a;
+  --teal: #087f79;
+  --teal-soft: #dff2ef;
+  --blue: #2d5f92;
+  --blue-soft: #e5edf8;
+  --amber: #a15c08;
+  --amber-soft: #fff0d7;
+  --red: #a43c34;
+  --red-soft: #fae6e3;
+  --violet: #66559a;
+  --violet-soft: #eee9fb;
+  --shadow: 0 12px 35px rgba(31, 41, 43, .08);
+  --radius: 18px;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --serif: Iowan Old Style, "Palatino Linotype", Palatino, Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 88% 0%, rgba(8, 127, 121, .10), transparent 25rem),
+    var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  line-height: 1.58;
+}
+a { color: var(--blue); text-underline-offset: 3px; }
+a:hover { color: var(--teal); }
+code {
+  font-family: var(--mono);
+  font-size: .88em;
+  background: var(--surface-2);
+  border-radius: 5px;
+  padding: .08rem .3rem;
+  overflow-wrap: anywhere;
+}
+pre {
+  overflow-x: auto;
+  margin: .7rem 0 0;
+  padding: .9rem 1rem;
+  color: #e8eef0;
+  background: #14262f;
+  border-radius: 12px;
+  font-family: var(--mono);
+  font-size: .78rem;
+  line-height: 1.6;
+}
+pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  left: 1rem;
+  top: -5rem;
+  padding: .7rem 1rem;
+  color: white;
+  background: var(--navy);
+  border-radius: .5rem;
+}
+.skip-link:focus { top: 1rem; }
+
+/* ---------- hero ---------- */
+.hero {
+  position: relative;
+  overflow: hidden;
+  background: var(--navy);
+  color: white;
+  padding: 4.5rem max(1.25rem, calc((100vw - 1380px) / 2)) 2.2rem;
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  width: 34rem;
+  height: 34rem;
+  right: -12rem;
+  top: -18rem;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 5rem rgba(255,255,255,.035),
+    0 0 0 10rem rgba(255,255,255,.025);
+}
+.hero-inner { position: relative; z-index: 1; max-width: 1000px; }
+.eyebrow {
+  margin: 0 0 .8rem;
+  color: #9edbd5;
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+h1, h2, h3, h4 { line-height: 1.14; }
+h1 {
+  max-width: 900px;
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(2.4rem, 5.6vw, 4.9rem);
+  font-weight: 650;
+  letter-spacing: -.035em;
+}
+.hero .lede {
+  max-width: 850px;
+  margin: 1.2rem 0 0;
+  color: #dce9ec;
+  font-size: clamp(1rem, 2vw, 1.28rem);
+}
+.audit-strip {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .75rem;
+  max-width: 1200px;
+  margin-top: 2.3rem;
+}
+.audit-stat {
+  padding: .8rem .9rem;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+}
+.audit-stat strong { display: block; color: white; font-size: 1.15rem; }
+.audit-stat span {
+  display: block;
+  margin-top: .16rem;
+  color: #b8cbd0;
+  font-size: .78rem;
+  line-height: 1.3;
+}
+.doc-nav {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  margin-top: 1.9rem;
+}
+.doc-nav a {
+  padding: .42rem .75rem;
+  color: #cfe3e6;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 999px;
+  font-size: .76rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.doc-nav a:hover { color: white; background: rgba(255,255,255,.16); }
+.doc-nav a[aria-current="page"] {
+  color: var(--navy);
+  background: #9edbd5;
+  border-color: #9edbd5;
+}
+
+/* ---------- layout ---------- */
+.page {
+  display: grid;
+  grid-template-columns: 245px minmax(0, 1fr);
+  gap: 2rem;
+  width: min(1380px, calc(100% - 2.5rem));
+  margin: 2rem auto 6rem;
+  align-items: start;
+}
+.sidebar {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  padding: 1rem;
+  background: rgba(255,253,248,.9);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.sidebar-title {
+  margin: 0 0 .65rem;
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+.toc { display: grid; gap: .1rem; margin-bottom: 1.1rem; }
+.toc a {
+  padding: .35rem .5rem;
+  color: var(--ink);
+  border-radius: 7px;
+  font-size: .86rem;
+  text-decoration: none;
+}
+.toc a:hover, .toc a:focus { background: var(--teal-soft); color: var(--teal); }
+.sidebar hr { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; }
+.legend { display: grid; gap: .5rem; font-size: .76rem; color: var(--muted); }
+.legend-row {
+  display: grid;
+  grid-template-columns: 82px 1fr;
+  gap: .45rem;
+  align-items: start;
+}
+
+main { min-width: 0; }
+section { scroll-margin-top: 1rem; margin-bottom: 2.8rem; }
+.section-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: end;
+  min-width: 0;
+  margin-bottom: 1rem;
+}
+.section-head > * { min-width: 0; }
+.section-kicker {
+  margin: 0 0 .25rem;
+  color: var(--teal);
+  font-size: .73rem;
+  font-weight: 850;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+h2 {
+  margin: 0;
+  color: var(--navy);
+  font-family: var(--serif);
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  letter-spacing: -.025em;
+}
+h3 { margin: 0 0 .55rem; color: var(--navy); font-size: 1.08rem; }
+h4 { margin: 0 0 .35rem; font-size: .92rem; }
+.section-intro { max-width: 880px; margin: .45rem 0 1.1rem; color: var(--muted); }
+
+/* ---------- cards ---------- */
+.card {
+  padding: 1.15rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 7px 22px rgba(31, 41, 43, .045);
+}
+.card p:last-child, .callout p:last-child { margin-bottom: 0; }
+.card > p { margin: .35rem 0 0; }
+.grid-2, .grid-3, .grid-4, .grid-5 { display: grid; gap: 1rem; }
+.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.stack { display: grid; gap: 1rem; }
+.stack-sm { display: grid; gap: .6rem; }
+.number-card { position: relative; overflow: hidden; padding-top: 3.1rem; }
+.number-card::before {
+  content: attr(data-number);
+  position: absolute;
+  top: .45rem;
+  right: .8rem;
+  color: rgba(24,58,74,.12);
+  font-family: var(--serif);
+  font-size: 3.3rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.number-card p { margin: .3rem 0 0; color: var(--muted); font-size: .88rem; }
+.metric-value {
+  display: block;
+  color: var(--navy);
+  font-family: var(--serif);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -.03em;
+}
+.metric-label { color: var(--muted); font-size: .75rem; }
+
+.callout {
+  padding: 1.05rem 1.2rem;
+  border-left: 5px solid var(--teal);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--teal-soft);
+}
+.callout.warning { border-color: var(--amber); background: var(--amber-soft); }
+.callout.danger { border-color: var(--red); background: var(--red-soft); }
+.callout.info { border-color: var(--blue); background: var(--blue-soft); }
+.callout strong { color: var(--navy); }
+.callout h3 { margin-bottom: .3rem; }
+
+/* ---------- pills and status ---------- */
+.pill, .status {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  width: fit-content;
+  border-radius: 999px;
+  font-size: .68rem;
+  font-weight: 850;
+  letter-spacing: .045em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.pill { padding: .34rem .52rem; background: var(--surface-2); color: var(--navy); }
+.pill.teal { background: var(--teal-soft); color: var(--teal); }
+.pill.blue { background: var(--blue-soft); color: var(--blue); }
+.pill.amber { background: var(--amber-soft); color: var(--amber); }
+.pill.red { background: var(--red-soft); color: var(--red); }
+.pill.violet { background: var(--violet-soft); color: var(--violet); }
+.status { padding: .32rem .5rem; }
+.status::before {
+  content: "";
+  width: .42rem;
+  height: .42rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+.supported { color: var(--teal); background: var(--teal-soft); }
+.reported { color: var(--blue); background: var(--blue-soft); }
+.compromised { color: var(--red); background: var(--red-soft); }
+.notrun { color: var(--amber); background: var(--amber-soft); }
+.historical { color: var(--violet); background: var(--violet-soft); }
+.muted { color: var(--muted); }
+.small { font-size: .78rem; }
+.tiny { font-size: .7rem; }
+.mono { font-family: var(--mono); font-size: .82em; }
+.pill-row { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .6rem; }
+
+/* ---------- tables ---------- */
+.table-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 7px 22px rgba(31, 41, 43, .04);
+}
+table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+th, td {
+  padding: .74rem .76rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  text-align: left;
+}
+th {
+  color: var(--navy);
+  background: #f0ede4;
+  font-size: .7rem;
+  font-weight: 850;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: rgba(8,127,121,.035); }
+td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.best { color: var(--teal); font-weight: 800; }
+.bad { color: var(--red); }
+.subtle-cell { color: var(--muted); }
+.table-caption { margin: .65rem .2rem 0; color: var(--muted); font-size: .74rem; }
+
+/* ---------- lists ---------- */
+.compact-list { margin: .55rem 0 0; padding-left: 1.12rem; }
+.compact-list li { margin: .32rem 0; color: var(--muted); font-size: .85rem; }
+.compact-list li strong { color: var(--ink); }
+.checklist { list-style: none; margin: .6rem 0 0; padding: 0; display: grid; gap: .42rem; }
+.checklist li {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  gap: .5rem;
+  font-size: .85rem;
+  color: var(--ink);
+}
+.checklist li::before {
+  content: "";
+  width: 1rem;
+  height: 1rem;
+  margin-top: .22rem;
+  border: 2px solid var(--teal);
+  border-radius: 4px;
+}
+.checklist.blocked li::before { border-color: var(--amber); }
+.dl-spec { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: .38rem .9rem; margin: .7rem 0 0; font-size: .85rem; }
+.dl-spec dt { color: var(--muted); font-weight: 700; }
+.dl-spec dd { margin: 0; }
+
+/* ---------- specialised blocks ---------- */
+.decision { border-top: 5px solid var(--line); }
+.decision.recommended { border-top-color: var(--teal); }
+.decision.caution { border-top-color: var(--amber); }
+.decision.blocked { border-top-color: var(--red); }
+.decision .model-name { font-family: var(--mono); font-size: .78rem; }
+
+.evidence-ladder {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .8rem;
+  counter-reset: evidence;
+}
+.evidence-ladder .card { counter-increment: evidence; }
+.evidence-ladder .card::before {
+  content: counter(evidence, upper-alpha);
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  margin-bottom: .65rem;
+  color: white;
+  background: var(--navy);
+  border-radius: 50%;
+  font-weight: 850;
+}
+
+.timeline { position: relative; display: grid; gap: .8rem; padding-left: 1.35rem; }
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: .31rem;
+  top: .3rem;
+  bottom: .3rem;
+  width: 2px;
+  background: var(--line);
+}
+.timeline-item {
+  position: relative;
+  padding: .95rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.timeline-item::before {
+  content: "";
+  position: absolute;
+  left: -1.37rem;
+  top: 1.15rem;
+  width: .68rem;
+  height: .68rem;
+  background: var(--teal);
+  border: 3px solid var(--paper);
+  border-radius: 50%;
+}
+.timeline-item.failed::before { background: var(--red); }
+.timeline-item.old::before { background: var(--amber); }
+.timeline-item p { margin: .35rem 0 0; color: var(--muted); font-size: .83rem; }
+.timeline-meta { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+
+.quarantine-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.quarantine {
+  position: relative;
+  padding: 1.1rem;
+  background: var(--surface);
+  border: 1px solid #e1b4af;
+  border-radius: var(--radius);
+}
+.quarantine .do-not {
+  margin: .65rem 0 .25rem;
+  color: var(--red);
+  font-size: .73rem;
+  font-weight: 850;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+.quarantine p { margin: .35rem 0; color: var(--muted); font-size: .84rem; }
+
+.protocol { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.protocol-step {
+  display: grid;
+  grid-template-columns: 2.2rem minmax(0,1fr);
+  gap: .7rem;
+  padding: .9rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.protocol-step .n {
+  display: grid;
+  place-items: center;
+  align-self: start;
+  width: 2.1rem;
+  height: 2.1rem;
+  color: white;
+  background: var(--navy);
+  border-radius: 50%;
+  font-weight: 800;
+}
+.protocol-step p { margin: .2rem 0 0; color: var(--muted); font-size: .82rem; }
+
+.next-card { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 1rem; }
+.priority {
+  align-self: start;
+  padding: .55rem .45rem;
+  color: white;
+  background: var(--navy);
+  border-radius: 10px;
+  font-weight: 850;
+  text-align: center;
+}
+.priority span { display: block; font-size: .65rem; letter-spacing: .08em; text-transform: uppercase; }
+.priority strong { font-size: 1.35rem; }
+.gate {
+  margin-top: .65rem;
+  padding: .55rem .7rem;
+  background: var(--surface-2);
+  border-radius: 8px;
+  font-size: .78rem;
+}
+.gate strong { color: var(--navy); }
+
+/* slice cards */
+.slice { border-top: 5px solid var(--teal); }
+.slice.foundation { border-top-color: var(--navy); }
+.slice.later { border-top-color: var(--violet); }
+.slice-head {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: .8rem;
+  align-items: start;
+  margin-bottom: .55rem;
+}
+.slice-head h3 { margin: 0; font-size: 1.22rem; }
+.slice-num {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.split { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 1rem; margin-top: .9rem; }
+.subcard {
+  padding: .85rem .95rem;
+  background: var(--surface-2);
+  border-radius: 12px;
+}
+.subcard h4 {
+  color: var(--navy);
+  font-size: .72rem;
+  font-weight: 850;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.subcard p { margin: .3rem 0 0; font-size: .84rem; color: var(--muted); }
+.subcard .compact-list { padding-left: 1rem; }
+
+.flow { display: grid; gap: .5rem; }
+.flow-step {
+  display: grid;
+  grid-template-columns: minmax(0,1fr);
+  padding: .7rem .85rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--teal);
+  border-radius: 10px;
+  font-size: .85rem;
+}
+.flow-step span { display: block; margin-top: .2rem; color: var(--muted); font-size: .78rem; }
+.flow-arrow { color: var(--line); text-align: center; font-size: .9rem; line-height: 1; }
+
+.artifact-map { columns: 2; column-gap: 2rem; }
+.artifact-map li { break-inside: avoid; margin: .42rem 0; }
+
+.footer {
+  padding: 2rem 1.25rem 3rem;
+  color: #c5d3d7;
+  background: var(--navy);
+  text-align: center;
+  font-size: .78rem;
+}
+.footer a { color: #a8e1dc; }
+.back-top {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  width: 2.7rem;
+  height: 2.7rem;
+  color: white;
+  background: var(--navy);
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 50%;
+  box-shadow: var(--shadow);
+  text-decoration: none;
+}
+
+@media (max-width: 1100px) {
+  .page { grid-template-columns: 1fr; }
+  .sidebar { position: relative; top: auto; max-height: none; }
+  .toc { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid-4, .evidence-ladder { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .hero { padding-top: 3rem; }
+  .audit-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .page { width: min(100% - 1.2rem, 1380px); gap: 1.2rem; }
+  .toc { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-2, .grid-3, .grid-4, .grid-5, .evidence-ladder,
+  .quarantine-grid, .protocol, .split { grid-template-columns: 1fr; }
+  .section-head { grid-template-columns: 1fr; }
+  .section-head .pill { max-width: 100%; white-space: normal; line-height: 1.25; }
+  .artifact-map { columns: 1; }
+  .next-card { grid-template-columns: 68px minmax(0,1fr); }
+  .dl-spec { grid-template-columns: 1fr; }
+  .dl-spec dd { margin-bottom: .3rem; }
+}
+@media print {
+  .sidebar, .back-top, .skip-link, .doc-nav { display: none; }
+  .page { grid-template-columns: 1fr; width: 100%; }
+  .card, .table-wrap { box-shadow: none; }
+  section { break-inside: avoid; }
+}
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="hero" id="top">
+    <div class="hero-inner">
+      <p class="eyebrow">Document 4 of 4 &middot; Vertical slices</p>
+      <h1>Four slices, each one ending in something released</h1>
+      <p class="lede">
+        One task per slice, taken all the way from raw text to public weights. Nothing is built for a
+        later slice until a slice needs it. The first slice carries the shared machinery, which makes
+        it much larger than the other two, and that is the deliberate trade.
+      </p>
+      <div class="audit-strip">
+        <div class="audit-stat"><strong>Slice 1</strong><span>Forward-looking, plus everything reusable.</span></div>
+        <div class="audit-stat"><strong>Slice 2</strong><span>Aspect sentiment. Adds one new thing.</span></div>
+        <div class="audit-stat"><strong>Slice 3</strong><span>Fact versus opinion. Hardest data.</span></div>
+        <div class="audit-stat"><strong>Slice 4</strong><span>Suite release, demo and write-up.</span></div>
+      </div>
+      <nav class="doc-nav" aria-label="Document set">
+        <a href="PRODUCT.html">Product</a>
+        <a href="PROGRAM_DESIGN.html">Program design</a>
+        <a href="ARCHITECTURE.html">Architecture</a>
+        <a href="VERTICAL_SLICES.html" aria-current="page">Vertical slices</a>
+        <a href="learnings.html">Prior learnings</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page">
+    <aside class="sidebar" aria-label="Contents">
+      <p class="sidebar-title">On this page</p>
+      <nav class="toc">
+        <a href="#rules">Slicing rules</a>
+        <a href="#slice1">Slice 1 &mdash; Forward-looking</a>
+        <a href="#slice2">Slice 2 &mdash; Aspect sentiment</a>
+        <a href="#slice3">Slice 3 &mdash; Fact vs opinion</a>
+        <a href="#slice4">Slice 4 &mdash; Suite release</a>
+        <a href="#order">Why this order</a>
+        <a href="#firstweek">Where to start</a>
+      </nav>
+      <hr>
+      <p class="sidebar-title">Slice shape</p>
+      <p class="small muted">Every slice ends with a public model, a public dataset, and numbers in the
+        registry. A slice that ends with only code is not finished.</p>
+    </aside>
+
+    <main id="main">
+
+      <section id="rules">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">How the cuts were made</p>
+            <h2>Slicing rules</h2>
+          </div>
+          <span class="pill teal">One task per slice</span>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <h3>What every slice must do</h3>
+            <ul class="compact-list">
+              <li>Go end to end. Raw text, labels, splits, training, evaluation, release.</li>
+              <li>End with something published, not something ready to publish.</li>
+              <li>Pass every gate in <a href="PROGRAM_DESIGN.html#gates">Program design</a> before the next slice starts.</li>
+              <li>Leave the shared harness usable by the next slice without modification, or record what had to change and why.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>What no slice may do</h3>
+            <ul class="compact-list">
+              <li>Build machinery for a later slice on the grounds that it will be needed. It will be needed differently.</li>
+              <li>Start before the previous slice's model is released.</li>
+              <li>Skip the annotation because the public data looks good enough.</li>
+              <li>Ship a number without a registry row.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout warning" style="margin-top:1rem">
+          <p><strong>Slice 1 is roughly half the project.</strong> That is not a planning error. Choosing
+            one slice per task means the shared harness has to live inside the first task rather than in
+            a separate foundation phase. The cost is a long first slice. The benefit is that the harness
+            gets designed against a real task instead of an imagined one.</p>
+        </div>
+      </section>
+
+      <section id="slice1">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">The long one</p>
+            <h2>Slice 1 &mdash; Forward-looking, and the harness</h2>
+          </div>
+          <span class="pill teal">Start here</span>
+        </div>
+
+        <article class="card slice foundation">
+          <div class="slice-head">
+            <div>
+              <p class="slice-num">Slice 1</p>
+              <h3>Ship <span class="mono">modernfin-fls</span>, and everything the other two slices reuse</h3>
+            </div>
+            <span class="status notrun">Not started</span>
+          </div>
+          <p class="small muted">Forward-looking goes first because its label definition is the easiest to
+            write down and defend. That keeps the risk concentrated in the machinery, where you can see
+            it, rather than in the task definition, where it hides.</p>
+
+          <div class="split">
+            <div class="subcard">
+              <h4>New in this slice</h4>
+              <ul class="compact-list">
+                <li>Everything. Data schema, ingest, splits, input builder, training loop, evaluation harness, registry, baselines, cards, CI.</li>
+                <li>The first codebook and the first annotation round.</li>
+                <li>The T4 stability check for the chosen encoder.</li>
+              </ul>
+            </div>
+            <div class="subcard">
+              <h4>Deliberately deferred</h4>
+              <ul class="compact-list">
+                <li>The aspect field. Schema has a place for it, and nothing uses it yet.</li>
+                <li>The demo Space.</li>
+                <li>Silver LLM labelling, unless public data turns out to be thin.</li>
+                <li>Any cross-task comparison.</li>
+              </ul>
+            </div>
+          </div>
+
+          <h4 style="margin:1.3rem 0 .5rem">Work in order</h4>
+          <div class="table-wrap" style="box-shadow:none">
+            <table>
+              <thead>
+                <tr><th style="width:44px">#</th><th style="width:230px">Step</th><th>What it produces</th><th style="width:120px">Blocks</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>1</td><td><strong>Repo skeleton</strong></td><td>Package layout, config loading with inheritance and hashing, registry read and write, CI running an empty test suite.</td><td class="subtle-cell">Everything</td></tr>
+                <tr><td>2</td><td><strong>T4 smoke check</strong></td><td>A few hundred training steps of ModernBERT-base at 512 tokens in fp16 on a T4. Watches for NaN and for unsupported kernels. Answers the biggest hardware unknown before anything depends on it.</td><td class="subtle-cell">Model choice</td></tr>
+                <tr><td>3</td><td><strong>Source survey</strong></td><td>A written list of candidate FLS data with what each actually contains and what its licence permits, with links. Verified by you, not by an agent's summary.</td><td class="subtle-cell">Data plan</td></tr>
+                <tr><td>4</td><td><strong>Ingest pipeline</strong></td><td>EDGAR filings and transcripts to deduplicated sentences with document type, position and provenance. This is reused unchanged by both later slices.</td><td class="subtle-cell">Annotation</td></tr>
+                <tr><td>5</td><td><strong>Codebook v1 and pilot</strong></td><td>The FLS codebook, two pilot rounds of 50, and a decision at Gate 1. Expect the codebook to grow a lot here.</td><td class="subtle-cell">Gold set</td></tr>
+                <tr><td>6</td><td><strong>Gold annotation</strong></td><td>1,000 labelled sentences, 300 double-annotated, agreement measured, blind re-annotation of 100 for drift. The slowest step in the slice.</td><td class="subtle-cell">All evaluation</td></tr>
+                <tr><td>7</td><td><strong>Freeze and hash</strong></td><td>Test set written, hashed, hash committed to the config. Gate 2 data checks pass in CI.</td><td class="subtle-cell">Training</td></tr>
+                <tr><td>8</td><td><strong>Training set</strong></td><td>Public sources mapped to the codebook, with the mapping documented. Grouped split by document. Leakage check green.</td><td class="subtle-cell">Training</td></tr>
+                <tr><td>9</td><td><strong>Input builder</strong></td><td>Marker tokens, context window, truncation rules, and the full set of edge-case tests.</td><td class="subtle-cell">Training</td></tr>
+                <tr><td>10</td><td><strong>Evaluation harness</strong></td><td>Metrics, bootstrap intervals, calibration, per-document-type breakdown, gold hash enforcement, report card output. Written before the first real training run, so there is never a number without a harness.</td><td class="subtle-cell">Every result</td></tr>
+                <tr><td>11</td><td><strong>Baselines</strong></td><td>Majority, TF-IDF plus logistic regression, zero-shot and few-shot LLM at two sizes, with token counting and response caching. Gives the target to beat before you train.</td><td class="subtle-cell">Gate 4</td></tr>
+                <tr><td>12</td><td><strong>Training loop</strong></td><td>LoRA fine-tune, checkpoint to Drive, resume after a lost session, registry row written at start.</td><td class="subtle-cell">Results</td></tr>
+                <tr><td>13</td><td><strong>Context ablation</strong></td><td>The 0+0, 1+1, 2+2, 4+4 sweep on validation. Settles the context question for all three tasks, or at least gives the other two a strong prior.</td><td class="subtle-cell">Slices 2, 3</td></tr>
+                <tr><td>14</td><td><strong>Architecture control</strong></td><td>DeBERTa-v3-base under identical conditions. The first honest architecture comparison this line of work has had.</td><td class="subtle-cell">Claims</td></tr>
+                <tr><td>15</td><td><strong>Final evaluation</strong></td><td>One run against the frozen gold set for the chosen model, three seeds, full report card.</td><td class="subtle-cell">Release</td></tr>
+                <tr><td>16</td><td><strong>Release</strong></td><td>Weights, gold dataset, model card, dataset card, codebook, all generated from the report card. Then the clean-checkout reproduction check.</td><td class="subtle-cell">Slice 2</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="split" style="margin-top:1.1rem">
+            <div class="subcard">
+              <h4>Done when</h4>
+              <ul class="checklist">
+                <li><span><code>modernfin-fls</code> is public with a complete card.</span></li>
+                <li><span>The gold set is public with per-annotator labels and agreement statistics.</span></li>
+                <li><span>Every baseline number is in one comparison table with intervals.</span></li>
+                <li><span>Cost and latency are measured, not estimated.</span></li>
+                <li><span>A clean checkout reproduces the headline table.</span></li>
+                <li><span>The harness is ready for Slice 2 with no known task-specific hacks.</span></li>
+              </ul>
+            </div>
+            <div class="subcard">
+              <h4>Risks specific to this slice</h4>
+              <ul class="compact-list">
+                <li><strong>fp16 instability</strong> on the T4 forces an encoder change. Checked at step 2 precisely so it costs a day, not a phase.</li>
+                <li><strong>Public FLS labels may not be obtainable</strong> on usable terms. If so, the training set leans on silver labels, and that gets said in the card.</li>
+                <li><strong>The task may be largely lexical.</strong> If TF-IDF gets close to the encoder, that is a genuine finding, and Gate 3 exists to make you stop and check rather than tune past it.</li>
+                <li><strong>Annotation fatigue</strong> on the first ever 1,000-item round. Shuffle, sit in blocks, and measure the drift.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="gate" style="margin-top:1rem">
+            <strong>Exit gate:</strong> Gates 1 through 5 all pass. Slice 2 does not start until the FLS
+            model is public. If Gate 4 fails, the model still ships with the miss recorded, and Slice 2
+            still starts.
+          </div>
+        </article>
+      </section>
+
+      <section id="slice2">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">One new thing on a proven pipeline</p>
+            <h2>Slice 2 &mdash; Aspect-based sentiment</h2>
+          </div>
+          <span class="pill blue">Second</span>
+        </div>
+
+        <article class="card slice">
+          <div class="slice-head">
+            <div>
+              <p class="slice-num">Slice 2</p>
+              <h3>Ship <span class="mono">modernfin-absa</span></h3>
+            </div>
+            <span class="status notrun">Not started</span>
+          </div>
+          <p class="small muted">Second because it changes exactly one part of a pipeline that already
+            works: the aspect goes into the input as a first segment. Everything else is Slice 1's code
+            running on different data.</p>
+
+          <div class="split">
+            <div class="subcard">
+              <h4>New in this slice</h4>
+              <ul class="compact-list">
+                <li>The aspect field, in the schema, the input builder and the library surface.</li>
+                <li>Three classes instead of two, which changes the metric breakdown and the confusion reporting.</li>
+                <li>A documented mapping from continuous sentiment scores in public sources to the three classes.</li>
+                <li>Multiple examples per sentence, one per aspect, which the leakage check must understand.</li>
+              </ul>
+            </div>
+            <div class="subcard">
+              <h4>Reused unchanged</h4>
+              <ul class="compact-list">
+                <li>Ingest, splitting, dedup, provenance.</li>
+                <li>Training loop, checkpointing, resume.</li>
+                <li>Evaluation harness, registry, report cards, release scripts.</li>
+                <li>Baseline runners, with a new prompt and new few-shot examples.</li>
+                <li>The context setting chosen in Slice 1, unless the ablation is rerun.</li>
+              </ul>
+            </div>
+          </div>
+
+          <h4 style="margin:1.3rem 0 .5rem">Work in order</h4>
+          <div class="table-wrap" style="box-shadow:none">
+            <table>
+              <thead><tr><th style="width:44px">#</th><th style="width:230px">Step</th><th>What it produces</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td><strong>Source survey</strong></td><td>What the aspect-level financial sentiment sets actually contain, in what format, under what terms. Verified by you.</td></tr>
+                <tr><td>2</td><td><strong>Score mapping decision</strong></td><td>Thresholds turning continuous scores into positive, negative and neutral, decided on validation data and written down before use. This choice materially shapes the results, so it is a documented decision, not an implementation detail.</td></tr>
+                <tr><td>3</td><td><strong>Codebook v1 and pilot</strong></td><td>The ABSA codebook with the hard cases from the product spec, plus two pilot rounds. Expect more disagreement than FLS, because three classes and a target are harder than a binary judgement.</td></tr>
+                <tr><td>4</td><td><strong>Aspect selection rule</strong></td><td>How aspects get chosen for gold examples. Whether they come from the source dataset, or you name them during annotation. This settles the open "aspect vocabulary" question in the product spec.</td></tr>
+                <tr><td>5</td><td><strong>Gold annotation</strong></td><td>1,000 aspect-sentence pairs, 300 double-annotated. Includes deliberate multi-aspect sentences, because those are the ones the task exists for.</td></tr>
+                <tr><td>6</td><td><strong>Freeze, hash, split checks</strong></td><td>Same as Slice 1, with the added rule that all aspects of one sentence stay in the same split.</td></tr>
+                <tr><td>7</td><td><strong>Input builder extension</strong></td><td>Aspect as first segment, with tests for an aspect that contains marker-like text and an aspect absent from the sentence.</td></tr>
+                <tr><td>8</td><td><strong>Baselines and training</strong></td><td>Same runners, new prompts. Then LoRA fine-tune, three seeds, architecture control.</td></tr>
+                <tr><td>9</td><td><strong>Multi-aspect diagnostic</strong></td><td>A held-out set of sentences carrying two aspects with opposite labels, scored separately. This is the evidence that the model uses the aspect rather than the sentence, and it is the honest version of the entity claim the previous project could not support.</td></tr>
+                <tr><td>10</td><td><strong>Final evaluation and release</strong></td><td>As Slice 1.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout info" style="margin-top:1.1rem">
+            <p><strong>The multi-aspect diagnostic is the interesting result in this slice.</strong> A model
+              can score well on aspect sentiment by ignoring the aspect entirely and reading overall
+              sentence tone. The only way to know is to test sentences where the aspects disagree. If
+              accuracy collapses there, the model is doing sentence sentiment with extra steps, and the
+              card must say so. Run it before writing any claim about aspect awareness.</p>
+          </div>
+
+          <div class="split" style="margin-top:1.1rem">
+            <div class="subcard">
+              <h4>Done when</h4>
+              <ul class="checklist">
+                <li><span><code>modernfin-absa</code> is public with a complete card.</span></li>
+                <li><span>The gold set is public, including multi-aspect examples.</span></li>
+                <li><span>The score mapping is published alongside the dataset.</span></li>
+                <li><span>The multi-aspect diagnostic result is reported, whatever it says.</span></li>
+                <li><span>Clean-checkout reproduction passes.</span></li>
+              </ul>
+            </div>
+            <div class="subcard">
+              <h4>Risks specific to this slice</h4>
+              <ul class="compact-list">
+                <li><strong>Score thresholds decide the result.</strong> Different mappings give different headline numbers. Pick once, on validation, and publish the choice.</li>
+                <li><strong>The neutral class is the hardest.</strong> It absorbs everything ambiguous, and it will dominate the confusion matrix. Report per-class numbers, not just macro-F1.</li>
+                <li><strong>Public microblog data is a domain shift</strong> from filings. Useful as an out-of-domain check, misleading if it silently becomes most of the training set.</li>
+                <li><strong>The model may ignore the aspect.</strong> Caught by the diagnostic, not by the headline metric.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="gate" style="margin-top:1rem">
+            <strong>Exit gate:</strong> Gates 1 through 5, plus the multi-aspect diagnostic run and
+            reported. A missing diagnostic blocks release, because without it the model card cannot
+            honestly describe what the model does.
+          </div>
+        </article>
+      </section>
+
+      <section id="slice3">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Weakest data, strongest pipeline</p>
+            <h2>Slice 3 &mdash; Fact versus opinion</h2>
+          </div>
+          <span class="pill violet">Third</span>
+        </div>
+
+        <article class="card slice later">
+          <div class="slice-head">
+            <div>
+              <p class="slice-num">Slice 3</p>
+              <h3>Ship <span class="mono">modernfin-factop</span></h3>
+            </div>
+            <span class="status notrun">Not started</span>
+          </div>
+          <p class="small muted">Last because there is little usable public finance data for it. That
+            makes it the slice that leans hardest on your own annotation and on LLM silver labels, so it
+            runs when both of those are already proven.</p>
+
+          <div class="split">
+            <div class="subcard">
+              <h4>New in this slice</h4>
+              <ul class="compact-list">
+                <li>The silver labelling pipeline at volume, with its human-reviewed accuracy sample.</li>
+                <li>The with-silver and without-silver ablation, reported as two results.</li>
+                <li>The overlap analysis against the forward-looking labels.</li>
+              </ul>
+            </div>
+            <div class="subcard">
+              <h4>Reused unchanged</h4>
+              <ul class="compact-list">
+                <li>Everything from Slices 1 and 2 except the aspect field.</li>
+                <li>The binary metric setup from Slice 1.</li>
+                <li>The whole release path.</li>
+              </ul>
+            </div>
+          </div>
+
+          <h4 style="margin:1.3rem 0 .5rem">Work in order</h4>
+          <div class="table-wrap" style="box-shadow:none">
+            <table>
+              <thead><tr><th style="width:44px">#</th><th style="width:230px">Step</th><th>What it produces</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td><strong>Codebook v1 and pilot</strong></td><td>The checkability test, the attribution rule, and the mixed-sentence rule. Pilot hard, because this is the label most likely to feel obvious and turn out not to be.</td></tr>
+                <tr><td>2</td><td><strong>Gold annotation</strong></td><td>1,000 sentences, 300 double-annotated, sampled to include plenty of analyst text where opinion is dense.</td></tr>
+                <tr><td>3</td><td><strong>Silver prompt development</strong></td><td>An LLM prompt built against validation data, measured against a human-labelled sample so its accuracy is a number, not a hope.</td></tr>
+                <tr><td>4</td><td><strong>Silver labelling run</strong></td><td>Several thousand labelled sentences from filings and transcripts, cached, in their own split, tagged <code>label_source: llm</code>.</td></tr>
+                <tr><td>5</td><td><strong>Two training tracks</strong></td><td>One model without silver data, one with. Both evaluated. Both published in the card. The headline claim uses the one without.</td></tr>
+                <tr><td>6</td><td><strong>Baselines and final evaluation</strong></td><td>As before.</td></tr>
+                <tr><td>7</td><td><strong>Overlap analysis</strong></td><td>Run the FLS model and this one over the same sentences and report the joint distribution. Shows how independent the two labels really are.</td></tr>
+                <tr><td>8</td><td><strong>Release</strong></td><td>As before, with the silver data published separately from the human data.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout warning" style="margin-top:1.1rem">
+            <p><strong>Watch the circularity here more than anywhere.</strong> This is the slice where the
+              LLM both generates training labels and serves as the baseline to beat. The two-track
+              training and the human-only test set are what keep the comparison meaningful. Do not let
+              convenience collapse them into one number.</p>
+          </div>
+
+          <div class="split" style="margin-top:1.1rem">
+            <div class="subcard">
+              <h4>Done when</h4>
+              <ul class="checklist">
+                <li><span><code>modernfin-factop</code> is public with a complete card.</span></li>
+                <li><span>Both the with-silver and without-silver results are published.</span></li>
+                <li><span>Silver label accuracy against human labels is measured and stated.</span></li>
+                <li><span>The overlap with forward-looking is reported.</span></li>
+                <li><span>Clean-checkout reproduction passes.</span></li>
+              </ul>
+            </div>
+            <div class="subcard">
+              <h4>Risks specific to this slice</h4>
+              <ul class="compact-list">
+                <li><strong>Agreement may be low.</strong> Fact versus opinion feels obvious and is not. If kappa comes in under 0.6, rewrite the codebook before training, however tempting it is to push on.</li>
+                <li><strong>Silver labels may not help.</strong> That is a publishable ablation result, and it is a better outcome than an unproven claim.</li>
+                <li><strong>The labels may overlap heavily with forward-looking.</strong> If most forward-looking sentences are also opinion, part of the thesis needs restating. Report it either way.</li>
+                <li><strong>Fatigue.</strong> This is the third annotation round and the least novel. Budget for it honestly rather than rushing the set that anchors the whole task.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="gate" style="margin-top:1rem">
+            <strong>Exit gate:</strong> Gates 1 through 5, plus both training tracks reported and the
+            silver accuracy measured.
+          </div>
+        </article>
+      </section>
+
+      <section id="slice4">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Three projects become one claim</p>
+            <h2>Slice 4 &mdash; Suite release</h2>
+          </div>
+          <span class="pill amber">Last</span>
+        </div>
+
+        <article class="card slice later">
+          <div class="slice-head">
+            <div>
+              <p class="slice-num">Slice 4</p>
+              <h3>The write-up, the demo, and the thesis test</h3>
+            </div>
+            <span class="status notrun">Not started</span>
+          </div>
+          <p class="small muted">Three released models is three separate results. This slice is what turns
+            them into an argument, and it is also where the argument gets tested rather than asserted.</p>
+
+          <div class="split">
+            <div class="subcard">
+              <h4>What gets built</h4>
+              <ul class="compact-list">
+                <li>The <code>Triad</code> library surface, loading all three models with one call.</li>
+                <li>The demo Space, with all three outputs and the context window shown.</li>
+                <li>The cross-model comparison table, generated from report cards.</li>
+                <li>The public write-up, following the fixed structure in <a href="PROGRAM_DESIGN.html#writeup">Program design</a>.</li>
+              </ul>
+            </div>
+            <div class="subcard">
+              <h4>The thesis test</h4>
+              <ul class="compact-list">
+                <li>Take a set of real finance NLP tasks. Screening transcripts for guidance changes, ranking analyst notes, filtering RAG chunks, and so on.</li>
+                <li>For each, say what the three labels give you and what they do not.</li>
+                <li>Publish the gaps at the same length as the coverage.</li>
+                <li>If the thesis does not hold, say what a fourth classifier would have to do.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="split" style="margin-top:1.1rem">
+            <div class="subcard">
+              <h4>Done when</h4>
+              <ul class="checklist">
+                <li><span>The write-up is public with every number graded and traceable.</span></li>
+                <li><span>The demo is live and anyone can paste text into it.</span></li>
+                <li><span>The README reproduces the headline table in one command.</span></li>
+                <li><span>The quarantine section lists claims that were tested and dropped.</span></li>
+                <li><span>The thesis section reports coverage and gaps honestly.</span></li>
+              </ul>
+            </div>
+            <div class="subcard">
+              <h4>Risks specific to this slice</h4>
+              <ul class="compact-list">
+                <li><strong>Numbers drift between documents.</strong> Prevented by generating every table from report cards rather than typing them.</li>
+                <li><strong>The write-up quietly softens a negative result.</strong> Prevented by writing the protocol section before looking at the results section.</li>
+                <li><strong>The demo becomes a maintenance obligation.</strong> Keep it small, and say in the README that it is a demo with no uptime promise.</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section id="order">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">The reasoning behind the sequence</p>
+            <h2>Why this order</h2>
+          </div>
+          <span class="status notrun">Assumed</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th style="width:170px">Task</th><th style="width:110px">Label difficulty</th><th style="width:130px">Public data</th><th style="width:130px">New machinery</th><th>Position</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Forward-looking</strong></td>
+                <td class="subtle-cell">Lowest</td>
+                <td class="subtle-cell">Some</td>
+                <td class="subtle-cell">All of it</td>
+                <td>First. The simplest label definition means the machinery gets built against a task that will not itself be the source of confusion.</td>
+              </tr>
+              <tr>
+                <td><strong>Aspect sentiment</strong></td>
+                <td class="subtle-cell">Medium</td>
+                <td class="subtle-cell">Most</td>
+                <td class="subtle-cell">One thing</td>
+                <td>Second. Best public data of the three, and it adds exactly one new mechanism to a working pipeline.</td>
+              </tr>
+              <tr>
+                <td><strong>Fact vs opinion</strong></td>
+                <td class="subtle-cell">Highest</td>
+                <td class="subtle-cell">Least</td>
+                <td class="subtle-cell">Silver pipeline</td>
+                <td>Third. Needs the annotation process and the silver pipeline to be proven, and both are proven by then.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout info" style="margin-top:1rem">
+          <p class="small"><strong>The alternative that was rejected.</strong> Starting with aspect sentiment,
+            because it has the best public data and continues the previous work most directly. Rejected
+            because it would put the hardest input format and the new machinery in the same slice, and
+            when something failed you would not know which one caused it.</p>
+        </div>
+      </section>
+
+      <section id="firstweek">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Concretely, next</p>
+            <h2>Where to start</h2>
+          </div>
+          <span class="pill teal">Slice 1, steps 1 to 3</span>
+        </div>
+        <p class="section-intro">
+          Three things unblock everything else, and two of them can run at the same time. None of them
+          needs a decision that has not already been made.
+        </p>
+        <div class="stack">
+          <div class="card next-card">
+            <div class="priority"><span>Do</span><strong>1</strong></div>
+            <div>
+              <h3>Answer the three open questions</h3>
+              <p class="small muted">Is a second annotator available. What licence the repo will carry.
+                Where ABSA aspects come from. The first one changes how every model card reports its
+                ceiling, so it is worth settling before annotation starts rather than after.</p>
+              <div class="gate"><strong>Output:</strong> three decision-log entries in <a href="PRODUCT.html#decisions">Product</a>.</div>
+            </div>
+          </div>
+          <div class="card next-card">
+            <div class="priority"><span>Do</span><strong>2</strong></div>
+            <div>
+              <h3>Run the T4 smoke check</h3>
+              <p class="small muted">A few hundred steps of ModernBERT-base at 512 tokens in fp16 on a free
+                Colab T4, watching for NaN and for missing kernels. This is the largest hardware unknown
+                in the plan and it is cheap to resolve.</p>
+              <div class="gate"><strong>Output:</strong> either the encoder choice is confirmed, or it moves to
+                DeBERTa-v3-base with the reason recorded.</div>
+            </div>
+          </div>
+          <div class="card next-card">
+            <div class="priority"><span>Do</span><strong>3</strong></div>
+            <div>
+              <h3>Survey the forward-looking data</h3>
+              <p class="small muted">What annotated FLS data exists, what it contains, and what its terms
+                permit. An agent can gather the candidates with links. You verify them, because a
+                licence read wrong here is discovered at release time, which is the worst possible moment.</p>
+              <div class="gate"><strong>Output:</strong> a source table with a yes or no per source, and a
+                training data plan for Slice 1.</div>
+            </div>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:1.2rem">
+          <p><strong>Then write the codebook.</strong> Everything after step 3 depends on the label
+            definition being written down and pilot-tested. It is the least technical work in the project
+            and the highest leverage. Nothing else should start before it.</p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <footer class="footer">
+    <p>ModernFin Triad &middot; Document 4 of 4 &middot; Vertical slices</p>
+    <p><a href="PRODUCT.html">Product</a> &middot; <a href="PROGRAM_DESIGN.html">Program design</a> &middot; <a href="ARCHITECTURE.html">Architecture</a> &middot; <a href="learnings.html">Prior learnings</a></p>
+  </footer>
+  <a class="back-top" href="#top" aria-label="Back to top">&uarr;</a>
+</body>
+</html>

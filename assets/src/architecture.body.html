@@ -1,0 +1,714 @@
+<!--@title ModernFin Triad — Architecture-->
+<!--@description Technical design: repo layout, data schema, input construction, model and training on a T4, evaluation harness, reproducibility machinery, testing and release.-->
+  <header class="hero" id="top">
+    <div class="hero-inner">
+      <p class="eyebrow">Document 3 of 4 &middot; Architecture</p>
+      <h1>One pipeline, three models, no path around the protocol</h1>
+      <p class="lede">
+        The technical design. A shared harness that all three tasks run through unchanged, a data
+        schema that makes provenance impossible to lose, and a training setup that fits inside a free
+        Colab T4. Where a choice is forced by the hardware, that is said out loud.
+      </p>
+      <div class="audit-strip">
+        <div class="audit-stat"><strong>512 tokens</strong><span>Fixed ceiling. Target sentence plus context.</span></div>
+        <div class="audit-stat"><strong>ModernBERT-base</strong><span>With DeBERTa-v3-base as the control.</span></div>
+        <div class="audit-stat"><strong>LoRA first</strong><span>T4 memory, and it won last time.</span></div>
+        <div class="audit-stat"><strong>Config-driven</strong><span>No notebook is the source of truth.</span></div>
+      </div>
+      <nav class="doc-nav" aria-label="Document set">
+        <a href="PRODUCT.html">Product</a>
+        <a href="PROGRAM_DESIGN.html">Program design</a>
+        <a href="ARCHITECTURE.html" aria-current="page">Architecture</a>
+        <a href="VERTICAL_SLICES.html">Vertical slices</a>
+        <a href="learnings.html">Prior learnings</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page">
+    <aside class="sidebar" aria-label="Contents">
+      <p class="sidebar-title">On this page</p>
+      <nav class="toc">
+        <a href="#shape">System shape</a>
+        <a href="#repo">Repository layout</a>
+        <a href="#schema">Data schema</a>
+        <a href="#input">Input construction</a>
+        <a href="#model">Model and training</a>
+        <a href="#t4">T4 budget</a>
+        <a href="#eval">Evaluation harness</a>
+        <a href="#baselines">Baseline runners</a>
+        <a href="#inference">Inference and serving</a>
+        <a href="#repro">Reproducibility machinery</a>
+        <a href="#testing">Testing and CI</a>
+        <a href="#release">Release pipeline</a>
+        <a href="#choices">Choices and rejections</a>
+      </nav>
+      <hr>
+      <p class="sidebar-title">Constraint</p>
+      <p class="small muted">Every decision here is shaped by one thing: a free Colab T4 with 16GB and a
+        session that can vanish. If a design cannot survive a lost session, it is the wrong design.</p>
+    </aside>
+
+    <main id="main">
+
+      <section id="shape">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">How the pieces fit</p>
+            <h2>System shape</h2>
+          </div>
+          <span class="pill teal">Shared across all three tasks</span>
+        </div>
+        <p class="section-intro">
+          One pipeline, parameterised by task. The task defines its label set, its input builder and
+          its data sources. Everything downstream of that is identical code, which is what makes the
+          three results comparable to each other.
+        </p>
+
+        <div class="flow">
+          <div class="flow-step"><strong>1. Ingest</strong><span>Raw documents in, sentences out. Sentence splitting, deduplication, document and position recorded on every row.</span></div>
+          <div class="flow-arrow">&darr;</div>
+          <div class="flow-step"><strong>2. Label</strong><span>Three tracks. Public sets are mapped to the codebook. Gold is annotated by hand. Silver is labelled by an LLM. Each writes its own provenance.</span></div>
+          <div class="flow-arrow">&darr;</div>
+          <div class="flow-step"><strong>3. Split and freeze</strong><span>Gold becomes the test set and is hashed. Training and validation splits come from the other tracks. Leakage checks run here and can fail the build.</span></div>
+          <div class="flow-arrow">&darr;</div>
+          <div class="flow-step"><strong>4. Build inputs</strong><span>Target sentence plus context window, aspect injected for ABSA, truncated to 512 tokens by a rule that never cuts the target.</span></div>
+          <div class="flow-arrow">&darr;</div>
+          <div class="flow-step"><strong>5. Train</strong><span>Config-driven fine-tune on a T4. Writes a registry row, checkpoints to Drive, resumes after a dropped session.</span></div>
+          <div class="flow-arrow">&darr;</div>
+          <div class="flow-step"><strong>6. Evaluate</strong><span>Same harness for the model and every baseline. Checks the gold hash before it will score anything. Emits one report card.</span></div>
+          <div class="flow-arrow">&darr;</div>
+          <div class="flow-step"><strong>7. Release</strong><span>Weights, dataset and model card to Hugging Face, with numbers copied from the registry rather than retyped.</span></div>
+        </div>
+      </section>
+
+      <section id="repo">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Where things live</p>
+            <h2>Repository layout</h2>
+          </div>
+          <span class="pill">Python package, not a notebook</span>
+        </div>
+        <p class="section-intro">
+          Notebooks are for running things on Colab and for demonstrating things to readers. They are
+          never where logic lives. The previous project learned this when notebook source was mistaken
+          for proof that a run happened.
+        </p>
+        <div class="card">
+<pre><code>modern-nlp-classifiers/
+├── PRODUCT.html  PROGRAM_DESIGN.html  ARCHITECTURE.html  VERTICAL_SLICES.html
+├── learnings.html
+├── assets/                    # source fragments + shared CSS for these docs
+├── configs/
+│   ├── base.yaml              # shared defaults
+│   ├── fls/                   # one file per experiment, inherits base
+│   ├── absa/
+│   └── factop/
+├── docs/
+│   ├── codebook/              # versioned label definitions, one per task
+│   └── cards/                 # model and dataset card templates
+├── data/
+│   ├── raw/                   # never edited, never committed if large
+│   ├── interim/               # sentence-split, deduplicated
+│   └── processed/             # split, hashed, ready to train
+├── src/triad/
+│   ├── data/                  # ingest, split, dedup, provenance
+│   ├── tasks/                 # per-task label sets and input builders
+│   ├── models/                # encoder wrapper, heads, LoRA setup
+│   ├── train/                 # loop, checkpointing, resume
+│   ├── eval/                  # metrics, bootstrap, calibration, report card
+│   ├── baselines/             # majority, tfidf, llm few-shot, public encoders
+│   ├── registry/              # run rows, config hashing
+│   └── release/               # hub upload, card generation
+├── notebooks/                 # thin Colab wrappers that call src/, nothing more
+├── runs/registry.jsonl        # append-only, one row per run
+├── tests/
+└── README.md</code></pre>
+        </div>
+        <div class="callout info" style="margin-top:1rem">
+          <p class="small"><strong>The notebook rule.</strong> A notebook may import from <code>src/triad</code>,
+            set a config path, and call a function. If a notebook contains a training loop, a metric
+            calculation or a data transformation, that is a bug to be fixed, not a style preference.</p>
+        </div>
+      </section>
+
+      <section id="schema">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">One row, everything you need to trust it</p>
+            <h2>Data schema</h2>
+          </div>
+          <span class="pill teal">Provenance enforced</span>
+        </div>
+        <p class="section-intro">
+          A single schema for all three tasks. Task-specific fields are optional and validated per
+          task. Every field below is required unless marked, and a missing required field fails the
+          loader rather than defaulting quietly.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th style="width:170px">Field</th><th style="width:110px">Type</th><th>Purpose</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="mono">example_id</td><td>string</td><td>Stable hash of source document identifier plus sentence index. Regenerating the dataset gives the same ids.</td></tr>
+              <tr><td class="mono">task</td><td>enum</td><td><code>fls</code>, <code>absa</code>, or <code>factop</code>.</td></tr>
+              <tr><td class="mono">target</td><td>string</td><td>The sentence being classified. Never truncated.</td></tr>
+              <tr><td class="mono">context_before</td><td>string</td><td>Preceding sentences from the same document, in order.</td></tr>
+              <tr><td class="mono">context_after</td><td>string</td><td>Following sentences from the same document, in order.</td></tr>
+              <tr><td class="mono">aspect</td><td>string?</td><td>Required for <code>absa</code>, absent otherwise.</td></tr>
+              <tr><td class="mono">label</td><td>string</td><td>The adjudicated label, from the task's label set.</td></tr>
+              <tr><td class="mono">label_source</td><td>enum</td><td><code>public</code>, <code>human</code>, or <code>llm</code>. This is the track. It is never dropped.</td></tr>
+              <tr><td class="mono">annotator_labels</td><td>list?</td><td>Every individual annotator's label, kept even after adjudication.</td></tr>
+              <tr><td class="mono">codebook_version</td><td>string</td><td>Which definition this label was made under.</td></tr>
+              <tr><td class="mono">source_dataset</td><td>string</td><td>Name of the originating corpus or collection run.</td></tr>
+              <tr><td class="mono">source_licence</td><td>string</td><td>Licence of the source text. Unknown is not an acceptable value.</td></tr>
+              <tr><td class="mono">doc_id</td><td>string</td><td>Document identifier, used for leakage checks and for grouped splitting.</td></tr>
+              <tr><td class="mono">doc_type</td><td>enum</td><td><code>filing</code>, <code>transcript_prepared</code>, <code>transcript_qa</code>, <code>news</code>, <code>social</code>. Drives per-source reporting.</td></tr>
+              <tr><td class="mono">sentence_index</td><td>int</td><td>Position in the document.</td></tr>
+              <tr><td class="mono">split</td><td>enum</td><td><code>train</code>, <code>val</code>, or <code>test</code>. Test is gold only.</td></tr>
+              <tr><td class="mono">original_label</td><td>string?</td><td>For public sources, the label before mapping to this codebook. Kept so the mapping stays auditable.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="grid-2" style="margin-top:1.1rem">
+          <div class="card">
+            <h3>Splitting rules</h3>
+            <ul class="compact-list">
+              <li><strong>Group by document.</strong> All sentences from one document land in the same split. Sentence-level random splitting leaks context and inflates scores.</li>
+              <li><strong>Test is gold only.</strong> Nothing from Track A or Track C ever enters the test split.</li>
+              <li><strong>Validation comes from the same tracks as training.</strong> Otherwise validation stops predicting test behaviour.</li>
+              <li><strong>Near-duplicate check across splits</strong> after splitting, not before. Boilerplate that repeats across documents is the main offender.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Storage</h3>
+            <ul class="compact-list">
+              <li>JSONL on disk, one file per task and split. Readable, diffable, and easy to inspect by hand.</li>
+              <li>Parquet for anything large enough that JSONL hurts.</li>
+              <li>Every processed file is accompanied by a <code>.sha256</code> and a small stats file recording row count and class distribution.</li>
+              <li>Raw data is never edited in place. Transformations produce new files.</li>
+              <li>Large raw files stay out of git. The manifest of what to fetch goes in.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="input">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">From row to tensor</p>
+            <h2>Input construction</h2>
+          </div>
+          <span class="status supported">Decided</span>
+        </div>
+        <p class="section-intro">
+          The one place where the three tasks differ meaningfully. It is deterministic, it is tested,
+          and the exact string that reaches the tokenizer is recoverable from the row plus the config.
+        </p>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>Format</h3>
+            <p class="small">The target sentence is marked so the model can find it inside the window.
+              Marker tokens are added to the tokenizer as special tokens so they never get split.</p>
+<pre><code># fls and factop
+[CLS] {context_before} [TGT] {target} [/TGT] {context_after} [SEP]
+
+# absa
+[CLS] {aspect} [SEP] {context_before} [TGT] {target} [/TGT] {context_after} [SEP]</code></pre>
+            <p class="small muted" style="margin-top:.6rem">Putting the aspect in a separate first segment
+              follows the standard sentence-pair setup for aspect classification, and it lets the same
+              sentence appear several times with different aspects and different labels.</p>
+          </div>
+          <div class="card">
+            <h3>Truncation rules</h3>
+            <ul class="compact-list">
+              <li><strong>The target is never truncated.</strong> If a target sentence alone exceeds the budget, the example is dropped and counted, and the count is reported.</li>
+              <li><strong>The aspect is never truncated.</strong></li>
+              <li><strong>Context is trimmed from the outside in</strong>, dropping whole sentences, alternating between before and after, until the example fits.</li>
+              <li><strong>Sentences are dropped whole.</strong> Never a partial sentence, because a half sentence changes the meaning.</li>
+              <li><strong>Context is capped by sentence count as well as by tokens</strong>, so the window is roughly consistent across documents.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:1rem">
+          <h3>Context window, and the ablation that justifies it</h3>
+          <p class="small">Default is two sentences before and two after, capped at 512 tokens total.
+            That default is a guess until it is measured. The first real experiment on each task is a
+            context sweep, because it is cheap and it settles a question that affects everything after.</p>
+          <div class="table-wrap" style="margin-top:.7rem; box-shadow:none">
+            <table>
+              <thead><tr><th style="width:150px">Setting</th><th>What it tests</th><th style="width:190px">Expected</th></tr></thead>
+              <tbody>
+                <tr><td><code>0 + 0</code></td><td>Target sentence alone. The baseline everyone else publishes.</td><td class="subtle-cell">Strong on FLS, weaker on factop</td></tr>
+                <tr><td><code>1 + 1</code></td><td>Minimal disambiguation.</td><td class="subtle-cell">Most of the gain, if there is one</td></tr>
+                <tr><td><code>2 + 2</code></td><td>The proposed default.</td><td class="subtle-cell">Small gain over 1+1</td></tr>
+                <tr><td><code>4 + 4</code></td><td>Does more context keep helping, or start diluting?</td><td class="subtle-cell">Flat or worse, and slower</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="small muted" style="margin-top:.6rem">Whichever wins on validation becomes the config for
+            that task. If <code>0 + 0</code> wins, that is a real and publishable finding, and the context
+            machinery stays in the code as an option rather than being deleted.</p>
+        </div>
+      </section>
+
+      <section id="model">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">The encoder</p>
+            <h2>Model and training</h2>
+          </div>
+          <span class="status notrun">Assumed, cheap to change</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="card decision recommended">
+            <h3>Primary: ModernBERT-base</h3>
+            <p class="small muted">Roughly 150M parameters, modern training recipe, long native context
+              that this project deliberately does not use. It is also the natural continuation of the
+              previous work, which makes the comparison to it meaningful.</p>
+            <ul class="compact-list">
+              <li>Classification head on the pooled representation, one head per model.</li>
+              <li>Marker tokens added to the vocabulary and their embeddings trained.</li>
+              <li>Max length 512, well under what the architecture supports.</li>
+            </ul>
+          </div>
+          <div class="card decision caution">
+            <h3>Control: DeBERTa-v3-base</h3>
+            <p class="small muted">Run once per task with everything else identical. It answers the
+              question the last project could not: how much of the result is the architecture and how
+              much is the data and protocol.</p>
+            <ul class="compact-list">
+              <li>Same input builder, same splits, same seeds, same harness.</li>
+              <li>Also the fallback if ModernBERT training proves unstable on Turing hardware.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="callout warning" style="margin-top:1.1rem">
+          <h3>A real hardware risk worth checking early</h3>
+          <p>The T4 is a Turing GPU. It does not support bf16, and it does not support the newer flash
+            attention kernels that recent encoders assume. ModernBERT is trained in bf16 and will need
+            an attention implementation that works without those kernels, running in fp16 or fp32.
+            Mixed-precision fp16 on a model trained in bf16 sometimes produces overflow and loss
+            divergence.</p>
+          <p style="margin-top:.5rem"><strong>Mitigation, in order.</strong> First, a short smoke run in
+            Slice 1 that trains a few hundred steps and watches for NaN. If fp16 is unstable, try fp32
+            with a smaller batch and more accumulation. If that is too slow to be workable, switch the
+            primary model to DeBERTa-v3-base and report the reason. This check happens in the first
+            slice, before any real training, because discovering it late would cost the whole phase.</p>
+        </div>
+
+        <h3 style="margin:1.6rem 0 .7rem">Training configuration</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th style="width:200px">Setting</th><th style="width:180px">Default</th><th>Reasoning</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Adaptation</strong></td><td>LoRA, rank 16, on attention and feed-forward projections</td><td>Fits T4 memory comfortably, and the previous project found LoRA beat the full fine-tune it tested. A full fine-tune is run once per task as a comparison, not as the default.</td></tr>
+              <tr><td><strong>Precision</strong></td><td>fp16 with loss scaling</td><td>The only mixed precision the T4 supports. Watched for divergence, with fp32 as the fallback.</td></tr>
+              <tr><td><strong>Max length</strong></td><td>512</td><td>Fixed by the product spec. Not a tuning knob.</td></tr>
+              <tr><td><strong>Batch size</strong></td><td>16, accumulated to an effective 32</td><td>Fits 16GB at 512 tokens with room to spare. Accumulation makes the effective size independent of the GPU that happens to be allocated.</td></tr>
+              <tr><td><strong>Learning rate</strong></td><td>2e-4 for LoRA, 2e-5 for full fine-tune</td><td>Standard starting points. Tuned per task on validation data, and the sweep is recorded.</td></tr>
+              <tr><td><strong>Epochs</strong></td><td>3 to 5, early stopped</td><td>Small datasets overfit fast. Selection is by validation macro-F1, not by epoch count.</td></tr>
+              <tr><td><strong>Evaluation frequency</strong></td><td>Several times per epoch</td><td>The previous project found frequent macro-F1 checkpoint selection helped. The peak is often mid-epoch.</td></tr>
+              <tr><td><strong>Loss</strong></td><td>Cross-entropy, unweighted by default</td><td>Class weighting is a tuned knob, and the unweighted run is always reported next to any weighted one. Inverse-frequency weighting overcorrected last time and is not the default.</td></tr>
+              <tr><td><strong>Seeds</strong></td><td>Three per reported configuration</td><td>One seed cannot distinguish a real gain from noise at these dataset sizes.</td></tr>
+              <tr><td><strong>Checkpointing</strong></td><td>Every evaluation, to mounted Drive</td><td>Free Colab sessions die. A run must resume, not restart.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout info" style="margin-top:1.1rem">
+          <p class="small"><strong>On focal loss and class weighting.</strong> Forward-looking is naturally
+            imbalanced, and the temptation is to reach for a fancier loss immediately. Do not. Run the
+            plain baseline first, then try weighting as a single-variable experiment, and report both.
+            The last project got a result it liked internally from focal loss and then regressed
+            externally, which is exactly the pattern this ordering catches.</p>
+        </div>
+      </section>
+
+      <section id="t4">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Living inside the free tier</p>
+            <h2>T4 budget</h2>
+          </div>
+          <span class="pill amber">Hard constraint</span>
+        </div>
+        <div class="grid-3">
+          <div class="card">
+            <h3>Memory</h3>
+            <p class="small muted">16GB. A base-size encoder at 512 tokens with LoRA and batch 16 fits
+              with headroom. The headroom is deliberate, because a run that dies at 95% costs a session.</p>
+          </div>
+          <div class="card">
+            <h3>Session life</h3>
+            <p class="small muted">Sessions drop without warning. Every run checkpoints to Drive and
+              resumes from the last checkpoint, including the optimiser state and the registry row.</p>
+          </div>
+          <div class="card">
+            <h3>Wall clock</h3>
+            <p class="small muted">Datasets here are thousands of rows, not millions. A run should be
+              tens of minutes. If a configuration needs hours, it is the wrong configuration for this
+              project.</p>
+          </div>
+        </div>
+        <div class="card" style="margin-top:1rem">
+          <h3>Rules that follow from the constraint</h3>
+          <ul class="compact-list">
+            <li><strong>Every run is resumable.</strong> Not an optimisation, a requirement. Tested by killing a run halfway and restarting it in CI-like conditions at least once per phase.</li>
+            <li><strong>No run depends on a specific GPU allocation.</strong> Effective batch size is fixed through accumulation, so a smaller card changes speed and not results.</li>
+            <li><strong>Data preparation happens off the GPU</strong> and its outputs are cached, so a lost session never repeats it.</li>
+            <li><strong>The registry row is written at run start</strong>, not at the end, so a session that dies still leaves evidence that a run was attempted.</li>
+            <li><strong>Sweeps are sequential and small.</strong> No parallel hyperparameter search. Three or four configurations, chosen by reasoning, beats a grid you cannot afford.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="eval">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">The one gatekeeper</p>
+            <h2>Evaluation harness</h2>
+          </div>
+          <span class="pill teal">Refuses bad input</span>
+        </div>
+        <p class="section-intro">
+          One entry point scores everything: the fine-tuned models, the classical baselines, the LLM
+          baselines, and any public encoder being compared. Anything that produces labels can be
+          scored, and nothing gets scored any other way.
+        </p>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>What it enforces</h3>
+            <ul class="compact-list">
+              <li><strong>Gold hash check.</strong> The test file's hash must match the one in the config. A mismatch aborts with an error, not a warning.</li>
+              <li><strong>Split check.</strong> Refuses to score a model against any split it was trained on, by comparing example ids.</li>
+              <li><strong>Complete predictions.</strong> Every test row must get a prediction. Missing or unparseable outputs are counted as errors and reported, never silently dropped.</li>
+              <li><strong>Registry write.</strong> Scoring writes a row. There is no way to get a number out of the harness without leaving a trace.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>What it reports</h3>
+            <ul class="compact-list">
+              <li><strong>Macro-F1</strong>, the primary metric, with a bootstrap 95% confidence interval.</li>
+              <li><strong>Per-class precision, recall and F1</strong>, and the full confusion matrix.</li>
+              <li><strong>Accuracy</strong>, for readers who expect it, clearly marked as secondary.</li>
+              <li><strong>Per-document-type breakdown</strong>, so a model that only works on filings gets caught.</li>
+              <li><strong>Calibration:</strong> expected calibration error and a reliability curve. Reported, never claimed.</li>
+              <li><strong>Cost and latency</strong>, measured on the same run that produced the predictions.</li>
+              <li><strong>The human agreement ceiling</strong>, printed in the same table as the scores.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:1rem">
+          <h3>The report card</h3>
+          <p class="small">One JSON file plus one rendered table per evaluation, keyed by run id. The
+            model card and the write-up are generated from these files, so a number cannot appear in a
+            document without existing in a report card first.</p>
+<pre><code>{
+  "run_id": "fls-a3f21c-20260901T1412",
+  "task": "fls",
+  "gold_hash": "sha256:7c1e...",
+  "n_test": 1000,
+  "macro_f1": {"value": 0.000, "ci95": [0.000, 0.000], "method": "bootstrap-10000"},
+  "per_class": {"forward_looking": {...}, "not_forward_looking": {...}},
+  "by_doc_type": {"filing": {...}, "transcript_qa": {...}},
+  "calibration": {"ece": 0.000, "n_bins": 15},
+  "cost": {"usd_per_1k_sentences": 0.000, "priced_on": "YYYY-MM-DD"},
+  "latency": {"p50_ms": 0.0, "batch32_throughput_per_s": 0.0, "device": "T4"},
+  "human_ceiling": {"metric": "cohens_kappa", "value": 0.00, "n_double": 300},
+  "evidence_grade": "supported"
+}</code></pre>
+          <p class="small muted" style="margin-top:.6rem">Zeros are placeholders. The schema is fixed now so
+            that later results cannot reshape what gets reported.</p>
+        </div>
+
+        <div class="callout warning" style="margin-top:1.1rem">
+          <p><strong>Bootstrap intervals, not just point estimates.</strong> With a 1,000-example test set,
+            differences of a point or two are inside the noise. Publishing a point estimate alone invites
+            exactly the kind of overclaiming the last project had to walk back. Every comparison in every
+            document shows the interval.</p>
+        </div>
+      </section>
+
+      <section id="baselines">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Competitors, run properly</p>
+            <h2>Baseline runners</h2>
+          </div>
+          <span class="pill blue">Same interface as a model</span>
+        </div>
+        <p class="section-intro">
+          Every baseline implements the same tiny interface: take a list of examples, return a list of
+          predicted labels with probabilities where available. The harness cannot tell the difference,
+          which is the point.
+        </p>
+        <div class="grid-2">
+          <div class="card">
+            <h3>LLM runner</h3>
+            <ul class="compact-list">
+              <li>Prompt template committed to the repo and hashed into the registry row.</li>
+              <li>Few-shot examples drawn from the training split, with their ids recorded.</li>
+              <li>Temperature 0, structured output so parsing is reliable.</li>
+              <li>Token counts captured per call, and the total goes straight into the cost figure.</li>
+              <li>Responses cached on disk by hash of prompt plus model, so a rerun costs nothing.</li>
+              <li>Three repeats, with the spread reported.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Classical runner</h3>
+            <ul class="compact-list">
+              <li>TF-IDF over word and character n-grams, then logistic regression.</li>
+              <li>Hyperparameters tuned on validation, and the search recorded.</li>
+              <li>Also used as a diagnostic: the top weighted features tell you how lexical the task is.</li>
+              <li>Fast enough to rerun on every data change, which makes it a useful canary for data bugs.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="inference">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">How anyone else uses it</p>
+            <h2>Inference and serving</h2>
+          </div>
+          <span class="pill">Research release</span>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <h3>The library surface</h3>
+            <p class="small muted">A small Python interface that hides the input construction, because
+              a user who builds the marker string by hand will build it slightly wrong and get worse
+              results than the published numbers.</p>
+<pre><code>from triad import Triad
+
+t = Triad.load(["fls", "absa", "factop"])
+
+t.fls(target=s, context_before=b, context_after=a)
+t.absa(target=s, aspect="gross margin", context_before=b, context_after=a)
+t.factop(target=s, context_before=b, context_after=a)
+
+t.all(target=s, aspect="gross margin", ...)   # one call, three results</code></pre>
+            <ul class="compact-list">
+              <li>Models load lazily, so using one does not pay for three.</li>
+              <li>Batch methods for volume work.</li>
+              <li>The same code path the evaluation harness uses. No second implementation to drift.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>The demo</h3>
+            <ul class="compact-list">
+              <li>A Hugging Face Space. Paste a paragraph, pick an aspect, see all three outputs with probabilities.</li>
+              <li>Shows the context window that was actually used, so the behaviour is visible rather than magic.</li>
+              <li>Carries the same limitations text as the model cards, on the page and not behind a link.</li>
+              <li>CPU inference is fine at demo volume, which keeps it free to host.</li>
+            </ul>
+            <div class="gate" style="margin-top:.8rem">
+              <strong>Not built:</strong> a hosted API, batching service, quantised or ONNX exports. All
+              possible later, none part of this project.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="repro">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Making the claims checkable</p>
+            <h2>Reproducibility machinery</h2>
+          </div>
+          <span class="pill teal">The core of the design</span>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <h3>Config resolution and hashing</h3>
+            <ul class="compact-list">
+              <li>YAML configs with inheritance from <code>base.yaml</code>. Every experiment is a file, and files are diffable.</li>
+              <li>The config is fully resolved before the run, and the resolved version is hashed and stored, so inherited defaults cannot change a run's meaning invisibly.</li>
+              <li>Command-line overrides are allowed and are folded into the resolved config before hashing.</li>
+              <li>The resolved config is written next to the checkpoint.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>The registry</h3>
+            <ul class="compact-list">
+              <li>Append-only JSONL at <code>runs/registry.jsonl</code>. Committed to git, so history is visible.</li>
+              <li>Written at run start, updated at run end. A crashed run leaves a partial row, which is exactly the record you want.</li>
+              <li>Field list is in <a href="PROGRAM_DESIGN.html#protocol">Program design</a>.</li>
+              <li>A small query tool prints the experiment tree, so the history of what was tried stays readable.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="card" style="margin-top:1rem">
+          <h3>Determinism, and its limits</h3>
+          <ul class="compact-list">
+            <li>Seeds are set for Python, NumPy and Torch, and recorded.</li>
+            <li>Data ordering is seeded and deterministic.</li>
+            <li>Full bitwise determinism on GPU is not promised, because forcing it is slow and fragile. Instead, three seeds are run and the spread is published, which is more honest and more useful.</li>
+            <li>Library versions are pinned in a lock file and captured in every registry row.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="testing">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">What runs before anything merges</p>
+            <h2>Testing and CI</h2>
+          </div>
+          <span class="pill red">Blocking</span>
+        </div>
+        <p class="section-intro">
+          CI has no GPU, so it tests everything except real training. The data invariant checks matter
+          most, because those are the failures that silently invalidate results.
+        </p>
+        <div class="grid-2">
+          <div class="card">
+            <h3>Data invariants</h3>
+            <ul class="compact-list">
+              <li>No example id appears in two splits.</li>
+              <li>No document id spans splits.</li>
+              <li>Near-duplicate similarity across splits stays below a fixed threshold.</li>
+              <li>Every row has a non-empty <code>label_source</code>, <code>source_licence</code> and <code>codebook_version</code>.</li>
+              <li>The test split contains only <code>label_source == "human"</code>.</li>
+              <li>Every label is inside the task's declared label set.</li>
+              <li>Class distribution matches the recorded stats file, so silent data changes get caught.</li>
+              <li>Recorded file hashes match the files on disk.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Code tests</h3>
+            <ul class="compact-list">
+              <li>Input construction, including every truncation edge case. A long target, an empty context, an aspect containing marker-like text.</li>
+              <li>Metric functions against hand-computed values on tiny fixtures.</li>
+              <li>Bootstrap intervals against a known case.</li>
+              <li>Registry writing and reading, including the crashed-run partial row.</li>
+              <li>Config resolution and hash stability, so the same config always hashes the same.</li>
+              <li>A CPU smoke train: two steps on ten fake examples, proving the loop runs end to end.</li>
+              <li>The harness refuses a wrong gold hash. This test is the safety net for the project's main failure mode, so it is written first.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="release">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Getting it out</p>
+            <h2>Release pipeline</h2>
+          </div>
+          <span class="pill teal">Generated, not typed</span>
+        </div>
+        <p class="section-intro">
+          Cards are generated from report cards and registry rows. Nobody types a number into a
+          Markdown file, because that is where numbers go stale and drift apart between documents.
+        </p>
+        <div class="protocol">
+          <div class="protocol-step">
+            <div class="n">1</div>
+            <div><h4>Freeze the candidate</h4><p>Pick the winning run from validation results. Record why it won.</p></div>
+          </div>
+          <div class="protocol-step">
+            <div class="n">2</div>
+            <div><h4>Run the single test evaluation</h4><p>Once. Writes the report card and the registry row.</p></div>
+          </div>
+          <div class="protocol-step">
+            <div class="n">3</div>
+            <div><h4>Generate the model card</h4><p>Template plus report card plus codebook. Includes limitations and the human ceiling automatically.</p></div>
+          </div>
+          <div class="protocol-step">
+            <div class="n">4</div>
+            <div><h4>Upload the dataset</h4><p>Gold set with per-annotator labels, dataset card, codebook version, and licence per source.</p></div>
+          </div>
+          <div class="protocol-step">
+            <div class="n">5</div>
+            <div><h4>Upload the weights</h4><p>Checkpoint, resolved config, and the tokenizer including the marker tokens.</p></div>
+          </div>
+          <div class="protocol-step">
+            <div class="n">6</div>
+            <div><h4>Verify from clean</h4><p>Fresh environment, download the public artifacts, reproduce the table. This is Gate 5 and it can fail the release.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="choices">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">And what was rejected</p>
+            <h2>Choices and rejections</h2>
+          </div>
+          <span class="pill">Reference</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th style="width:190px">Decision</th><th style="width:200px">Chosen</th><th>Rejected, and why</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Model shape</strong></td>
+                <td>Three separate encoders</td>
+                <td>A shared trunk with three heads. Gains become impossible to attribute, and every release couples to the other two tasks.</td>
+              </tr>
+              <tr>
+                <td><strong>Aspect handling</strong></td>
+                <td>Aspect as a first segment in a sentence pair</td>
+                <td>Injecting markers around the aspect inside the text. It fails when the aspect is implied rather than literally present, and the previous project's entity formatting work did not produce entity reasoning.</td>
+              </tr>
+              <tr>
+                <td><strong>Context</strong></td>
+                <td>Neighbouring sentences, 512 tokens</td>
+                <td>Whole documents. Directly tried before, did not work, and the data behind it broke.</td>
+              </tr>
+              <tr>
+                <td><strong>Adaptation</strong></td>
+                <td>LoRA by default</td>
+                <td>Full fine-tuning by default. It is heavier on a T4, and the previous evidence favoured LoRA. Full fine-tuning is still run once per task as a comparison.</td>
+              </tr>
+              <tr>
+                <td><strong>Experiment tracking</strong></td>
+                <td>A JSONL file in git</td>
+                <td>A hosted tracking service. Another account, another dependency, and the history stops being visible in the repo. A file diffs, survives, and needs no login.</td>
+              </tr>
+              <tr>
+                <td><strong>Config format</strong></td>
+                <td>YAML with inheritance</td>
+                <td>Command-line arguments only. Runs stop being reconstructable from the repo alone.</td>
+              </tr>
+              <tr>
+                <td><strong>Test set</strong></td>
+                <td>Human gold only, frozen and hashed</td>
+                <td>Public test splits as the headline. Their label definitions differ from the codebook, which makes the headline number mean something slightly different from what it says.</td>
+              </tr>
+              <tr>
+                <td><strong>Primary metric</strong></td>
+                <td>Macro-F1</td>
+                <td>Accuracy. On an imbalanced task like forward-looking it rewards ignoring the class you care about.</td>
+              </tr>
+              <tr>
+                <td><strong>Serving</strong></td>
+                <td>A library plus a demo Space</td>
+                <td>A hosted API. Out of scope for a research release, and it creates an obligation nobody signed up for.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <footer class="footer">
+    <p>ModernFin Triad &middot; Document 3 of 4 &middot; Architecture</p>
+    <p><a href="PRODUCT.html">Product</a> &middot; <a href="PROGRAM_DESIGN.html">Program design</a> &middot; <a href="VERTICAL_SLICES.html">Vertical slices</a> &middot; <a href="learnings.html">Prior learnings</a></p>
+  </footer>

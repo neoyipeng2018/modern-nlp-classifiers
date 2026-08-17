@@ -1,0 +1,752 @@
+<!--@title ModernFin Triad — Program Design-->
+<!--@description How the research programme is run: phases, data tracks, annotation, baselines, experiment protocol, decision gates and the write-up plan.-->
+  <header class="hero" id="top">
+    <div class="hero-inner">
+      <p class="eyebrow">Document 2 of 4 &middot; Program design</p>
+      <h1>How the work gets run without producing numbers you have to retract</h1>
+      <p class="lede">
+        The last project produced results that had to be withdrawn because the protocol moved while
+        the models improved. This document is the machinery that stops that happening again. Phases,
+        data tracks, annotation, baselines, gates, and the rules for what a run has to record.
+      </p>
+      <div class="audit-strip">
+        <div class="audit-stat"><strong>4 phases</strong><span>One per task, plus a suite release.</span></div>
+        <div class="audit-stat"><strong>3 data tracks</strong><span>Public, gold human, silver LLM. Never merged silently.</span></div>
+        <div class="audit-stat"><strong>1 variable</strong><span>Per experiment. Everything else pinned.</span></div>
+        <div class="audit-stat"><strong>5 gates</strong><span>Each phase has an exit condition that can fail.</span></div>
+      </div>
+      <nav class="doc-nav" aria-label="Document set">
+        <a href="PRODUCT.html">Product</a>
+        <a href="PROGRAM_DESIGN.html" aria-current="page">Program design</a>
+        <a href="ARCHITECTURE.html">Architecture</a>
+        <a href="VERTICAL_SLICES.html">Vertical slices</a>
+        <a href="learnings.html">Prior learnings</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page">
+    <aside class="sidebar" aria-label="Contents">
+      <p class="sidebar-title">On this page</p>
+      <nav class="toc">
+        <a href="#principles">Operating principles</a>
+        <a href="#phases">Phases</a>
+        <a href="#data">Data program</a>
+        <a href="#annotation">Annotation program</a>
+        <a href="#baselines">Baseline program</a>
+        <a href="#protocol">Experiment protocol</a>
+        <a href="#gates">Decision gates</a>
+        <a href="#roles">Roles and working style</a>
+        <a href="#risks">Risk register</a>
+        <a href="#writeup">Write-up plan</a>
+      </nav>
+      <hr>
+      <p class="sidebar-title">Reading order</p>
+      <p class="small muted">Product fixes what gets built. This document fixes how. Architecture fixes
+        with what. Vertical slices fix in what order.</p>
+    </aside>
+
+    <main id="main">
+
+      <section id="principles">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">The rules everything else follows from</p>
+            <h2>Operating principles</h2>
+          </div>
+          <span class="pill teal">Enforced in CI</span>
+        </div>
+        <p class="section-intro">
+          Seven rules. Most of them are enforced by a test or a script, not by discipline. Anything
+          that depends only on remembering will eventually be forgotten.
+        </p>
+
+        <div class="protocol">
+          <div class="protocol-step">
+            <div class="n">1</div>
+            <div>
+              <h4>Freeze the test set before training anything</h4>
+              <p>The gold test set for a task is built, hashed and committed before the first training
+                run on that task. Its hash goes in the config. The eval harness refuses to score
+                against a hash it does not recognise.</p>
+            </div>
+          </div>
+          <div class="protocol-step">
+            <div class="n">2</div>
+            <div>
+              <h4>One variable per experiment</h4>
+              <p>A run changes one thing. If two things change, the run tells you nothing about either.
+                Multi-change runs are allowed only as a deliberate "does anything work at all" probe,
+                and they are labelled as such in the registry.</p>
+            </div>
+          </div>
+          <div class="protocol-step">
+            <div class="n">3</div>
+            <div>
+              <h4>Provenance travels with every row</h4>
+              <p>Source, licence, label origin, codebook version. A row without provenance never enters
+                a training set. A data-loading test enforces this.</p>
+            </div>
+          </div>
+          <div class="protocol-step">
+            <div class="n">4</div>
+            <div>
+              <h4>Never look at the test set</h4>
+              <p>Prompt tuning, hyperparameter search, checkpoint selection, threshold picking. All of
+                it happens on validation data. The test set is opened once per model, at the end.</p>
+            </div>
+          </div>
+          <div class="protocol-step">
+            <div class="n">5</div>
+            <div>
+              <h4>Every claim names its refutation</h4>
+              <p>Before writing a claim, say what result would have disproved it. If no such result
+                exists, the sentence is an opinion and gets written as one.</p>
+            </div>
+          </div>
+          <div class="protocol-step">
+            <div class="n">6</div>
+            <div>
+              <h4>Report the human ceiling next to the model</h4>
+              <p>A macro-F1 of 0.84 means one thing if annotators agree 0.95 of the time and something
+                else entirely if they agree 0.86 of the time. The ceiling is always in the table.</p>
+            </div>
+          </div>
+          <div class="protocol-step">
+            <div class="n">7</div>
+            <div>
+              <h4>Negative results ship</h4>
+              <p>A model that misses the bar is released with the miss stated. A method that did not
+                help gets a paragraph in the write-up. The project is worth more as an honest record
+                than as a set of wins.</p>
+            </div>
+          </div>
+          <div class="protocol-step">
+            <div class="n">8</div>
+            <div>
+              <h4>If it is not in the registry, it did not happen</h4>
+              <p>A number without a registry row cannot be quoted anywhere. Not in the README, not in
+                the model card, not in conversation. This is the rule that the last project most
+                needed and did not have.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="phases">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Sequencing</p>
+            <h2>Phases</h2>
+          </div>
+          <span class="pill blue">One task per phase</span>
+        </div>
+        <p class="section-intro">
+          Each phase takes one task from raw data to a released model. The first phase also builds the
+          shared machinery, so it is the longest by a wide margin. Detailed scope for each is in
+          <a href="VERTICAL_SLICES.html">Vertical slices</a>.
+        </p>
+
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-meta">
+              <h3 style="margin:0">Phase 1 &mdash; Forward-looking, and the harness</h3>
+              <span class="pill teal">First</span>
+            </div>
+            <p>Goes first because the labels are the simplest to define and public annotated data is
+              the easiest to find. That keeps the risk in the machinery rather than in the task.
+              Everything reusable is built here: data schema, eval harness, run registry, baseline
+              runners, model card template, CI.</p>
+            <p class="small"><strong>Exit:</strong> one released model, one released gold set, and a harness
+              the next two phases use unchanged.</p>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-meta">
+              <h3 style="margin:0">Phase 2 &mdash; Aspect-based sentiment</h3>
+              <span class="pill blue">Second</span>
+            </div>
+            <p>Second because it adds one new thing to a proven pipeline: the aspect goes into the
+              input. Public data exists in the form of aspect-level financial sentiment sets with
+              continuous scores, so there is also a score-to-class mapping to decide and document.</p>
+            <p class="small"><strong>Exit:</strong> released model, released gold set, and a documented
+              mapping from any continuous source scores to the three classes.</p>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-meta">
+              <h3 style="margin:0">Phase 3 &mdash; Fact versus opinion</h3>
+              <span class="pill violet">Third</span>
+            </div>
+            <p>Last because the public data is weakest, so this phase leans hardest on your own
+              annotation and on LLM silver labels. Doing it last means the annotation tooling and the
+              silver-label pipeline are already proven on two easier tasks.</p>
+            <p class="small"><strong>Exit:</strong> released model, released gold set, and a measured
+              overlap with the forward-looking labels.</p>
+          </div>
+          <div class="timeline-item old">
+            <div class="timeline-meta">
+              <h3 style="margin:0">Phase 4 &mdash; Suite release</h3>
+              <span class="pill amber">Last</span>
+            </div>
+            <p>The cross-model comparison table, the demo Space, and the write-up that tests the
+              thesis. This is where the three models stop being three projects and become one claim.</p>
+            <p class="small"><strong>Exit:</strong> public write-up with every number graded, and a demo
+              anyone can paste text into.</p>
+          </div>
+        </div>
+
+        <div class="callout warning" style="margin-top:1.2rem">
+          <p><strong>Phases do not overlap.</strong> The temptation after Phase 1 is to start all three at
+            once. Do not. The harness will need changes discovered in Phase 2, and changing it while
+            three models are mid-training is how protocol drift starts.</p>
+        </div>
+      </section>
+
+      <section id="data">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Where labels come from</p>
+            <h2>Data program</h2>
+          </div>
+          <span class="status supported">Decided</span>
+        </div>
+        <p class="section-intro">
+          Three tracks, kept apart at every stage. They have different reliability, different licences
+          and different failure modes. Merging them without a record is the mistake the last project
+          made, and it made the results impossible to reconstruct.
+        </p>
+
+        <div class="grid-3">
+          <div class="card decision recommended">
+            <h3>Track A &mdash; Public labelled</h3>
+            <span class="pill teal">Reproducible</span>
+            <p class="small muted" style="margin-top:.6rem">Existing annotated datasets. Cheap, citable,
+              and other people can check them. The catch is that none of them were labelled under this
+              codebook, so their label meaning is close but not identical.</p>
+            <ul class="compact-list">
+              <li>Used for training and validation.</li>
+              <li>Never used as the gold test set.</li>
+              <li>Each source gets a mapping note saying how its labels were translated.</li>
+            </ul>
+          </div>
+          <div class="card decision recommended">
+            <h3>Track B &mdash; Gold human</h3>
+            <span class="pill teal">The benchmark</span>
+            <p class="small muted" style="margin-top:.6rem">Labelled by you, under the codebook, on text
+              sampled from the real target distribution. This is the only track that decides whether a
+              model passed.</p>
+            <ul class="compact-list">
+              <li>Test set only. Never trained on. Never tuned against.</li>
+              <li>Frozen and hashed before training starts.</li>
+              <li>Individual annotator labels kept, not just the adjudicated one.</li>
+            </ul>
+          </div>
+          <div class="card decision caution">
+            <h3>Track C &mdash; Silver LLM</h3>
+            <span class="pill amber">Scale, with doubt</span>
+            <p class="small muted" style="margin-top:.6rem">Claude labelling sentences from public
+              filings and transcripts at volume. Fast and cheap, and it inherits whatever the LLM gets
+              wrong, which is exactly what you are trying to beat.</p>
+            <ul class="compact-list">
+              <li>Training only, in its own split.</li>
+              <li>A human-reviewed sample measures its accuracy against the gold codebook.</li>
+              <li>Its contribution is proven by an ablation, never assumed.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="callout danger" style="margin-top:1.2rem">
+          <h3>The circularity problem, stated plainly</h3>
+          <p>The success bar is beating a few-shot LLM. Track C trains the model on that same LLM's
+            labels. Left alone, this makes the headline comparison meaningless, because a student
+            cannot cleanly beat its teacher on the teacher's own answers.</p>
+          <p style="margin-top:.5rem"><strong>How it is handled.</strong> Three things, all required.
+            The gold test set is human-labelled, so the LLM never grades its own homework. Every model
+            is reported twice, once trained without Track C and once with it, so the reader sees the
+            claim both ways. And the headline claim is always stated against the Track A plus B model,
+            with the Track C model reported as a separate result.</p>
+        </div>
+
+        <h3 style="margin:1.6rem 0 .7rem">Candidate public sources</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:200px">Source</th>
+                <th style="width:130px">Task fit</th>
+                <th>Notes</th>
+                <th style="width:120px">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Financial PhraseBank</strong></td>
+                <td>ABSA, weakly</td>
+                <td>Sentence-level finance sentiment with annotator agreement levels. No aspect, so it only helps as sentence-level pretraining or as a sanity check. Agreement subsets are useful for calibrating what "hard" looks like.</td>
+                <td><span class="status notrun">Verify licence</span></td>
+              </tr>
+              <tr>
+                <td><strong>FiQA 2018 Task 1</strong></td>
+                <td>ABSA</td>
+                <td>Target-level sentiment on financial headlines and microblogs, with continuous scores. Closest public match to the ABSA contract. Needs a documented score-to-class mapping.</td>
+                <td><span class="status notrun">Verify licence</span></td>
+              </tr>
+              <tr>
+                <td><strong>SemEval-2017 Task 5</strong></td>
+                <td>ABSA</td>
+                <td>Company-level sentiment on microblogs and news, continuous scores. Same mapping question. Microblog language is a domain shift from filings, which is useful as an out-of-domain check.</td>
+                <td><span class="status notrun">Verify licence</span></td>
+              </tr>
+              <tr>
+                <td><strong>Annotated MD&amp;A forward-looking sets</strong></td>
+                <td>FLS</td>
+                <td>Public finance FLS work exists, most visibly behind released FLS classifiers trained on manually annotated 10-K sentences. Availability and terms of the underlying labels must be checked before any use.</td>
+                <td><span class="status compromised">Availability unknown</span></td>
+              </tr>
+              <tr>
+                <td><strong>SEC EDGAR filings</strong></td>
+                <td>All three</td>
+                <td>Unlabelled raw text. Public domain in the US. The main sampling pool for both gold annotation and silver labelling.</td>
+                <td><span class="status supported">Usable</span></td>
+              </tr>
+              <tr>
+                <td><strong>Earnings call transcripts</strong></td>
+                <td>All three</td>
+                <td>Where forward-looking and opinion language is densest. Redistribution terms vary sharply by provider, so check before publishing any excerpt.</td>
+                <td><span class="status compromised">Check per source</span></td>
+              </tr>
+              <tr>
+                <td><strong>General subjectivity corpora</strong></td>
+                <td>Fact vs opinion</td>
+                <td>General-domain subjectivity and claim-detection sets exist. They are out of domain and their label definitions differ from this codebook. Consider only as auxiliary pretraining, with the domain gap reported.</td>
+                <td><span class="status notrun">Low priority</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="table-caption">Nothing here is confirmed. The first task in each phase is to verify what
+            the source actually contains and what its licence actually permits. Anything unclear is excluded.</p>
+        </div>
+
+        <h3 style="margin:1.6rem 0 .7rem">Sampling rules for the gold set</h3>
+        <div class="card">
+          <ul class="compact-list">
+            <li><strong>Sample from the target distribution, not from what is easy.</strong> Mix filings, transcript prepared remarks, transcript question-and-answer, and news, in proportions written down before sampling.</li>
+            <li><strong>Stratify by document type</strong> so per-source performance can be reported.</li>
+            <li><strong>Do not balance the classes by sampling.</strong> The natural rate of forward-looking sentences is part of the problem. Report the rate and handle imbalance in training, not in the test set.</li>
+            <li><strong>Deduplicate before annotating.</strong> Boilerplate repeats across filings and will otherwise dominate the set.</li>
+            <li><strong>Keep the document and sentence position for every example</strong>, so leakage across splits can be checked later.</li>
+            <li><strong>Sample once and freeze.</strong> Re-sampling after seeing results is the same as tuning on the test set.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="annotation">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">The most valuable and least glamorous work</p>
+            <h2>Annotation program</h2>
+          </div>
+          <span class="status compromised">Open item inside</span>
+        </div>
+        <p class="section-intro">
+          The gold sets are what make this project citable. They are also the part most likely to be
+          rushed. This section fixes the process so the quality is measurable rather than asserted.
+        </p>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>Process</h3>
+            <ol class="compact-list">
+              <li><strong>Draft the codebook</strong> from the definitions in <a href="PRODUCT.html#codebook">Product</a>. Version it.</li>
+              <li><strong>Pilot on 50 examples.</strong> Every disagreement or hesitation becomes a new rule in the codebook. Expect the codebook to roughly double in size here.</li>
+              <li><strong>Re-pilot on 50 fresh examples</strong> under the revised codebook. If you are still hesitating on more than one in five, the label definition is wrong, not the annotator.</li>
+              <li><strong>Bump the codebook version and discard the pilot labels.</strong> They were made under a different definition.</li>
+              <li><strong>Annotate the full 1,000</strong> in sittings of no more than 150. Fatigue shows up as label drift, and drift late in the set is invisible unless you shuffle.</li>
+              <li><strong>Shuffle before annotating</strong> so any drift spreads evenly rather than landing on one document type.</li>
+              <li><strong>Re-annotate 100 examples from early in the run, blind,</strong> at the end. Agreement with your own earlier labels is the drift measurement. Publish it.</li>
+              <li><strong>Adjudicate disagreements</strong> with a written reason, and fold the reason back into the codebook for next time.</li>
+            </ol>
+          </div>
+          <div class="card">
+            <h3>Measuring quality</h3>
+            <ul class="compact-list">
+              <li><strong>Two annotators is the strong version.</strong> 300 examples double-annotated, Cohen's kappa reported per task. Target above 0.7. Below 0.6 means the codebook has to be rewritten before any model is trained.</li>
+              <li><strong>One annotator is the fallback.</strong> If no second person is available, self-agreement on a blind re-annotation is the ceiling estimate. It is weaker evidence and must be labelled as such everywhere it appears.</li>
+              <li><strong>An LLM is not a second annotator.</strong> Claude's labels can be a useful third opinion for finding examples worth a second look. They cannot be the agreement ceiling, because the LLM is the thing being benchmarked.</li>
+              <li><strong>Publish the disagreements.</strong> The examples annotators split on are the most informative part of the dataset. Keep them in, with both labels.</li>
+            </ul>
+            <div class="gate" style="margin-top:.8rem">
+              <strong>Open decision:</strong> is a second human annotator available? This changes how the
+              ceiling is reported in every model card, so answer it before Phase 1 annotation starts.
+            </div>
+          </div>
+        </div>
+
+        <div class="callout info" style="margin-top:1.1rem">
+          <p><strong>Time is the real constraint.</strong> 1,000 sentences per task at a realistic pace is
+            several sittings of focused work, three times over. Budget it as a first-class task in each
+            phase, not as something squeezed in around training runs. If the budget will not stretch,
+            cut the set to 600 and report the wider confidence intervals honestly. Do not cut the
+            double-annotated portion, because that is what makes the rest of the numbers interpretable.</p>
+        </div>
+      </section>
+
+      <section id="baselines">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">The thing you have to beat</p>
+            <h2>Baseline program</h2>
+          </div>
+          <span class="pill blue">Same harness as the models</span>
+        </div>
+        <p class="section-intro">
+          A weak baseline makes a weak result look strong. The LLM baseline gets the same care as the
+          model, or the headline claim is worthless.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th style="width:210px">Baseline</th><th>Why it is run</th><th style="width:210px">Rules</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Majority class</strong></td>
+                <td>The floor. If a model is near this, something is broken.</td>
+                <td>Computed from the training split, applied to test.</td>
+              </tr>
+              <tr>
+                <td><strong>TF-IDF + logistic regression</strong></td>
+                <td>Tells you how much of the task is surface vocabulary. Forward-looking in particular may be largely lexical, and that is worth knowing and saying.</td>
+                <td>Hyperparameters tuned on validation only.</td>
+              </tr>
+              <tr>
+                <td><strong>Few-shot Claude, small model</strong></td>
+                <td>The realistic cheap alternative a practitioner would reach for instead of your model.</td>
+                <td>Prompt developed against validation data. Few-shot examples drawn from training data. Never from test.</td>
+              </tr>
+              <tr>
+                <td><strong>Few-shot Claude, large model</strong></td>
+                <td>The quality ceiling of the prompt-only approach. This is usually the number to beat.</td>
+                <td>Same prompt discipline. Temperature 0, and the exact prompt is committed to the repo.</td>
+              </tr>
+              <tr>
+                <td><strong>Zero-shot LLM</strong></td>
+                <td>Shows what the prompt engineering was worth, which is itself a useful published result.</td>
+                <td>The codebook definition goes in the prompt, and nothing else.</td>
+              </tr>
+              <tr>
+                <td><strong>Existing public finance encoder</strong></td>
+                <td>Shows the delta over what is already downloadable, where a comparable model exists.</td>
+                <td>Label spaces must be mapped explicitly, and the mapping published. Where no clean mapping exists, do not force one.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="grid-2" style="margin-top:1.1rem">
+          <div class="card">
+            <h3>Fairness rules for the LLM baseline</h3>
+            <ul class="compact-list">
+              <li>The prompt gets a real effort budget. Several iterations against validation data, not one attempt.</li>
+              <li>The full codebook definition goes in the prompt. Do not handicap the LLM by underspecifying the task.</li>
+              <li>Parsing failures count as errors, and the failure rate is reported separately.</li>
+              <li>The same context window the model sees goes to the LLM.</li>
+              <li>Run it three times and report the spread, because even at temperature 0 the output can move.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Measuring the cost claim</h3>
+            <ul class="compact-list">
+              <li>Count actual input and output tokens for the whole test set. Do not estimate.</li>
+              <li>Price at published list rates, with the date recorded, since prices change.</li>
+              <li>For the encoder, report throughput on a T4 and the cost of that GPU-time, so the comparison is like for like.</li>
+              <li>Report cost per 1,000 sentences for both, and the ratio.</li>
+              <li>State clearly that the encoder needed a labelled dataset and a training run, and the LLM did not. That is a real cost, and hiding it makes the comparison dishonest.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="protocol">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">What every run must record</p>
+            <h2>Experiment protocol</h2>
+          </div>
+          <span class="pill teal">Registry-backed</span>
+        </div>
+        <p class="section-intro">
+          One row per run in a registry file, written by the training script and not by hand. A run
+          without a row cannot be quoted. This is the direct fix for the previous project's
+          reproducibility gap.
+        </p>
+
+        <div class="card">
+          <h3>Registry row fields</h3>
+          <div class="table-wrap" style="margin-top:.7rem; box-shadow:none">
+            <table>
+              <thead><tr><th style="width:190px">Field</th><th>Meaning</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">run_id</td><td>Stable identifier, generated from the config hash and the start time.</td></tr>
+                <tr><td class="mono">task</td><td>One of fls, absa, factop.</td></tr>
+                <tr><td class="mono">hypothesis</td><td>One sentence, written before the run, saying what this run is testing.</td></tr>
+                <tr><td class="mono">variable</td><td>The single thing changed relative to the named parent run.</td></tr>
+                <tr><td class="mono">parent_run_id</td><td>The run this one is a variation of. Makes the experiment tree readable.</td></tr>
+                <tr><td class="mono">config_hash</td><td>Hash of the full resolved config, including data selection.</td></tr>
+                <tr><td class="mono">data_revision</td><td>Dataset version and hash for every split used.</td></tr>
+                <tr><td class="mono">gold_hash</td><td>Hash of the frozen test set. Mismatch aborts the run.</td></tr>
+                <tr><td class="mono">seed</td><td>Random seed. Three seeds per reported configuration.</td></tr>
+                <tr><td class="mono">env</td><td>Library versions, GPU type, CUDA version.</td></tr>
+                <tr><td class="mono">metrics_val</td><td>Validation metrics, per epoch.</td></tr>
+                <tr><td class="mono">metrics_test</td><td>Test metrics. Empty until the run is promoted to a final evaluation.</td></tr>
+                <tr><td class="mono">artifact_path</td><td>Where the checkpoint actually is.</td></tr>
+                <tr><td class="mono">evidence_grade</td><td>Supported, reported, compromised, or not run.</td></tr>
+                <tr><td class="mono">notes</td><td>Anything that went wrong. Especially anything that went wrong.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top:1.1rem">
+          <div class="card">
+            <h3>Run discipline</h3>
+            <ul class="compact-list">
+              <li><strong>Write the hypothesis first.</strong> If you cannot say what the run tests before starting it, you are not running an experiment, you are hoping.</li>
+              <li><strong>Three seeds before any comparison.</strong> A one-seed difference of a point or two is noise. Report mean and spread.</li>
+              <li><strong>Checkpoint selection on validation macro-F1</strong>, evaluated often enough to catch the peak. The previous project found frequent selection helped.</li>
+              <li><strong>Test evaluation is a separate deliberate step</strong>, run once per candidate model, and it writes to the registry.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>When a run is compromised</h3>
+            <ul class="compact-list">
+              <li>Grade it compromised in the registry with the reason. Do not delete it.</li>
+              <li>Any number from it is unusable, including numbers that look good.</li>
+              <li>If the compromise came from a code path, add a test that would have caught it before rerunning.</li>
+              <li>A preprocessing assertion that stops a run is a success, not a nuisance. The last project had one fire correctly and it saved a bad result from shipping.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="gates">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Permission to continue</p>
+            <h2>Decision gates</h2>
+          </div>
+          <span class="pill red">Can fail</span>
+        </div>
+        <p class="section-intro">
+          Each gate is a real stop. Failing one means fixing the cause, not carrying on and hoping the
+          next phase covers it. A gate that never fails is decoration.
+        </p>
+
+        <div class="stack">
+          <div class="card next-card">
+            <div class="priority"><span>Gate</span><strong>1</strong></div>
+            <div>
+              <h3>Codebook is usable</h3>
+              <p class="small muted">Two pilot rounds done. Hesitation rate under one in five. Kappa above
+                0.7 if a second annotator exists, or stable self-agreement if not.</p>
+              <div class="gate"><strong>If it fails:</strong> rewrite the label definitions. Do not annotate
+                1,000 examples against a definition you are unsure of. This is the cheapest failure in
+                the whole programme and the most expensive one to skip.</div>
+            </div>
+          </div>
+          <div class="card next-card">
+            <div class="priority"><span>Gate</span><strong>2</strong></div>
+            <div>
+              <h3>Data is clean</h3>
+              <p class="small muted">No near-duplicates across splits. Every row has provenance. Licence
+                confirmed for every source that will be redistributed. Class rates recorded.</p>
+              <div class="gate"><strong>If it fails:</strong> no training run starts. Leakage found later
+                invalidates everything downstream of it.</div>
+            </div>
+          </div>
+          <div class="card next-card">
+            <div class="priority"><span>Gate</span><strong>3</strong></div>
+            <div>
+              <h3>Model beats the classical baseline</h3>
+              <p class="small muted">The fine-tuned encoder clearly beats TF-IDF plus logistic regression
+                on validation data.</p>
+              <div class="gate"><strong>If it fails:</strong> stop and diagnose. Either the task is lexically
+                trivial, which is a publishable finding on its own, or the training pipeline is broken.
+                Do not tune hyperparameters until you know which.</div>
+            </div>
+          </div>
+          <div class="card next-card">
+            <div class="priority"><span>Gate</span><strong>4</strong></div>
+            <div>
+              <h3>Model meets the success bar</h3>
+              <p class="small muted">Test macro-F1 at or above the best LLM baseline, cost ratio at least
+                50&times;, latency under 50ms, all measured once on the frozen gold set.</p>
+              <div class="gate"><strong>If it fails:</strong> the model still ships, with the miss in the model
+                card and an honest section in the write-up about why. Failing this gate does not block the
+                next phase. Hiding it does.</div>
+            </div>
+          </div>
+          <div class="card next-card">
+            <div class="priority"><span>Gate</span><strong>5</strong></div>
+            <div>
+              <h3>Release is reproducible</h3>
+              <p class="small muted">A clean checkout plus one command reproduces the published table from
+                the released checkpoint and the released dataset.</p>
+              <div class="gate"><strong>If it fails:</strong> nothing is published. A number that cannot be
+                reproduced from the public artifacts is exactly the problem this whole programme exists
+                to avoid.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout warning" style="margin-top:1.2rem">
+          <p><strong>The programme-level stop rule.</strong> If Phase 1 fails Gate 1 or Gate 2 twice, stop
+            and reconsider the task definition before spending time on Phases 2 and 3. Three models
+            built on a shaky label definition is three times the wasted effort.</p>
+        </div>
+      </section>
+
+      <section id="roles">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Who does what</p>
+            <h2>Roles and working style</h2>
+          </div>
+          <span class="status notrun">Assumed</span>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <h3>Only you can do this</h3>
+            <ul class="compact-list">
+              <li><strong>Annotation.</strong> The gold labels are the human contribution, and delegating them to a model destroys their purpose.</li>
+              <li><strong>Codebook judgement calls.</strong> Every hard case resolved becomes a rule everything else follows.</li>
+              <li><strong>Deciding what a result means.</strong> Especially deciding when a result is not good enough to claim.</li>
+              <li><strong>Licence and redistribution calls.</strong></li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Good agent work</h3>
+            <ul class="compact-list">
+              <li><strong>Harness, scripts, tests, CI.</strong> Well-specified engineering with a clear definition of done.</li>
+              <li><strong>Dataset surveys.</strong> Finding what exists and what its terms are, with links, for you to verify.</li>
+              <li><strong>Baseline runners</strong> and the cost measurement plumbing.</li>
+              <li><strong>Silver labelling at volume</strong>, once the prompt is fixed.</li>
+              <li><strong>Drafting model cards and the write-up</strong>, from registry numbers rather than from memory.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout info" style="margin-top:1rem">
+          <p class="small"><strong>Rule for agent work.</strong> An agent may write any code and may draft any
+            text. An agent may not decide that a number is good enough to publish, and may not put a
+            number anywhere without its registry row and evidence grade. Any pull request that adds a
+            number without a registry reference gets rejected.</p>
+        </div>
+      </section>
+
+      <section id="risks">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">What will probably go wrong</p>
+            <h2>Risk register</h2>
+          </div>
+          <span class="pill amber">Live</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th style="width:220px">Risk</th><th>Why it is likely</th><th style="width:280px">Response</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Annotation stalls the project</strong></td>
+                <td>3,000 careful judgements is genuinely a lot of work, and it is the least fun part.</td>
+                <td>Cut to 600 per task before cutting quality. Keep the double-annotated portion. Report the wider intervals.</td>
+              </tr>
+              <tr>
+                <td><strong>Public data does not match the codebook</strong></td>
+                <td>Every existing dataset was labelled for someone else's purpose.</td>
+                <td>Publish the mapping, and report performance on the gold set separately from performance on public test splits. Never blend the two into one headline.</td>
+              </tr>
+              <tr>
+                <td><strong>Fact versus opinion has no usable public data</strong></td>
+                <td>It is the least studied of the three in a finance setting.</td>
+                <td>Plan for it. Phase 3 is scheduled last precisely so the silver pipeline is proven by then. Accept a smaller training set and say so.</td>
+              </tr>
+              <tr>
+                <td><strong>The LLM baseline wins</strong></td>
+                <td>Frontier models are strong at exactly this kind of short classification task.</td>
+                <td>Ship the result. "A 150M encoder gets within a point of a frontier model at one fiftieth the cost" is a good outcome and an honest one.</td>
+              </tr>
+              <tr>
+                <td><strong>T4 limits force a compromise</strong></td>
+                <td>Free-tier sessions time out, and memory is tight at 512 tokens.</td>
+                <td>LoRA, gradient accumulation, and checkpoint-resume by default. Every config must survive a session restart without losing a run.</td>
+              </tr>
+              <tr>
+                <td><strong>Licences block the dataset release</strong></td>
+                <td>Financial text is commercially valuable and often restricted.</td>
+                <td>Check licences before annotating, not after. Prefer EDGAR, which is public domain in the US. Release document identifiers and offsets rather than raw text where terms are unclear.</td>
+              </tr>
+              <tr>
+                <td><strong>Scope creep back into non-goals</strong></td>
+                <td>Aspect extraction and long context both feel like natural next steps.</td>
+                <td>The non-goals list in Product, plus the rule that adding one back needs a decision-log entry.</td>
+              </tr>
+              <tr>
+                <td><strong>The thesis turns out to be wrong</strong></td>
+                <td>Three labels may simply not cover as much of finance NLP as claimed.</td>
+                <td>That is a finding. The write-up has a section for what the three labels miss, and it gets written whatever the answer is.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="writeup">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">The output that outlives the models</p>
+            <h2>Write-up plan</h2>
+          </div>
+          <span class="pill blue">Phase 4</span>
+        </div>
+        <p class="section-intro">
+          Written from the registry, not from memory. Every number traceable to a run row. The
+          structure is fixed now so the results cannot quietly reshape the argument later.
+        </p>
+        <div class="grid-2">
+          <div class="card">
+            <h3>Sections</h3>
+            <ol class="compact-list">
+              <li><strong>The thesis</strong>, stated as a claim that could be wrong.</li>
+              <li><strong>The three tasks</strong>, with the full codebooks.</li>
+              <li><strong>The protocol</strong>, before any results. Deliberately first, so the reader judges the method before seeing the numbers.</li>
+              <li><strong>Data</strong>, including the tracks and their reliability.</li>
+              <li><strong>Results</strong>, one table per task, every baseline, every interval, the human ceiling in the same table.</li>
+              <li><strong>Cost and latency</strong>, with the training cost stated too.</li>
+              <li><strong>What did not work</strong>, at similar length to what did.</li>
+              <li><strong>Thesis test</strong>, taking real finance NLP tasks and showing coverage and gaps.</li>
+              <li><strong>Limitations and quarantined claims.</strong></li>
+            </ol>
+          </div>
+          <div class="card">
+            <h3>Rules for the text</h3>
+            <ul class="compact-list">
+              <li>No number without an evidence grade.</li>
+              <li>No comparison across different protocols, ever, even with a caveat.</li>
+              <li>Confidence intervals in every results table, not just the text.</li>
+              <li>The word "state of the art" does not appear.</li>
+              <li>Where an earlier plan changed, say so and say why.</li>
+              <li>The thesis section reports what the three labels miss, in the same detail as what they cover.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <footer class="footer">
+    <p>ModernFin Triad &middot; Document 2 of 4 &middot; Program design</p>
+    <p><a href="PRODUCT.html">Product</a> &middot; <a href="ARCHITECTURE.html">Architecture</a> &middot; <a href="VERTICAL_SLICES.html">Vertical slices</a> &middot; <a href="learnings.html">Prior learnings</a></p>
+  </footer>
