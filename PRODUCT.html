@@ -1,0 +1,1378 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Scope, label contracts, non-goals and definition of done for three finance NLP classifiers: aspect sentiment, forward-looking, and fact vs opinion.">
+  <title>ModernFin Triad — Product Spec</title>
+  <style>
+/* Shared design system for the ModernFin Triad planning documents.
+   Inlined into each generated HTML file by assets/build.py so every
+   document stays a single self-contained file. Derived from learnings.html. */
+
+:root {
+  color-scheme: light;
+  --ink: #172126;
+  --muted: #5b686d;
+  --paper: #f5f2ea;
+  --surface: #fffdf8;
+  --surface-2: #ece8de;
+  --line: #d8d2c4;
+  --navy: #183a4a;
+  --teal: #087f79;
+  --teal-soft: #dff2ef;
+  --blue: #2d5f92;
+  --blue-soft: #e5edf8;
+  --amber: #a15c08;
+  --amber-soft: #fff0d7;
+  --red: #a43c34;
+  --red-soft: #fae6e3;
+  --violet: #66559a;
+  --violet-soft: #eee9fb;
+  --shadow: 0 12px 35px rgba(31, 41, 43, .08);
+  --radius: 18px;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --serif: Iowan Old Style, "Palatino Linotype", Palatino, Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 88% 0%, rgba(8, 127, 121, .10), transparent 25rem),
+    var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  line-height: 1.58;
+}
+a { color: var(--blue); text-underline-offset: 3px; }
+a:hover { color: var(--teal); }
+code {
+  font-family: var(--mono);
+  font-size: .88em;
+  background: var(--surface-2);
+  border-radius: 5px;
+  padding: .08rem .3rem;
+  overflow-wrap: anywhere;
+}
+pre {
+  overflow-x: auto;
+  margin: .7rem 0 0;
+  padding: .9rem 1rem;
+  color: #e8eef0;
+  background: #14262f;
+  border-radius: 12px;
+  font-family: var(--mono);
+  font-size: .78rem;
+  line-height: 1.6;
+}
+pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  left: 1rem;
+  top: -5rem;
+  padding: .7rem 1rem;
+  color: white;
+  background: var(--navy);
+  border-radius: .5rem;
+}
+.skip-link:focus { top: 1rem; }
+
+/* ---------- hero ---------- */
+.hero {
+  position: relative;
+  overflow: hidden;
+  background: var(--navy);
+  color: white;
+  padding: 4.5rem max(1.25rem, calc((100vw - 1380px) / 2)) 2.2rem;
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  width: 34rem;
+  height: 34rem;
+  right: -12rem;
+  top: -18rem;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 5rem rgba(255,255,255,.035),
+    0 0 0 10rem rgba(255,255,255,.025);
+}
+.hero-inner { position: relative; z-index: 1; max-width: 1000px; }
+.eyebrow {
+  margin: 0 0 .8rem;
+  color: #9edbd5;
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+h1, h2, h3, h4 { line-height: 1.14; }
+h1 {
+  max-width: 900px;
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(2.4rem, 5.6vw, 4.9rem);
+  font-weight: 650;
+  letter-spacing: -.035em;
+}
+.hero .lede {
+  max-width: 850px;
+  margin: 1.2rem 0 0;
+  color: #dce9ec;
+  font-size: clamp(1rem, 2vw, 1.28rem);
+}
+.audit-strip {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .75rem;
+  max-width: 1200px;
+  margin-top: 2.3rem;
+}
+.audit-stat {
+  padding: .8rem .9rem;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+}
+.audit-stat strong { display: block; color: white; font-size: 1.15rem; }
+.audit-stat span {
+  display: block;
+  margin-top: .16rem;
+  color: #b8cbd0;
+  font-size: .78rem;
+  line-height: 1.3;
+}
+.doc-nav {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  margin-top: 1.9rem;
+}
+.doc-nav a {
+  padding: .42rem .75rem;
+  color: #cfe3e6;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 999px;
+  font-size: .76rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.doc-nav a:hover { color: white; background: rgba(255,255,255,.16); }
+.doc-nav a[aria-current="page"] {
+  color: var(--navy);
+  background: #9edbd5;
+  border-color: #9edbd5;
+}
+
+/* ---------- layout ---------- */
+.page {
+  display: grid;
+  grid-template-columns: 245px minmax(0, 1fr);
+  gap: 2rem;
+  width: min(1380px, calc(100% - 2.5rem));
+  margin: 2rem auto 6rem;
+  align-items: start;
+}
+.sidebar {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  padding: 1rem;
+  background: rgba(255,253,248,.9);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.sidebar-title {
+  margin: 0 0 .65rem;
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+.toc { display: grid; gap: .1rem; margin-bottom: 1.1rem; }
+.toc a {
+  padding: .35rem .5rem;
+  color: var(--ink);
+  border-radius: 7px;
+  font-size: .86rem;
+  text-decoration: none;
+}
+.toc a:hover, .toc a:focus { background: var(--teal-soft); color: var(--teal); }
+.sidebar hr { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; }
+.legend { display: grid; gap: .5rem; font-size: .76rem; color: var(--muted); }
+.legend-row {
+  display: grid;
+  grid-template-columns: 82px 1fr;
+  gap: .45rem;
+  align-items: start;
+}
+
+main { min-width: 0; }
+section { scroll-margin-top: 1rem; margin-bottom: 2.8rem; }
+.section-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: end;
+  min-width: 0;
+  margin-bottom: 1rem;
+}
+.section-head > * { min-width: 0; }
+.section-kicker {
+  margin: 0 0 .25rem;
+  color: var(--teal);
+  font-size: .73rem;
+  font-weight: 850;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+h2 {
+  margin: 0;
+  color: var(--navy);
+  font-family: var(--serif);
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  letter-spacing: -.025em;
+}
+h3 { margin: 0 0 .55rem; color: var(--navy); font-size: 1.08rem; }
+h4 { margin: 0 0 .35rem; font-size: .92rem; }
+.section-intro { max-width: 880px; margin: .45rem 0 1.1rem; color: var(--muted); }
+
+/* ---------- cards ---------- */
+.card {
+  padding: 1.15rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 7px 22px rgba(31, 41, 43, .045);
+}
+.card p:last-child, .callout p:last-child { margin-bottom: 0; }
+.card > p { margin: .35rem 0 0; }
+.grid-2, .grid-3, .grid-4, .grid-5 { display: grid; gap: 1rem; }
+.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.stack { display: grid; gap: 1rem; }
+.stack-sm { display: grid; gap: .6rem; }
+.number-card { position: relative; overflow: hidden; padding-top: 3.1rem; }
+.number-card::before {
+  content: attr(data-number);
+  position: absolute;
+  top: .45rem;
+  right: .8rem;
+  color: rgba(24,58,74,.12);
+  font-family: var(--serif);
+  font-size: 3.3rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.number-card p { margin: .3rem 0 0; color: var(--muted); font-size: .88rem; }
+.metric-value {
+  display: block;
+  color: var(--navy);
+  font-family: var(--serif);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -.03em;
+}
+.metric-label { color: var(--muted); font-size: .75rem; }
+
+.callout {
+  padding: 1.05rem 1.2rem;
+  border-left: 5px solid var(--teal);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--teal-soft);
+}
+.callout.warning { border-color: var(--amber); background: var(--amber-soft); }
+.callout.danger { border-color: var(--red); background: var(--red-soft); }
+.callout.info { border-color: var(--blue); background: var(--blue-soft); }
+.callout strong { color: var(--navy); }
+.callout h3 { margin-bottom: .3rem; }
+
+/* ---------- pills and status ---------- */
+.pill, .status {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  width: fit-content;
+  border-radius: 999px;
+  font-size: .68rem;
+  font-weight: 850;
+  letter-spacing: .045em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.pill { padding: .34rem .52rem; background: var(--surface-2); color: var(--navy); }
+.pill.teal { background: var(--teal-soft); color: var(--teal); }
+.pill.blue { background: var(--blue-soft); color: var(--blue); }
+.pill.amber { background: var(--amber-soft); color: var(--amber); }
+.pill.red { background: var(--red-soft); color: var(--red); }
+.pill.violet { background: var(--violet-soft); color: var(--violet); }
+.status { padding: .32rem .5rem; }
+.status::before {
+  content: "";
+  width: .42rem;
+  height: .42rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+.supported { color: var(--teal); background: var(--teal-soft); }
+.reported { color: var(--blue); background: var(--blue-soft); }
+.compromised { color: var(--red); background: var(--red-soft); }
+.notrun { color: var(--amber); background: var(--amber-soft); }
+.historical { color: var(--violet); background: var(--violet-soft); }
+.muted { color: var(--muted); }
+.small { font-size: .78rem; }
+.tiny { font-size: .7rem; }
+.mono { font-family: var(--mono); font-size: .82em; }
+.pill-row { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .6rem; }
+
+/* ---------- tables ---------- */
+.table-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 7px 22px rgba(31, 41, 43, .04);
+}
+table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+th, td {
+  padding: .74rem .76rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  text-align: left;
+}
+th {
+  color: var(--navy);
+  background: #f0ede4;
+  font-size: .7rem;
+  font-weight: 850;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: rgba(8,127,121,.035); }
+td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.best { color: var(--teal); font-weight: 800; }
+.bad { color: var(--red); }
+.subtle-cell { color: var(--muted); }
+.table-caption { margin: .65rem .2rem 0; color: var(--muted); font-size: .74rem; }
+
+/* ---------- lists ---------- */
+.compact-list { margin: .55rem 0 0; padding-left: 1.12rem; }
+.compact-list li { margin: .32rem 0; color: var(--muted); font-size: .85rem; }
+.compact-list li strong { color: var(--ink); }
+.checklist { list-style: none; margin: .6rem 0 0; padding: 0; display: grid; gap: .42rem; }
+.checklist li {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  gap: .5rem;
+  font-size: .85rem;
+  color: var(--ink);
+}
+.checklist li::before {
+  content: "";
+  width: 1rem;
+  height: 1rem;
+  margin-top: .22rem;
+  border: 2px solid var(--teal);
+  border-radius: 4px;
+}
+.checklist.blocked li::before { border-color: var(--amber); }
+.dl-spec { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: .38rem .9rem; margin: .7rem 0 0; font-size: .85rem; }
+.dl-spec dt { color: var(--muted); font-weight: 700; }
+.dl-spec dd { margin: 0; }
+
+/* ---------- specialised blocks ---------- */
+.decision { border-top: 5px solid var(--line); }
+.decision.recommended { border-top-color: var(--teal); }
+.decision.caution { border-top-color: var(--amber); }
+.decision.blocked { border-top-color: var(--red); }
+.decision .model-name { font-family: var(--mono); font-size: .78rem; }
+
+.evidence-ladder {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .8rem;
+  counter-reset: evidence;
+}
+.evidence-ladder .card { counter-increment: evidence; }
+.evidence-ladder .card::before {
+  content: counter(evidence, upper-alpha);
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  margin-bottom: .65rem;
+  color: white;
+  background: var(--navy);
+  border-radius: 50%;
+  font-weight: 850;
+}
+
+.timeline { position: relative; display: grid; gap: .8rem; padding-left: 1.35rem; }
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: .31rem;
+  top: .3rem;
+  bottom: .3rem;
+  width: 2px;
+  background: var(--line);
+}
+.timeline-item {
+  position: relative;
+  padding: .95rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.timeline-item::before {
+  content: "";
+  position: absolute;
+  left: -1.37rem;
+  top: 1.15rem;
+  width: .68rem;
+  height: .68rem;
+  background: var(--teal);
+  border: 3px solid var(--paper);
+  border-radius: 50%;
+}
+.timeline-item.failed::before { background: var(--red); }
+.timeline-item.old::before { background: var(--amber); }
+.timeline-item p { margin: .35rem 0 0; color: var(--muted); font-size: .83rem; }
+.timeline-meta { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+
+.quarantine-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.quarantine {
+  position: relative;
+  padding: 1.1rem;
+  background: var(--surface);
+  border: 1px solid #e1b4af;
+  border-radius: var(--radius);
+}
+.quarantine .do-not {
+  margin: .65rem 0 .25rem;
+  color: var(--red);
+  font-size: .73rem;
+  font-weight: 850;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+.quarantine p { margin: .35rem 0; color: var(--muted); font-size: .84rem; }
+
+.protocol { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.protocol-step {
+  display: grid;
+  grid-template-columns: 2.2rem minmax(0,1fr);
+  gap: .7rem;
+  padding: .9rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.protocol-step .n {
+  display: grid;
+  place-items: center;
+  align-self: start;
+  width: 2.1rem;
+  height: 2.1rem;
+  color: white;
+  background: var(--navy);
+  border-radius: 50%;
+  font-weight: 800;
+}
+.protocol-step p { margin: .2rem 0 0; color: var(--muted); font-size: .82rem; }
+
+.next-card { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 1rem; }
+.priority {
+  align-self: start;
+  padding: .55rem .45rem;
+  color: white;
+  background: var(--navy);
+  border-radius: 10px;
+  font-weight: 850;
+  text-align: center;
+}
+.priority span { display: block; font-size: .65rem; letter-spacing: .08em; text-transform: uppercase; }
+.priority strong { font-size: 1.35rem; }
+.gate {
+  margin-top: .65rem;
+  padding: .55rem .7rem;
+  background: var(--surface-2);
+  border-radius: 8px;
+  font-size: .78rem;
+}
+.gate strong { color: var(--navy); }
+
+/* slice cards */
+.slice { border-top: 5px solid var(--teal); }
+.slice.foundation { border-top-color: var(--navy); }
+.slice.later { border-top-color: var(--violet); }
+.slice-head {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: .8rem;
+  align-items: start;
+  margin-bottom: .55rem;
+}
+.slice-head h3 { margin: 0; font-size: 1.22rem; }
+.slice-num {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.split { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 1rem; margin-top: .9rem; }
+.subcard {
+  padding: .85rem .95rem;
+  background: var(--surface-2);
+  border-radius: 12px;
+}
+.subcard h4 {
+  color: var(--navy);
+  font-size: .72rem;
+  font-weight: 850;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.subcard p { margin: .3rem 0 0; font-size: .84rem; color: var(--muted); }
+.subcard .compact-list { padding-left: 1rem; }
+
+.flow { display: grid; gap: .5rem; }
+.flow-step {
+  display: grid;
+  grid-template-columns: minmax(0,1fr);
+  padding: .7rem .85rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--teal);
+  border-radius: 10px;
+  font-size: .85rem;
+}
+.flow-step span { display: block; margin-top: .2rem; color: var(--muted); font-size: .78rem; }
+.flow-arrow { color: var(--line); text-align: center; font-size: .9rem; line-height: 1; }
+
+.artifact-map { columns: 2; column-gap: 2rem; }
+.artifact-map li { break-inside: avoid; margin: .42rem 0; }
+
+.footer {
+  padding: 2rem 1.25rem 3rem;
+  color: #c5d3d7;
+  background: var(--navy);
+  text-align: center;
+  font-size: .78rem;
+}
+.footer a { color: #a8e1dc; }
+.back-top {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  width: 2.7rem;
+  height: 2.7rem;
+  color: white;
+  background: var(--navy);
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 50%;
+  box-shadow: var(--shadow);
+  text-decoration: none;
+}
+
+@media (max-width: 1100px) {
+  .page { grid-template-columns: 1fr; }
+  .sidebar { position: relative; top: auto; max-height: none; }
+  .toc { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid-4, .evidence-ladder { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .hero { padding-top: 3rem; }
+  .audit-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .page { width: min(100% - 1.2rem, 1380px); gap: 1.2rem; }
+  .toc { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-2, .grid-3, .grid-4, .grid-5, .evidence-ladder,
+  .quarantine-grid, .protocol, .split { grid-template-columns: 1fr; }
+  .section-head { grid-template-columns: 1fr; }
+  .section-head .pill { max-width: 100%; white-space: normal; line-height: 1.25; }
+  .artifact-map { columns: 1; }
+  .next-card { grid-template-columns: 68px minmax(0,1fr); }
+  .dl-spec { grid-template-columns: 1fr; }
+  .dl-spec dd { margin-bottom: .3rem; }
+}
+@media print {
+  .sidebar, .back-top, .skip-link, .doc-nav { display: none; }
+  .page { grid-template-columns: 1fr; width: 100%; }
+  .card, .table-wrap { box-shadow: none; }
+  section { break-inside: avoid; }
+}
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="hero" id="top">
+    <div class="hero-inner">
+      <p class="eyebrow">Document 1 of 4 &middot; Product spec</p>
+      <h1>Three classifiers that cover most of finance NLP</h1>
+      <p class="lede">
+        Aspect sentiment, forward-looking detection, and fact versus opinion. Three small encoders,
+        one domain, one shared evaluation protocol. This document fixes what gets built, what the
+        labels mean, and what counts as done. It is the build spec, not a pitch.
+      </p>
+      <div class="audit-strip">
+        <div class="audit-stat"><strong>3 models</strong><span>Separate encoder per task. No multi-task trunk.</span></div>
+        <div class="audit-stat"><strong>Finance only</strong><span>Filings, transcripts, analyst notes, financial news.</span></div>
+        <div class="audit-stat"><strong>Colab T4</strong><span>Free tier is the hard compute ceiling.</span></div>
+        <div class="audit-stat"><strong>Beat the LLM</strong><span>Match or beat few-shot Claude on a frozen gold set.</span></div>
+      </div>
+      <nav class="doc-nav" aria-label="Document set">
+        <a href="PRODUCT.html" aria-current="page">Product</a>
+        <a href="PROGRAM_DESIGN.html">Program design</a>
+        <a href="ARCHITECTURE.html">Architecture</a>
+        <a href="VERTICAL_SLICES.html">Vertical slices</a>
+        <a href="learnings.html">Prior learnings</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page">
+    <aside class="sidebar" aria-label="Contents">
+      <p class="sidebar-title">On this page</p>
+      <nav class="toc">
+        <a href="#thesis">The thesis</a>
+        <a href="#contracts">Model contracts</a>
+        <a href="#codebook">Label codebooks</a>
+        <a href="#nongoals">Non-goals</a>
+        <a href="#users">Users and jobs</a>
+        <a href="#done">Definition of done</a>
+        <a href="#evidence">Evidence rules</a>
+        <a href="#release">Release checklist</a>
+        <a href="#risks">Known traps</a>
+        <a href="#decisions">Decision log</a>
+      </nav>
+      <hr>
+      <p class="sidebar-title">Status key</p>
+      <div class="legend">
+        <div class="legend-row"><span class="status supported">Decided</span><span>Locked. Change needs a new decision-log entry.</span></div>
+        <div class="legend-row"><span class="status notrun">Assumed</span><span>Chosen by default. Cheap to revisit.</span></div>
+        <div class="legend-row"><span class="status compromised">Open</span><span>Blocks work downstream of it.</span></div>
+      </div>
+    </aside>
+
+    <main id="main">
+
+      <section id="thesis">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Why these three</p>
+            <h2>The thesis</h2>
+          </div>
+          <span class="pill teal">Claim under test</span>
+        </div>
+        <p class="section-intro">
+          Most useful questions about a piece of financial text reduce to three smaller questions.
+          Who or what is this about, and is it good or bad for them. Is this about the past or the
+          future. Is this something checkable, or is it somebody's view. Answer all three and you
+          can filter, route, score and summarise almost any financial document.
+        </p>
+
+        <div class="grid-3">
+          <div class="card number-card" data-number="1">
+            <h3>Aspect sentiment</h3>
+            <p>Sentiment is useless without a target. A sentence can be good for the supplier and bad
+              for the buyer. Tying polarity to a named aspect is what makes the signal usable.</p>
+          </div>
+          <div class="card number-card" data-number="2">
+            <h3>Forward-looking</h3>
+            <p>Guidance moves prices. Reported history is already in the tape. Separating the two is
+              the single cheapest way to raise the value of any downstream sentiment score.</p>
+          </div>
+          <div class="card number-card" data-number="3">
+            <h3>Fact vs opinion</h3>
+            <p>A number in a filing and an analyst's judgement are not the same evidence. Anything
+              that summarises or ranks financial text needs to know which one it is holding.</p>
+          </div>
+        </div>
+
+        <div class="callout info" style="margin-top:1rem">
+          <p><strong>The three combine.</strong> Run all three over the same sentence and you get a
+            structured record: target, polarity, time direction, evidence type. That record is the real
+            product. The models are just the way to get it cheaply.</p>
+        </div>
+
+        <div class="callout warning" style="margin-top:1rem">
+          <p><strong>The thesis is a claim, not a given.</strong> It is not proven by building the models.
+            It gets tested in the write-up by taking real finance NLP tasks and showing what the three
+            outputs do and do not cover. Coverage gaps get listed honestly. See the
+            <a href="PROGRAM_DESIGN.html#writeup">write-up plan</a>.</p>
+        </div>
+      </section>
+
+      <section id="contracts">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Exact input and output</p>
+            <h2>Model contracts</h2>
+          </div>
+          <span class="status supported">Decided</span>
+        </div>
+        <p class="section-intro">
+          Three separate fine-tuned encoders. Same base model, same input format, same evaluation
+          harness. Each is released on its own and versioned on its own.
+        </p>
+
+        <div class="stack">
+          <article class="card decision recommended">
+            <div class="slice-head">
+              <div>
+                <h3>Aspect-based sentiment</h3>
+                <p class="model-name">modernfin-absa</p>
+              </div>
+              <span class="pill teal">3-class</span>
+            </div>
+            <dl class="dl-spec">
+              <dt>Input</dt>
+              <dd><code>(target_sentence, context, aspect)</code>. The aspect is supplied by the caller. The model does not find it.</dd>
+              <dt>Output</dt>
+              <dd><code>positive</code> | <code>negative</code> | <code>neutral</code>, with a probability for each.</dd>
+              <dt>Question it answers</dt>
+              <dd>Given this text, is the sentiment expressed toward this specific aspect good, bad, or neither?</dd>
+              <dt>Aspect can be</dt>
+              <dd>A company, a ticker, a business segment, a product, or a financial metric such as <code>gross margin</code>.</dd>
+              <dt>Primary metric</dt>
+              <dd>Macro-F1 across the three classes.</dd>
+            </dl>
+            <div class="callout warning" style="margin-top:.9rem">
+              <p class="small"><strong>Aspect extraction is out of scope.</strong> If nobody hands you an aspect,
+                this model has nothing to do. A separate extractor can be built later, and it is not
+                part of this project.</p>
+            </div>
+          </article>
+
+          <article class="card decision recommended">
+            <div class="slice-head">
+              <div>
+                <h3>Forward-looking statement detection</h3>
+                <p class="model-name">modernfin-fls</p>
+              </div>
+              <span class="pill blue">Binary</span>
+            </div>
+            <dl class="dl-spec">
+              <dt>Input</dt>
+              <dd><code>(target_sentence, context)</code>. No aspect.</dd>
+              <dt>Output</dt>
+              <dd><code>forward_looking</code> | <code>not_forward_looking</code>, with a probability.</dd>
+              <dt>Question it answers</dt>
+              <dd>Does this sentence make a claim about a future state of the world?</dd>
+              <dt>Primary metric</dt>
+              <dd>Macro-F1. Positive-class F1 and recall reported alongside, because the positive class is the rare and useful one.</dd>
+            </dl>
+          </article>
+
+          <article class="card decision recommended">
+            <div class="slice-head">
+              <div>
+                <h3>Fact versus opinion</h3>
+                <p class="model-name">modernfin-factop</p>
+              </div>
+              <span class="pill blue">Binary</span>
+            </div>
+            <dl class="dl-spec">
+              <dt>Input</dt>
+              <dd><code>(target_sentence, context)</code>. No aspect.</dd>
+              <dt>Output</dt>
+              <dd><code>fact</code> | <code>opinion</code>, with a probability.</dd>
+              <dt>Question it answers</dt>
+              <dd>Could a reader check this against a source, or is it somebody's judgement?</dd>
+              <dt>Primary metric</dt>
+              <dd>Macro-F1.</dd>
+            </dl>
+            <div class="callout info" style="margin-top:.9rem">
+              <p class="small"><strong>No "mixed" class, on purpose.</strong> Sentences that state a number and
+                then judge it are common. The codebook forces them into one bucket by a written rule.
+                A third class was rejected because annotator agreement drops and the label stops
+                being useful downstream.</p>
+            </div>
+          </article>
+        </div>
+
+        <h3 style="margin:1.6rem 0 .6rem">Shared input format</h3>
+        <div class="card">
+          <p class="small">All three models see one target sentence plus the sentences around it. The
+            caller splits documents into sentences and supplies the window. The model never sees a
+            whole filing.</p>
+          <pre><code>{
+  "target":  "We expect gross margin to improve modestly in the second half.",
+  "context": "Margins compressed 180bps year over year. |TARGET| Pricing actions take effect in Q3.",
+  "aspect":  "gross margin"        // modernfin-absa only
+}</code></pre>
+          <p class="small muted" style="margin-top:.6rem">Context is capped so the whole encoded example
+            fits in 512 tokens. The target sentence is never truncated. Exact construction and
+            truncation rules are in <a href="ARCHITECTURE.html#input">Architecture &rarr; Input construction</a>.</p>
+        </div>
+
+        <h3 style="margin:1.6rem 0 .6rem">Why context, and why not more</h3>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Context is needed</h4>
+            <p class="small muted">"That is unlikely to repeat" is meaningless alone. A window fixes
+              pronouns, carries the subject forward, and disambiguates whether a number is being
+              reported or projected. Fact versus opinion in particular is often undecidable on the
+              sentence alone.</p>
+          </div>
+          <div class="card">
+            <h4>More context is a known failure</h4>
+            <p class="small muted">The previous project trained a long-context model and it did not
+              work. The long data provenance also broke. 512 tokens is the ceiling here, and it is a
+              deliberate limit, not an oversight. See <a href="learnings.html">prior learnings</a>.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="codebook">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">What the labels actually mean</p>
+            <h2>Label codebooks</h2>
+          </div>
+          <span class="status supported">Decided</span>
+        </div>
+        <p class="section-intro">
+          These rules are the product. Weights are replaceable, a clear label definition is not.
+          Every rule below has to survive contact with a real annotation round, and the rule wins
+          over intuition when they disagree.
+        </p>
+
+        <h3>Aspect sentiment</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th style="width:120px">Label</th><th>Rule</th><th>Example</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="status supported">positive</span></td>
+                <td>The text implies the aspect is doing better, or is expected to do better, than the stated or implied reference point.</td>
+                <td class="subtle-cell">"Margins expanded 200bps" &rarr; aspect <code>margins</code></td>
+              </tr>
+              <tr>
+                <td><span class="status compromised">negative</span></td>
+                <td>The text implies the aspect is doing worse, or is expected to do worse, than the stated or implied reference point.</td>
+                <td class="subtle-cell">"Cloud revenue missed consensus" &rarr; aspect <code>cloud revenue</code></td>
+              </tr>
+              <tr>
+                <td><span class="status notrun">neutral</span></td>
+                <td>The aspect is mentioned with no evaluative direction, or the text is purely descriptive, or the direction is genuinely ambiguous.</td>
+                <td class="subtle-cell">"Revenue was $4.1bn" &rarr; aspect <code>revenue</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="grid-2" style="margin-top:1rem">
+          <div class="card">
+            <h4>Hard rules</h4>
+            <ul class="compact-list">
+              <li><strong>Sentiment is for the aspect, not the sentence.</strong> "Costs fell sharply" is positive for the company and, with aspect <code>costs</code>, still positive, because lower costs are good. Judge the effect on the aspect's owner.</li>
+              <li><strong>A bare number is neutral.</strong> Magnitude alone is not direction. Direction needs a comparison, stated or obvious.</li>
+              <li><strong>If the aspect is absent from the text, the example is invalid.</strong> Drop it. Do not label it neutral.</li>
+              <li><strong>Do not import outside knowledge.</strong> If you need to know last quarter's number and the context does not give it, the answer is neutral.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h4>Known hard cases</h4>
+            <ul class="compact-list">
+              <li><strong>Two aspects, opposite polarity.</strong> "We gained share while pricing weakened" is two separate examples with two labels. That is the point of the task.</li>
+              <li><strong>Quoted opinion.</strong> "Analysts called the guidance disappointing" is negative for the guidance. Report the sentiment in the text, not your view of it.</li>
+              <li><strong>Risk-factor boilerplate.</strong> Filing risk language mentions bad things that have not happened. Neutral unless the text says the risk has materialised.</li>
+              <li><strong>Beat but guided down.</strong> Label per aspect. The quarter is positive, the guidance is negative. Never average them.</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3 style="margin-top:1.8rem">Forward-looking</h3>
+        <div class="card">
+          <p class="small"><strong>Test:</strong> does the sentence assert something about a state of the
+            world that has not happened yet, at the time the text was written?</p>
+          <div class="split">
+            <div class="subcard">
+              <h4>forward_looking</h4>
+              <ul class="compact-list">
+                <li>Guidance, outlooks, targets, plans, and expectations.</li>
+                <li>Hedged predictions. "We expect", "should", "we anticipate" all count.</li>
+                <li>Conditional futures. "If demand holds, we will expand capacity."</li>
+                <li>Announced-but-not-completed actions. "The acquisition is expected to close in Q4."</li>
+              </ul>
+            </div>
+            <div class="subcard">
+              <h4>not_forward_looking</h4>
+              <ul class="compact-list">
+                <li>Reported results, historic comparisons, completed events.</li>
+                <li>Present-tense description of current state. "Inventory stands at 42 days."</li>
+                <li>Timeless statements of policy or definition.</li>
+                <li>References to somebody else's past forecast. "Consensus had expected 4%." That is a reported fact about the past.</li>
+              </ul>
+            </div>
+          </div>
+          <ul class="compact-list" style="margin-top:.9rem">
+            <li><strong>Tense is a hint, not the rule.</strong> "Capacity comes online next quarter" is present tense and forward-looking.</li>
+            <li><strong>Legal safe-harbour boilerplate is forward-looking.</strong> It is dull, it is frequent, and excluding it would be a judgement call the model cannot learn. Include it, and report how much of the positive class it is.</li>
+            <li><strong>Split-nature sentences take the positive label.</strong> If any clause makes a claim about the future, the sentence is forward-looking.</li>
+          </ul>
+        </div>
+
+        <h3 style="margin-top:1.8rem">Fact versus opinion</h3>
+        <div class="card">
+          <p class="small"><strong>Test:</strong> could a careful reader, with access to the right source,
+            establish that this is true or false? If yes it is a fact, even if it turns out to be wrong.</p>
+          <div class="split">
+            <div class="subcard">
+              <h4>fact</h4>
+              <ul class="compact-list">
+                <li>Reported numbers, dates, named events, filed figures.</li>
+                <li>Attributed statements. "The CFO said margins would improve" is a checkable fact about what was said.</li>
+                <li>False or disputed claims that are still checkable.</li>
+                <li>Definitions and stated methodology.</li>
+              </ul>
+            </div>
+            <div class="subcard">
+              <h4>opinion</h4>
+              <ul class="compact-list">
+                <li>Evaluations. "Strong quarter", "disappointing execution".</li>
+                <li>Recommendations and ratings.</li>
+                <li>Unattributed predictions and estimates of value.</li>
+                <li>Causal claims presented without evidence. "Weakness was driven by macro softness."</li>
+              </ul>
+            </div>
+          </div>
+          <ul class="compact-list" style="margin-top:.9rem">
+            <li><strong>Truth is not the test. Checkability is.</strong> A wrong number is still a fact.</li>
+            <li><strong>The mixed-sentence rule.</strong> If a sentence states a checkable thing and then judges it, label it <code>opinion</code>. The judgement is the part a downstream consumer must not treat as evidence. Write this rule into the annotation tool so it is applied every time.</li>
+            <li><strong>Attribution flips it.</strong> "Margins will improve" is opinion. "Management said margins will improve" is fact.</li>
+            <li><strong>Overlap with forward-looking is expected.</strong> The two labels are not independent, and the write-up must report the confusion between them rather than pretend they are separate.</li>
+          </ul>
+        </div>
+
+        <div class="callout" style="margin-top:1.2rem">
+          <p><strong>The codebook is versioned.</strong> It lives at <code>docs/codebook/</code> in the repo,
+            one Markdown file per task, with a version number. Every labelled example records the
+            codebook version it was labelled under. A codebook change without a version bump is a bug.</p>
+        </div>
+      </section>
+
+      <section id="nongoals">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">What this is not</p>
+            <h2>Non-goals</h2>
+          </div>
+          <span class="pill red">Enforced</span>
+        </div>
+        <p class="section-intro">
+          Each of these was considered and dropped. They are listed so that nobody, human or agent,
+          quietly adds them back. Adding one back needs a decision-log entry.
+        </p>
+        <div class="quarantine-grid">
+          <div class="quarantine">
+            <h3>Aspect extraction</h3>
+            <p>The ABSA model takes an aspect as input. Finding aspects in raw text is a separate problem with separate data and separate metrics.</p>
+            <p class="do-not">Not in this project</p>
+          </div>
+          <div class="quarantine">
+            <h3>Entity reasoning claims</h3>
+            <p>The previous project conditioned on entities and then claimed the model reasoned about them. It did not. Feeding an aspect string in is conditioning, and the write-up must say only that.</p>
+            <p class="do-not">Do not claim</p>
+          </div>
+          <div class="quarantine">
+            <h3>Long-document modelling</h3>
+            <p>512 tokens is the ceiling. Document-level work belongs to whatever calls these models, and it splits text before it arrives.</p>
+            <p class="do-not">Hard limit</p>
+          </div>
+          <div class="quarantine">
+            <h3>A multi-task model</h3>
+            <p>Three separate models. A shared trunk makes gains impossible to attribute and every release couples to the other two.</p>
+            <p class="do-not">Rejected</p>
+          </div>
+          <div class="quarantine">
+            <h3>General-domain coverage</h3>
+            <p>Finance only. Out-of-domain behaviour may be measured and reported, and it is never a claim.</p>
+            <p class="do-not">Out of scope</p>
+          </div>
+          <div class="quarantine">
+            <h3>Numeric sentiment scores</h3>
+            <p>Discrete labels with probabilities. Continuous sentiment scores from FiQA and SemEval get thresholded into classes, and that mapping gets documented.</p>
+            <p class="do-not">Not an output</p>
+          </div>
+          <div class="quarantine">
+            <h3>Calibration claims</h3>
+            <p>Calibration numbers get reported. "The model is well calibrated" was quarantined last time and stays quarantined until a reliability curve on the gold set says otherwise.</p>
+            <p class="do-not">Report, never claim</p>
+          </div>
+          <div class="quarantine">
+            <h3>A production service</h3>
+            <p>This is a research release. A demo Space and a clean inference example, and no SLA, no hosted API, no uptime promise.</p>
+            <p class="do-not">Not shipped</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="users">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Who uses the output</p>
+            <h2>Users and jobs</h2>
+          </div>
+          <span class="status notrun">Assumed</span>
+        </div>
+        <p class="section-intro">
+          The primary reader of this document is whoever builds the project next, including future
+          you and coding agents. These are the downstream users the models are shaped for.
+        </p>
+        <div class="grid-3">
+          <div class="card">
+            <h3>Research and quant teams</h3>
+            <p class="small muted">Score thousands of transcript sentences per company per quarter.
+              Needs cheap batch inference and a stable label meaning across versions. Cares about
+              recall on forward-looking above everything.</p>
+          </div>
+          <div class="card">
+            <h3>Anyone building finance RAG</h3>
+            <p class="small muted">Wants to tag retrieved chunks so a generator can separate reported
+              fact from analyst view, and history from guidance. Needs low latency per sentence.</p>
+          </div>
+          <div class="card">
+            <h3>NLP practitioners and reviewers</h3>
+            <p class="small muted">Wants to reproduce the numbers, check the protocol, and reuse the
+              gold sets as a benchmark. Cares more about the evidence trail than the headline score.</p>
+          </div>
+        </div>
+        <div class="callout info" style="margin-top:1rem">
+          <p class="small"><strong>Not a target user:</strong> retail investors, anything giving financial
+            advice, and any use where a wrong label carries direct money risk without a human in the
+            loop. This gets stated in every model card.</p>
+        </div>
+      </section>
+
+      <section id="done">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">The bar</p>
+            <h2>Definition of done</h2>
+          </div>
+          <span class="status supported">Decided</span>
+        </div>
+        <p class="section-intro">
+          Success is beating a strong LLM baseline on a frozen gold set, at far lower cost. Each of
+          the three models has to clear the same bar on its own. A model that misses the bar still
+          ships, with the miss stated in the model card.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:190px">Gate</th>
+                <th>Requirement</th>
+                <th style="width:130px">Applies to</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Quality</strong></td>
+                <td>Macro-F1 on the frozen gold test set is at or above the best few-shot LLM baseline, with the difference reported as a bootstrap 95% confidence interval. "At or above" means the interval does not put the LLM clearly ahead.</td>
+                <td>Each model</td>
+              </tr>
+              <tr>
+                <td><strong>Cost</strong></td>
+                <td>Measured cost per 1,000 sentences is at least 50&times; lower than the winning LLM baseline, counting real token usage at list price.</td>
+                <td>Each model</td>
+              </tr>
+              <tr>
+                <td><strong>Latency</strong></td>
+                <td>Median single-sentence latency on a T4 is under 50ms, and batch throughput is reported at batch size 32.</td>
+                <td>Each model</td>
+              </tr>
+              <tr>
+                <td><strong>Human ceiling</strong></td>
+                <td>Inter-annotator agreement on the gold set is measured and published. Model scores are read against that ceiling, never against 100%.</td>
+                <td>Each task</td>
+              </tr>
+              <tr>
+                <td><strong>Reproducible</strong></td>
+                <td>A clean checkout plus one documented command reproduces the reported test numbers within noise, from the released checkpoint.</td>
+                <td>Each model</td>
+              </tr>
+              <tr>
+                <td><strong>Traceable</strong></td>
+                <td>Every training example carries its source, licence, and whether it is human-labelled or LLM-labelled. No example with unknown provenance is in any training set.</td>
+                <td>Each dataset</td>
+              </tr>
+              <tr>
+                <td><strong>Published</strong></td>
+                <td>Weights, datasets, code, model cards, and the write-up are public, with matching numbers in all four.</td>
+                <td>The project</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="table-caption">Every gate is measured on the frozen gold test set, never on validation data.
+            The gold set is built before any model is trained and is not looked at during development.</p>
+        </div>
+
+        <div class="grid-2" style="margin-top:1.2rem">
+          <div class="card">
+            <h3>Baselines every model is measured against</h3>
+            <ul class="compact-list">
+              <li><strong>Majority class.</strong> The floor. Catches a broken metric.</li>
+              <li><strong>TF-IDF plus logistic regression.</strong> The cheap classical baseline. If a fine-tuned encoder cannot clearly beat it, the task is trivial or the data is broken.</li>
+              <li><strong>Few-shot Claude, small and large.</strong> The real competition, run with a prompt tuned on validation data only. The strongest of these is the number to beat.</li>
+              <li><strong>Zero-shot LLM.</strong> Reported to show what prompt work is worth.</li>
+              <li><strong>Off-the-shelf finance encoder.</strong> Existing public models on the same task where one exists, to show the delta from doing this properly.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>What is deliberately not a gate</h3>
+            <ul class="compact-list">
+              <li><strong>Beating published state of the art.</strong> Prior benchmark protocols are not comparable to this one, and forcing the comparison is how the last project produced numbers it had to retract.</li>
+              <li><strong>A round number like 90%.</strong> The gold set defines the ceiling, and it is unknown until agreement is measured.</li>
+              <li><strong>Calibration quality.</strong> Reported, not gated.</li>
+              <li><strong>Out-of-domain robustness.</strong> Measured and published as a limitation, not a pass condition.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="evidence">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Carried over from the last project</p>
+            <h2>Evidence rules</h2>
+          </div>
+          <span class="pill teal">Non-negotiable</span>
+        </div>
+        <p class="section-intro">
+          Every number in this project carries a grade. The grade travels with the number into the
+          model card, the write-up and the README. An ungraded number is not publishable.
+        </p>
+        <div class="evidence-ladder">
+          <div class="card">
+            <h3>Supported</h3>
+            <p class="small muted">A saved run with a config, a seed, a logged artifact, and an
+              evaluation on the frozen gold set. Safe to put in a headline.</p>
+          </div>
+          <div class="card">
+            <h3>Reported</h3>
+            <p class="small muted">A number that exists in a log or a notebook but has no reproducible
+              artifact behind it. Usable in the text with the caveat attached.</p>
+          </div>
+          <div class="card">
+            <h3>Compromised</h3>
+            <p class="small muted">A run with a known protocol problem such as leakage, a changed test
+              set, or an unrecorded preprocessing step. Kept for the record, never quoted.</p>
+          </div>
+          <div class="card">
+            <h3>Not run</h3>
+            <p class="small muted">Planned and not executed. Named explicitly so an unrun experiment
+              never quietly becomes a claim.</p>
+          </div>
+        </div>
+        <div class="callout danger" style="margin-top:1.1rem">
+          <p><strong>The single rule that matters.</strong> If the protocol changed, the number is not
+            comparable, no matter how much better it looks. The last project learned this expensively.
+            Protocol first, headline second.</p>
+        </div>
+      </section>
+
+      <section id="release">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">What ships</p>
+            <h2>Release checklist</h2>
+          </div>
+          <span class="status supported">Decided</span>
+        </div>
+        <p class="section-intro">
+          Everything is open sourced. Each model release repeats this checklist. The suite release
+          adds the cross-model comparison and the demo.
+        </p>
+        <div class="grid-2">
+          <div class="card">
+            <h3>Per model</h3>
+            <ul class="checklist">
+              <li>Weights on Hugging Face under <code>neoyipeng/&lt;model&gt;</code>.</li>
+              <li>Model card with the label definitions copied in full, not linked.</li>
+              <li>Gold test set results with confidence intervals and the human agreement ceiling.</li>
+              <li>Every baseline number from the table above, in one comparison table.</li>
+              <li>Cost and latency measurements, with the hardware and prices stated.</li>
+              <li>Named limitations, including the out-of-domain results.</li>
+              <li>Intended use and out-of-scope use.</li>
+              <li>Training config, seed, and the exact dataset revision hash.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Per dataset</h3>
+            <ul class="checklist">
+              <li>Gold test set on Hugging Face, with per-example annotator labels kept.</li>
+              <li>Dataset card with source, licence, and collection method for every row.</li>
+              <li>The codebook version used, published alongside.</li>
+              <li>Human and LLM-labelled rows in separate splits, never merged.</li>
+              <li>Agreement statistics, including where annotators disagreed most.</li>
+              <li>Redistribution check done per source, with anything unclear excluded.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Repository</h3>
+            <ul class="checklist">
+              <li>Data prep, training, and evaluation scripts, all config-driven.</li>
+              <li>The run registry with one row per experiment.</li>
+              <li>Seeds and configs for every reported number.</li>
+              <li>Tests, including the data invariant checks.</li>
+              <li>A README that reproduces the headline table in one command.</li>
+              <li>Licence, chosen once the source data licences are known.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Suite</h3>
+            <ul class="checklist">
+              <li>Public write-up with the full protocol and every caveat.</li>
+              <li>A Hugging Face Space where you paste a sentence and see all three outputs.</li>
+              <li>The thesis section, with an honest list of what the three labels do not cover.</li>
+              <li>A quarantine section listing claims that were tested and dropped.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="risks">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Learned the hard way</p>
+            <h2>Known traps</h2>
+          </div>
+          <span class="pill amber">From learnings.html</span>
+        </div>
+        <p class="section-intro">
+          These are failure modes the previous project actually hit. Each one has a countermeasure
+          baked into the plan rather than a warning to be careful.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th style="width:220px">Trap</th><th>What happened before</th><th style="width:290px">Countermeasure here</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Protocol drift</strong></td>
+                <td>Evaluation protocol changed between runs, so headline gains were not comparable and had to be withdrawn.</td>
+                <td>Gold test sets are frozen and hashed before the first training run. The eval harness refuses to run against an unrecognised hash.</td>
+              </tr>
+              <tr>
+                <td><strong>Silent data mixing</strong></td>
+                <td>Human and augmented data merged in a way that could not be reconstructed afterwards.</td>
+                <td>Every row carries a provenance field. Mixing happens in a config, not in a notebook. A test fails if provenance is missing.</td>
+              </tr>
+              <tr>
+                <td><strong>Split leakage</strong></td>
+                <td>Near-duplicate sentences appeared across train and test splits.</td>
+                <td>Near-duplicate detection across splits runs in CI and fails the build.</td>
+              </tr>
+              <tr>
+                <td><strong>Unfalsifiable claims</strong></td>
+                <td>"Entity-aware" and "well calibrated" were asserted without a test that could have disproved them.</td>
+                <td>Every claim in the write-up names the experiment that could refute it. No experiment, no claim.</td>
+              </tr>
+              <tr>
+                <td><strong>Notebook-only runs</strong></td>
+                <td>Notebook source was treated as proof a run happened, and the run could not be reproduced.</td>
+                <td>Training runs write a registry entry with config hash, seed, and artifact path. No registry entry means the run did not happen.</td>
+              </tr>
+              <tr>
+                <td><strong>Long context wishful thinking</strong></td>
+                <td>Long-context training was attempted, did not help, and the data behind it broke.</td>
+                <td>512 tokens is fixed in the spec. Anything longer needs a new decision-log entry with a reason.</td>
+              </tr>
+              <tr>
+                <td><strong>Augmentation causality</strong></td>
+                <td>A gain was attributed to a data-generation method without an ablation that isolated it.</td>
+                <td>Synthetic data is out of the default plan. If it is added, it runs as a controlled A/B on one task with everything else fixed.</td>
+              </tr>
+              <tr>
+                <td><strong>Loss-function overcorrection</strong></td>
+                <td>Inverse-frequency class weighting swung the model too far toward rare classes.</td>
+                <td>Class weighting is a tuned knob measured on validation macro-F1, with the unweighted run always reported next to it.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="decisions">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">What is settled and what is not</p>
+            <h2>Decision log</h2>
+          </div>
+          <span class="pill">Living</span>
+        </div>
+        <p class="section-intro">
+          Decisions marked "Decided" came from direct answers and should not be reopened without a
+          reason. Items marked "Assumed" were chosen by default and are cheap to change. Items marked
+          "Open" block work downstream.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th style="width:220px">Decision</th><th>Choice</th><th style="width:110px">Status</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Domain</td><td>Finance only.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Model shape</td><td>Three separate single-task encoders.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>ABSA input</td><td>Aspect is supplied by the caller. No extraction.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>FLS labels</td><td>Binary.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Fact/opinion labels</td><td>Binary. Mixed sentences resolve to opinion.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Input unit</td><td>Target sentence plus surrounding context, 512 tokens.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Data sources</td><td>Public labelled sets, plus a human-annotated gold set, plus LLM silver labels in a separate track.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Compute</td><td>Colab T4 free tier.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Success bar</td><td>Beat the strongest few-shot LLM baseline on the gold set.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Slicing</td><td>One vertical slice per task, end to end.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Open source scope</td><td>Weights, datasets, code, write-up, demo.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Base encoder</td><td>ModernBERT-base, with DeBERTa-v3-base as the architecture control.</td><td><span class="status notrun">Assumed</span></td></tr>
+              <tr><td>Adaptation method</td><td>LoRA first, given the T4 ceiling and the prior result that LoRA beat the tested full fine-tune.</td><td><span class="status notrun">Assumed</span></td></tr>
+              <tr><td>LLM baseline</td><td>Claude, one small and one large model, few-shot with a validation-tuned prompt.</td><td><span class="status notrun">Assumed</span></td></tr>
+              <tr><td>Gold set size</td><td>1,000 examples per task, 300 of them double-annotated.</td><td><span class="status notrun">Assumed</span></td></tr>
+              <tr><td>Build order</td><td>Forward-looking, then aspect sentiment, then fact versus opinion.</td><td><span class="status notrun">Assumed</span></td></tr>
+              <tr><td>Repository licence</td><td>Depends on what the source datasets allow. Decide before the first dataset upload.</td><td><span class="status compromised">Open</span></td></tr>
+              <tr><td>Annotator count</td><td>Whether a second human annotator is available decides how agreement is measured. See <a href="PROGRAM_DESIGN.html#annotation">annotation program</a>.</td><td><span class="status compromised">Open</span></td></tr>
+              <tr><td>Aspect vocabulary</td><td>Whether callers get a suggested finance aspect list, or bring their own strings.</td><td><span class="status compromised">Open</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <footer class="footer">
+    <p>ModernFin Triad &middot; Document 1 of 4 &middot; Product spec</p>
+    <p><a href="PROGRAM_DESIGN.html">Program design</a> &middot; <a href="ARCHITECTURE.html">Architecture</a> &middot; <a href="VERTICAL_SLICES.html">Vertical slices</a> &middot; <a href="learnings.html">Prior learnings</a></p>
+  </footer>
+  <a class="back-top" href="#top" aria-label="Back to top">&uarr;</a>
+</body>
+</html>
