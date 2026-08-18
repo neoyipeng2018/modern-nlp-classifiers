@@ -1226,7 +1226,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
                 </tr>
                 <tr>
                   <td><strong>The reference</strong></td>
-                  <td><code>gpt-sol-5.6</code>, reasoning effort medium</td>
+                  <td><code>gpt-5.6-sol</code>, reasoning effort medium</td>
                   <td>It labels the test set. The headline metric is how often the student agrees with it. It cannot be beaten on its own labels, for the reason below.</td>
                 </tr>
                 <tr>
@@ -1268,8 +1268,9 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <p><strong>The long-evidence subset, and what it costs to borrow the benchmark.</strong> The
             old plan had an annotator tag every row with how far away the deciding evidence sat. Borrowed
             sets have no such field and no annotator to add one. What replaces it is a context-sensitivity
-            probe: run the ensemble on the bare sentence and again on the rebuilt passage, and call the
-            rows whose answer changes the long half. Headline numbers are still reported on the whole set
+            probe: run the pinned frontier reference on the bare sentence and again on the rebuilt passage,
+            three times each, and call the long half the rows that flip between the two conditions more
+            often than they flip within either one. Headline numbers are still reported on the whole set
             and on both halves, because without the split a long-context gain averages away into nothing.
             But the split is now model-derived rather than human-recorded, so every result on it is graded
             one level lower, permanently. The borrowed sets also ship bare sentences, so this only works at
@@ -1294,7 +1295,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               </tr>
               <tr>
                 <td><strong>Length ladder</strong></td>
-                <td>The 512, 2,048 and 8,192 configurations are all trained and all reported, three seeds each, on the whole test set and on both halves of the context-sensitivity split. The shipped length is whichever won on validation, and the losing lengths stay in the table. Where passages could not be rebuilt, the ladder reports cost and agreement with the ensemble instead of accuracy, and the card says which of the two ran.</td>
+                <td>The 512, 2,048 and 8,192 configurations are all trained and all reported, three seeds each, scored against one answer key written at full passage length, on the whole test set and on both halves of the context-sensitivity split. One key for every rung. A rung graded against a key produced from its own trimmed input cannot show a long-context gap, because the gap is exactly what that trimming removes from both sides at once. The shipped length is whichever won on validation, and the losing lengths stay in the table. Where passages could not be rebuilt, the ladder reports cost and agreement with the ensemble instead of accuracy, and the card says which of the two ran.</td>
                 <td>Each task</td>
               </tr>
               <tr>
@@ -1304,7 +1305,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               </tr>
               <tr>
                 <td><strong>Cost</strong></td>
-                <td>Measured cost per 1,000 passages is at least 50&times; lower than <code>gpt-sol-5.6</code> at medium reasoning effort, counting real token usage at recorded prices, over identical passages. Reasoning tokens are billed and are counted, because leaving them out would flatter the ratio by exactly the amount the reasoning setting costs. The reference is the comparator because it is what a practitioner would otherwise call, not the cheap teacher ensemble, which nobody was choosing. The teachers' cost is reported too, as the one-off price of building the model. Labelling and training cost is reported separately and is never netted out of this ratio.</td>
+                <td>Measured cost per 1,000 passages is at least 50&times; lower than <code>gpt-5.6-sol</code> at medium reasoning effort, counting real token usage at recorded prices, over identical passages. Reasoning tokens are billed and are counted, because leaving them out would flatter the ratio by exactly the amount the reasoning setting costs. The reference is the comparator because it is what a practitioner would otherwise call, not the cheap teacher ensemble, which nobody was choosing. The teachers' cost is reported too, as the one-off price of building the model. Labelling and training cost is reported separately and is never netted out of this ratio.</td>
                 <td>Each model</td>
               </tr>
               <tr>
@@ -1351,7 +1352,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <li><strong>Majority class.</strong> The floor. Catches a broken metric.</li>
               <li><strong>TF-IDF plus logistic regression.</strong> The cheap classical baseline. If a fine-tuned encoder cannot clearly beat it, the task is trivial or the data is broken.</li>
               <li><strong>The same encoder at 512 tokens.</strong> The internal control for the whole long-context claim. Identical data, identical recipe, shorter input. Any long-context gain is measured against this and nothing else.</li>
-              <li><strong>The pinned frontier reference.</strong> <code>gpt-sol-5.6</code> at medium reasoning effort. It writes the test labels, so its agreement with itself is 100% by construction and that number is never reported as a result. On the referee benchmark it is scored like any other system, and that is where it can be beaten.</li>
+              <li><strong>The pinned frontier reference.</strong> <code>gpt-5.6-sol</code> at medium reasoning effort. It writes the test labels, so its agreement with itself is 100% by construction and that number is never reported as a result. On the referee benchmark it is scored like any other system, and that is where it can be beaten.</li>
               <li><strong>The routed teacher ensemble.</strong> All k cheap models voted through the label model, over the same passages. Its agreement with the reference is the number the student is trying to exceed, because exceeding it is the weak-to-strong result.</li>
               <li><strong>Each single model in the ensemble.</strong> Few-shot, one row per model, prompt tuned on the development set only. Shows which teachers carried the vote.</li>
               <li><strong>Zero-shot single model.</strong> Reported to show what prompt work is worth.</li>
@@ -1610,9 +1611,9 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>FLS labels</td><td>Three classes: specific FLS, non-specific FLS, and not FLS. Follows the borrowed benchmark, which is not binary.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Fact/opinion labels</td><td>Binary. Mixed sentences resolve to opinion. Whether this task keeps that definition at all is now open, because no public benchmark matches it.</td><td><span class="status compromised">Reopened</span></td></tr>
               <tr><td>Input unit</td><td>A passage with a marked target span, up to 8,192 tokens. Replaces the earlier 512-token cap.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Length ladder</td><td>512, 2,048 and 8,192 trained and published on every task. The shipped length is chosen on validation.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Length ladder</td><td>512, 2,048 and 8,192 trained and published on every task, all scored against one full-passage answer key. The shipped length is chosen on validation.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Truncation gate</td><td>Under 5% at the shipped length, asserted before training starts.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Long-evidence split</td><td>Was: annotator-recorded evidence distance. Now: a context-sensitivity probe, the rows where the ensemble's answer changes once the rebuilt passage is added. Results reported on both halves and graded one level lower, because a model made the split.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Long-evidence split</td><td>Was: annotator-recorded evidence distance. Now: a context-sensitivity probe, the rows where the pinned reference's answer changes once the rebuilt passage is added, by more than it changes on a rerun of the same input. Three passes per condition, and the within-condition flip rate is published beside the split. Results reported on both halves and graded one level lower, because a model made the split.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Data sources</td><td>Public labelled sets for training, a borrowed human-labelled benchmark for test and development, and weakly supervised training labels from k routed models. Nobody on this project annotates.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Training labels at scale</td><td>Each passage labelled by k different models through one router, plus heuristics, combined by a weak-supervision label model.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Test labels</td><td>Human only, borrowed from published datasets. Weak supervision never touches the test split.</td><td><span class="status supported">Decided</span></td></tr>
@@ -1621,7 +1622,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>Model roles</td><td>Three, kept apart. Cheap router models teach, a pinned frontier model is the reference, borrowed human labels are the referee.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Beating the frontier model</td><td>Claimable only on the referee benchmark, where both are scored against human labels. Never on the reference's own labels, where it scores 100% by construction.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Weak-to-strong result</td><td>Student agreement with the reference, reported next to the teacher ensemble's agreement with the reference. Higher means the student beat its own teachers.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Which frontier reference</td><td><code>gpt-sol-5.6</code> at medium reasoning effort. The effort setting is part of the pin, not a tuning knob, because it changes both the answers and the bill. Every response is cached and published, so the benchmark survives the model being retired.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Which frontier reference</td><td><code>gpt-5.6-sol</code> at medium reasoning effort. The effort setting is part of the pin, not a tuning knob, because it changes both the answers and the bill. Every response is cached and published, so the benchmark survives the model being retired.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Reference scope</td><td>Test split only. It never labels training rows, never labels the development set, and never tunes a prompt. Gate 4 is tuned on the borrowed human development set alone, which keeps the weak-to-strong result something found rather than engineered.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Reference determinism</td><td>Not assumed. A reasoning model re-run on the same passage can return a different label, so the cached responses are the test set. Re-labelling is a new experiment with a new registry row, never a refresh.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Slicing</td><td>One vertical slice per task, end to end.</td><td><span class="status supported">Decided</span></td></tr>
