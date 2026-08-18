@@ -722,10 +722,19 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <div class="protocol-step">
             <div class="n">4</div>
             <div>
-              <h4>Never look at the test set</h4>
+              <h4>Never look at the headline test set</h4>
               <p>Prompt tuning, labelling-function selection, label-model fitting, hyperparameter search,
                 checkpoint selection, threshold picking. All of it happens on the development and
-                validation sets. The test set is opened once per model, at the end.</p>
+                validation sets. The headline test set is opened once per model, at the end.</p>
+              <p style="margin-top:.5rem"><strong>One deliberate exception, the reference development
+                slice.</strong> 500 of the 5,000 reference passages are carved off at build time and are
+                read on every run. The other 4,500 carry the headline and stay shut until the end. This
+                rule was written to stop an engineered weak-to-strong result, and a read-only slice does
+                not create that risk, because the labelling functions, the prompts and the label model are
+                still tuned only on the 200-row borrowed development set. Without the exception the
+                project's central number cannot be read between step 6b and step 21, so nothing built in
+                between can be steered by it. The slice is never trained on, its read count is published,
+                and the gap between it and the headline slice is published beside the headline.</p>
             </div>
           </div>
           <div class="protocol-step">
@@ -1300,7 +1309,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             field is gone. What replaces it is weaker, it is measured after the fact rather than before,
             and it must be labelled as such everywhere it appears.</p>
           <ul class="compact-list">
-            <li><strong>The substitute is a context-sensitivity probe.</strong> Run the frontier reference three times on the bare sentence and three times on the full passage. The full-passage runs are already the answer key, so the probe only costs the bare-sentence half. A row counts as context sensitive when the flip rate <em>between</em> the two conditions is higher than the flip rate <em>within</em> them. Both rates are published.</li>
+            <li><strong>The substitute is a context-sensitivity probe.</strong> Run the frontier reference three times on the bare sentence and three times on the full passage. The full-passage runs are already the answer key, so the probe only costs the bare-sentence half. A row counts as context sensitive when the flip rate <em>between</em> the two conditions is higher than the flip rate <em>within</em> them. Both rates are published. The probe runs over the whole reference set at build time, before the development slice is carved off, so both slices carry the flag and the near and far halves can be read during the work rather than only at the end.</li>
             <li><strong>The within-condition rate is not optional.</strong> Without it the probe counts the model disagreeing with itself as evidence that context mattered, and the long-evidence split is part noise. That noise then lands in the one result the whole length ladder is read on.</li>
             <li><strong>This is a model-derived split, not ground truth.</strong> It says the ensemble needed the context. It does not prove a person would have. The write-up says that in the same breath as the number, every time.</li>
             <li><strong>It cannot be recorded before the models exist,</strong> which was the whole point of the original field. So the split is computed once, frozen, hashed, and never recomputed after seeing a student's results.</li>
@@ -1333,7 +1342,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <ul class="compact-list" style="margin-top:.7rem">
             <li><strong>Size is a budget question, not a labour question.</strong> Nobody is reading these, so 5,000 passages per task is affordable where 1,000 hand labels were not. Bigger set, tighter intervals, and the long-evidence half stops being noise.</li>
             <li><strong>Sample from the real target distribution,</strong> stratified by document type and by passage length, with the proportions written down before sampling. This is the sampling discipline the old gold set was going to have, and it is now actually achievable.</li>
-            <li><strong>Never trained on, never tuned against.</strong> Same rule as any test set. Its hash goes in the config and the harness refuses an unrecognised one.</li>
+            <li><strong>Never trained on, and the headline slice is never tuned against.</strong> Each slice has its own hash in the config and the harness refuses an unrecognised one.</li>
+            <li><strong>Split 500 and 4,500 at build time.</strong> One purchase, one key, two slices, and no extra money, because the same 5,000 passages are bought either way. The 500-row development slice is read on every run. The 4,500-row headline slice is opened once per model, at the end. This is the only number in the project that moves with the real target while the work is going on.</li>
+            <li><strong>Buy the bare-sentence probe passes in the same step, before the split.</strong> The context-sensitivity flag then exists at split time, so the development slice is stratified on that flag as well as on the key label. Target 150 rows or more per class and 150 rows or more in the far half, with the proportions written into the config before the split. Skip this and the near and far halves exist only on the frozen slice, which makes the flagship comparison a one-shot measurement.</li>
+            <li><strong>Publish the altimeter check.</strong> Every run writes validation macro-F1 against weak labels and development-slice agreement to the registry. The correlation between the two, over all recorded runs, is itself a published number. If they do not move together, the validation number is not a proxy for the headline, and that is known early and for free rather than at step 21.</li>
+            <li><strong>Read the development slice as a comparison, not as an absolute.</strong> 500 rows give an interval about 5 points wide on absolute agreement, so compare two runs with a paired bootstrap over the same rows instead. The 150-row far half resolves a large effect only. A small far-half gap stays unreadable until the headline slice is opened.</li>
             <li><strong>One answer key, written at full passage length.</strong> The reference reads the whole passage, never a rung-trimmed copy. Every rung of the student is scored against that same key. The 512 student is then graded on evidence it was not allowed to see, and the gap that opens between it and the 8,192 student <em>is</em> the long-context result. Scoring each rung against its own key defines that gap away before the experiment starts.</li>
             <li><strong>Three repeats, and the majority answer is the key.</strong> A reasoning model asked the same question twice can answer differently, so one pass is not a stable key. Publish the reference's self-agreement across the three passes. It caps what any student can score, so if it lands under the success bar the bar was never reachable and that is known before anything is trained.</li>
             <li><strong>Publish the cached labels with the model identifier and the prompt.</strong> That is what makes the number reproducible after the model is retired.</li>

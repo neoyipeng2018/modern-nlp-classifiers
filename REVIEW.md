@@ -35,6 +35,12 @@ is spent. See finding 8.
 
 ## 2. The headline metric is unreadable while you work
 
+> **Fixed 2026-08-18.** The reference set is now split at build time into a 500 row development slice
+> and a 4,500 row headline slice. The development slice is read on every run and is never trained on.
+> Operating principle 4 carries the exception and the reason for it. See the reference set section and
+> principle 4 in `PROGRAM_DESIGN.html`, steps 6b, 7, 14, 17, 18 and 21 in `VERTICAL_SLICES.html`, and
+> the report card in `ARCHITECTURE.html`.
+
 The headline is agreement with cached `gpt-5.6-sol` labels on a frozen 5,000 passage set.
 
 Operating principle 4 forbids looking at the test set. Gate 6 opens it once per model, at the
@@ -303,7 +309,8 @@ decision log marks the backbone as "Bench decides".
 Reviewed again against the same four documents after the first three fixes landed. The question
 is the same. Is there a valid benchmark to hill climb towards?
 
-Still no. Findings 1, 2, 5, 6, 8, 9 and 10 from the first pass are open. Eleven new findings
+Still no. Findings 1, 5, 6, 8, 9 and 10 from the first pass are open. Finding 2 was fixed on
+2026-08-18, together with finding 15. Eleven new findings
 follow. The first four are the ones that stop the benchmark existing at all.
 
 ---
@@ -389,6 +396,11 @@ the per-rung training labels. Score every rung on the one validation key.
 ---
 
 ## 15. The far half does not exist on validation
+
+> **Fixed 2026-08-18.** The probe is now bought inside step 6b, before the reference set is split, so
+> both slices carry the context-sensitive flag. The development slice is stratified on that flag, and
+> step 18 reads the near and far halves there instead of on validation. Step 13 became a report over
+> data already bought. The 150 row far half resolves a large effect only, and the plans say so.
 
 Step 18 says the ladder is "scored on the whole validation set and on the near and far halves".
 
@@ -521,7 +533,7 @@ Rewritten after the second pass. In order.
 7. Name the set the ladder is read on, once, and make Gate 2 agree with it. Finding 16.
 8. Build the skeleton, the registry, the CI data checks and a fast CPU dev harness. Finding 8.
    No money spent, and the repo gains a number it can print.
-9. Carve a readable 500 row dev slice out of the reference set. Findings 2 and 15.
+9. ~~Carve a readable 500 row dev slice out of the reference set.~~ Done 2026-08-18. Findings 2 and 15.
 10. Gate 2 counts unique matches, and the 60% bar is re-argued against the real figure.
     Finding 5. Only needed if item 7 says the ladder reads the referee set.
 11. Clean the stale text: binary FLS, the ensemble probe owner, the report card leftovers.

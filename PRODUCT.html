@@ -1384,6 +1384,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             than the individual intervals suggest. It matters most exactly where this project needs it:
             the student against the teacher ensemble on agreement with the reference, the student against the
             reference on the referee benchmark, and 8,192 against the 512 control on the far half.</p>
+          <p style="margin-top:.5rem"><strong>The 500-row reference development slice is read the same
+            way.</strong> It is carved out of the reference set at build time and is the one number that
+            tracks the headline while the work is going on. Its absolute agreement carries an interval
+            about 5 points wide, so it is always read as a paired comparison against the previous run. Its
+            far half holds about 150 rows and resolves a large effect only.</p>
         </div>
       </section>
 
@@ -1452,6 +1457,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <li>The benchmark's provenance: which public dataset, what licence, what re-split, and the passage reconstruction match rate.</li>
               <li>Every baseline number from the table above, in one comparison table.</li>
               <li>The full length ladder, with results on the near and long halves of the context-sensitivity split, or a plain statement that passages could not be rebuilt and no such split exists.</li>
+              <li>The reference development-slice result beside the headline, with the gap between the two and the number of times the slice was read during development.</li>
               <li>The backbone bench table, all nine candidates at 512, including the ones that lost.</li>
               <li>CPU latency where it was measured, with the machine, the thread count and the macro-F1 of that exact export. Where it was not measured, the card says so and claims nothing.</li>
               <li>The measured truncation rate at the shipped length.</li>

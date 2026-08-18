@@ -796,7 +796,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td class="mono">target_span</td><td>[int,&nbsp;int]</td><td>Character offsets of the target inside <code>passage</code>. Validated on load: the slice must equal <code>target</code> exactly.</td></tr>
               <tr><td class="mono">passage_unit</td><td>enum</td><td><code>paragraph</code>, <code>section</code>, <code>qa_turn</code>, <code>item</code>. What natural boundary the passage was cut at. Never a fixed token window.</td></tr>
               <tr><td class="mono">passage_tokens</td><td>int</td><td>Token count under the model tokenizer, computed at build time. Drives the length distribution report and the truncation gate.</td></tr>
-              <tr><td class="mono">context_sensitive</td><td>bool?</td><td>Replaces the old <code>evidence_distance</code> field, which needed an annotator this project no longer has. True when the pinned frontier reference's answer changed once the rebuilt passage was added to the bare sentence, more often than it changed across three reruns of the same input. The within-condition flip rate is recorded next to it, because without that control the field counts the model disagreeing with itself. Defines the long-evidence split, and every result on that split is graded one level lower because a model produced it.</td></tr>
+              <tr><td class="mono">context_sensitive</td><td>bool?</td><td>Replaces the old <code>evidence_distance</code> field, which needed an annotator this project no longer has. True when the pinned frontier reference's answer changed once the rebuilt passage was added to the bare sentence, more often than it changed across three reruns of the same input. The within-condition flip rate is recorded next to it, because without that control the field counts the model disagreeing with itself. Defines the long-evidence split, and every result on that split is graded one level lower because a model produced it. The probe runs over the whole reference set before the 500-row development slice is carved off, so both slices carry the flag and the near and far halves are readable during the work.</td></tr>
               <tr><td class="mono">probe_version</td><td>string?</td><td>Which pinned ensemble produced <code>context_sensitive</code>. A different model list is a different split, not a refresh of the old one.</td></tr>
               <tr><td class="mono">passage_match</td><td>enum?</td><td><code>exact</code>, <code>fuzzy</code>, or <code>none</code>. How the borrowed sentence was matched back into its source document. <code>none</code> rows keep their label and are scored at sentence length only.</td></tr>
               <tr><td class="mono">aspect</td><td>string?</td><td>Required for <code>absa</code>, absent otherwise.</td></tr>
@@ -829,7 +829,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <h3>Splitting rules</h3>
             <ul class="compact-list">
               <li><strong>Group by document</strong> where a document identifier exists. All sentences from one document land in the same split. Sentence-level random splitting leaks context and inflates scores. For FiQA the grouping key is the target company, because there is no document.</li>
-              <li><strong>Two test splits, kept apart.</strong> The reference split carries the headline and the referee split carries the match-or-exceed claim. Nothing from Track A or Track C ever enters either one.</li>
+              <li><strong>Two test splits, kept apart, and the reference split is cut in two.</strong> The reference split carries the headline and the referee split carries the match-or-exceed claim. Nothing from Track A or Track C ever enters either one. The reference split is further cut into a 4,500-row headline slice that opens once and a 500-row development slice that is read on every run. The development slice is still never trained on, and a data test enforces that.</li>
               <li><strong>The reference never votes in Track C.</strong> The harness fails the build if the pinned reference identifier appears in the labelling-function model list. A model may teach or it may grade, never both.</li>
               <li><strong>The reference appears only on test rows.</strong> A <code>reference</code> label on a row whose split is <code>train</code> or <code>val</code>, or on a development row, fails the build. That check is what keeps Gate 4 tuning honest.</li>
               <li><strong>A borrowed row is banned everywhere else.</strong> These datasets ship train splits that look like free training data. Any row whose <code>borrowed_row_id</code> appears in test or development is refused in training, and the build fails on an overlap.</li>
@@ -1403,16 +1403,21 @@ def routed(ex) -&gt; int | ABSTAIN:
   "task": "fls",
   "backbone": {"hf_id": "", "revision": "", "params_m": 0, "native_max_length": 0,
                "adaptation": "lora-r16", "added_marker_tokens": 0},
-  "test_hash": "sha256:7c1e...",
-  "reference": {"model": "gpt-5.6-sol", "effort": "medium", "prompt_version": "...", "n": 5000,
+  "ref_test_hash":  "sha256:7c1e...",
+  "ref_dev_hash":   "sha256:9b04...",
+  "referee_hash":   "sha256:1d77...",
+  "probe_hash":     "sha256:44a2...",
+  "reference": {"model": "gpt-5.6-sol", "effort": "medium", "prompt_version": "...",
+                "n_headline": 4500, "n_dev": 500,
                 "key_length": "full_passage", "key_passes": 3, "key_rule": "majority",
                 "self_agreement": 0.000,
                 "agreement_student": 0.000, "agreement_teacher_ensemble": 0.000,
-                "weak_to_strong_delta": 0.000},
+                "weak_to_strong_delta": 0.000,
+                "dev_agreement_student": 0.000, "dev_headline_gap": 0.000, "dev_reads": 0},
   "referee": {"source": "FinanceMTEB/FLS", "revision": "...", "split": "test", "n": 1000,
               "passage_match_rate": 0.00, "human_agreement": "not published by source",
               "macro_f1_student": 0.000, "macro_f1_reference": 0.000, "delta_ci95": [0.000, 0.000]},
-  "n_test": 5000,
+  "n_test": 4500,
   "max_length": 8192,
   "truncation": {"rows_trimmed_pct": 0.0, "near_target_loss_pct": 0.0, "rows_dropped": 0,
                  "tokens_p50": 0, "tokens_p95": 0},
@@ -1422,8 +1427,11 @@ def routed(ex) -&gt; int | ABSTAIN:
   "by_context_sensitive": {"true": {...}, "false": {...}, "probe_version": "...",
                            "flip_rate_between": 0.000, "flip_rate_within": 0.000},
   "ensemble_contamination_check": {"on_benchmark": 0.000, "on_fresh_passages": 0.000, "gap": 0.000},
+  "proxy_check": {"metric": "pearson_r", "value": 0.000, "n_runs": 0,
+                  "x": "val_macro_f1_weak_labels", "y": "ref_dev_macro_f1_agreement"},
   "vs_short_control": {"control_run_id": "fls-...-512", "macro_f1_delta": 0.000,
                        "delta_ci95": [0.000, 0.000], "delta_on_far": 0.000,
+                       "dev_macro_f1_delta": 0.000, "dev_delta_on_far": 0.000,
                        "method": "paired-bootstrap-10000"},
   "vs_ensemble":      {"comparator": "labelmodel-ensemble", "macro_f1_delta": 0.000,
                        "delta_ci95": [0.000, 0.000], "delta_on_far": 0.000,
@@ -1452,6 +1460,12 @@ def routed(ex) -&gt; int | ABSTAIN:
             examples and resolves much smaller gaps. Both comparisons this project lives on are paired:
             the student against the ensemble, and 8,192 against the 512 control on the far half. The
             report card has a field for each, so neither can be quietly skipped.</p>
+          <p style="margin-top:.5rem">The same rule decides how the 500-row reference development slice is
+            read. Its absolute agreement carries an interval about 5 points wide, which is too loose to
+            steer anything. A paired bootstrap between two runs over the same 500 rows is far tighter, so
+            every development-slice comparison is run against the previous run rather than read as an
+            absolute. The 150-row far half resolves a large effect only, and a small far-half gap stays
+            unreadable until the headline slice is opened.</p>
         </div>
       </section>
 
@@ -1831,7 +1845,7 @@ t.scan(document=doc, tasks=["fls", "factop"])</code></pre>
               </tr>
               <tr>
                 <td><strong>Test set</strong></td>
-                <td>Two frozen hashed splits. A reference split for the fidelity headline, a borrowed human split as the referee</td>
+                <td>Three frozen hashed splits, plus the probe output. A 4,500-row reference headline slice opened once, a 500-row reference development slice read on every run, and a borrowed human split as the referee</td>
                 <td>Reporting agreement with the reference as if it were accuracy. It is fidelity to one model's opinion. Also: claiming to beat the frontier model on labels that same model wrote, which is arithmetically impossible and would be caught by nobody but the author.</td>
               </tr>
               <tr>
