@@ -299,7 +299,8 @@
           </table>
           <p class="table-caption">Three seeds per rung, per task. Reported on the whole test set and on both
             halves of the context-sensitivity split, where passages could be rebuilt. Where they could not,
-            the ladder reports cost and agreement with the ensemble instead. The shipped length is chosen on
+            the ladder reports cost and agreement with the ensemble instead. One answer key on test, and one
+            answer key on validation, both written at full passage length. The shipped length is chosen on
             validation and the losing rungs stay in the published table.</p>
         </div>
 
@@ -388,14 +389,20 @@ def routed(ex) -&gt; int | ABSTAIN:
         </div>
 
         <div class="callout danger" style="margin-top:1.1rem">
-          <h3>Labels are bought per rung</h3>
+          <h3>Training labels are bought per rung, validation labels are bought once</h3>
           <p>A label produced by a model that read 512 tokens is not a valid training label for a
             student that reads 8,192. The teacher saw less evidence than the student will, so the
             student learns to imitate a handicapped teacher, and the length ladder measures nothing.</p>
-          <p style="margin-top:.5rem"><strong>So the labelling run is repeated at each rung</strong>, and
-            the cache key includes the passage, which makes that automatic rather than a discipline. This
-            is the single largest cost consequence of the long-context decision, and it is why the pilot
-            runs before every rung rather than once at the start.</p>
+          <p style="margin-top:.5rem"><strong>So the training labelling run is repeated at each
+            rung</strong>, and the cache key includes the passage, which makes that automatic rather than
+            a discipline. This is the single largest cost consequence of the long-context decision, and it
+            is why the pilot runs before every rung rather than once at the start.</p>
+          <p style="margin-top:.5rem"><strong>The validation split is the exception, and it is a hard
+            one.</strong> The ensemble reads the whole passage once for validation, and that single key
+            grades every rung. The shipped rung is picked on validation. A key per rung would put the
+            three rungs on three different scales, and the pick would be meaningless. The config names
+            which of the two jobs a labelling run is doing, and the harness refuses a ladder scored
+            against more than one validation key.</p>
         </div>
 
         <div class="card" style="margin-top:1.1rem">
@@ -577,7 +584,7 @@ def routed(ex) -&gt; int | ABSTAIN:
               <tr><td><strong>Backbone</strong></td><td>Whatever the bench picked, pinned per task</td><td>One exact Hugging Face identifier plus a revision hash in the config, never a family name. The bench result and the pinned identifier both go in the registry row, so a later reader can see which of the nine is being reported.</td></tr>
               <tr><td><strong>Adaptation</strong></td><td>LoRA, rank 16, on attention and feed-forward projections</td><td>At 8,192 tokens a full fine-tune does not fit 16GB at all, so LoRA stops being a preference and becomes the only option. The previous project also found LoRA beat the full fine-tune it tested. A full fine-tune is run once per task at the 512 rung only, as a comparison.</td></tr>
               <tr><td><strong>Precision</strong></td><td>bf16</td><td>Native on Ampere and newer, and what the base model was trained in. The fp16 overflow risk the free-tier plan had to work around does not arise.</td></tr>
-              <tr><td><strong>Max length</strong></td><td>512 / 2,048 / 8,192</td><td>The one swept hyperparameter. Every rung is trained on every task. The shipped value is picked on validation and then pinned.</td></tr>
+              <tr><td><strong>Max length</strong></td><td>512 / 2,048 / 8,192</td><td>The one swept hyperparameter. Every rung is trained on every task. The shipped value is picked on validation, against one key written at full passage length, and then pinned.</td></tr>
               <tr><td><strong>Batch size</strong></td><td>Fixed effective 32, per-device size set by what fits</td><td>Roughly 16 at 512, 4 at 2,048, 1 at 8,192, with accumulation making up the rest. Effective size stays constant across rungs, so length is the only thing that changed.</td></tr>
               <tr><td><strong>Gradient checkpointing</strong></td><td>Off at 512, on at 2,048 and above</td><td>Trades roughly 30% throughput for the memory that makes the long rungs possible. Turning it on does not change results, and the setting is recorded per run.</td></tr>
               <tr><td><strong>Learning rate</strong></td><td>2e-4 for LoRA, 2e-5 for full fine-tune</td><td>Standard starting points. Tuned per task on validation data, and the sweep is recorded.</td></tr>
@@ -1039,7 +1046,7 @@ t.scan(document=doc, tasks=["fls", "factop"])</code></pre>
               <li>The test split contains only <code>label_source == "human"</code>.</li>
               <li>Every <code>weak</code> row has votes, probabilities, a labelling-function set version and a label model version.</li>
               <li>No example id appears in both the development set and the test set.</li>
-              <li>The labelling-function set version records a passage length that matches the rung being trained.</li>
+              <li>The labelling-function set version records a passage length that matches the rung being trained. On validation rows the recorded length is the full passage length, at every rung, and a run that finds two different validation keys stops.</li>
               <li>Every label is inside the task's declared label set.</li>
               <li>Class distribution matches the recorded stats file, so silent data changes get caught.</li>
               <li>Recorded file hashes match the files on disk.</li>

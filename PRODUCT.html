@@ -917,8 +917,9 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             </tbody>
           </table>
           <p class="table-caption">Every task runs this ladder on validation data, three seeds each, with
-            everything else pinned. The winner becomes that task's shipped configuration. If 512 wins,
-            that ships and the write-up says so plainly.</p>
+            everything else pinned. All three rungs are scored against one validation key, written at full
+            passage length. The winner becomes that task's shipped configuration. If 512 wins, that ships
+            and the write-up says so plainly.</p>
         </div>
 
         <div class="callout warning" style="margin-top:1.1rem">
@@ -1295,7 +1296,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               </tr>
               <tr>
                 <td><strong>Length ladder</strong></td>
-                <td>The 512, 2,048 and 8,192 configurations are all trained and all reported, three seeds each, scored against one answer key written at full passage length, on the whole test set and on both halves of the context-sensitivity split. One key for every rung. A rung graded against a key produced from its own trimmed input cannot show a long-context gap, because the gap is exactly what that trimming removes from both sides at once. The shipped length is whichever won on validation, and the losing lengths stay in the table. Where passages could not be rebuilt, the ladder reports cost and agreement with the ensemble instead of accuracy, and the card says which of the two ran.</td>
+                <td>The 512, 2,048 and 8,192 configurations are all trained and all reported, three seeds each, scored against one answer key written at full passage length, on the whole test set and on both halves of the context-sensitivity split. One key for every rung. A rung graded against a key produced from its own trimmed input cannot show a long-context gap, because the gap is exactly what that trimming removes from both sides at once. The shipped length is whichever won on validation, against one validation key that is also written at full passage length, and the losing lengths stay in the table. Where passages could not be rebuilt, the ladder reports cost and agreement with the ensemble instead of accuracy, and the card says which of the two ran.</td>
                 <td>Each task</td>
               </tr>
               <tr>
@@ -1611,7 +1612,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>FLS labels</td><td>Three classes: specific FLS, non-specific FLS, and not FLS. Follows the borrowed benchmark, which is not binary.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Fact/opinion labels</td><td>Binary. Mixed sentences resolve to opinion. Whether this task keeps that definition at all is now open, because no public benchmark matches it.</td><td><span class="status compromised">Reopened</span></td></tr>
               <tr><td>Input unit</td><td>A passage with a marked target span, up to 8,192 tokens. Replaces the earlier 512-token cap.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Length ladder</td><td>512, 2,048 and 8,192 trained and published on every task, all scored against one full-passage answer key. The shipped length is chosen on validation.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Length ladder</td><td>512, 2,048 and 8,192 trained and published on every task, all scored against one full-passage answer key. The shipped length is chosen on validation, against one validation key that is written at full passage length as well. Two keys in the project, one per set, and neither one moves between rungs.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Truncation gate</td><td>Under 5% at the shipped length, asserted before training starts.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Long-evidence split</td><td>Was: annotator-recorded evidence distance. Now: a context-sensitivity probe, the rows where the pinned reference's answer changes once the rebuilt passage is added, by more than it changes on a rerun of the same input. Three passes per condition, and the within-condition flip rate is published beside the split. Results reported on both halves and graded one level lower, because a model made the split.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Data sources</td><td>Public labelled sets for training, a borrowed human-labelled benchmark for test and development, and weakly supervised training labels from k routed models. Nobody on this project annotates.</td><td><span class="status supported">Decided</span></td></tr>

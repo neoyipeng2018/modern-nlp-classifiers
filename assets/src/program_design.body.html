@@ -290,6 +290,7 @@
               together.</p>
             <ul class="compact-list">
               <li>Training only, in its own split.</li>
+              <li>Training rows get a label set at each length rung. Validation rows get one label set, written at full passage length, and every rung is scored against it.</li>
               <li>Deliberately not frontier models. Cheap is the point, because this track is bought at volume.</li>
               <li>Label quality measured against a human development set, never against the test set.</li>
               <li>Its contribution is proven by an ablation, never assumed.</li>
@@ -486,10 +487,17 @@
             rows. Moving from 512 to 8,192 tokens multiplies the first term by up to sixteen, and k
             models multiply it again. A labelling run that would have been an afternoon's pocket change
             at sentence level is the largest single line in the budget at passage level.</p>
-          <p style="margin-top:.5rem"><strong>Two consequences, both binding.</strong> Labels are bought
-            per length rung, because a label produced from a 512-token window is not a valid label for
-            an 8,192-token student and reusing it would quietly wreck the length ladder. And the pilot
-            comes first at every rung, so the ladder's true cost is known before it is committed to.</p>
+          <p style="margin-top:.5rem"><strong>Three consequences, all binding.</strong> Training labels
+            are bought per length rung. A label written from a 512-token window is not a valid training
+            label for an 8,192-token student, and reuse of it would wreck the length ladder. Validation
+            labels are bought once, at full passage length, and every rung is scored against that one
+            key. And the pilot comes first at every rung, so the true cost of the ladder is known before
+            the spend.</p>
+          <p style="margin-top:.5rem"><strong>The validation key follows the same rule as the test
+            key.</strong> The shipped rung is picked on validation. A per-rung validation key would grade
+            each rung on a different set of answers, and the pick would compare three numbers that do not
+            belong on the same scale. So the ensemble reads the whole passage once for the validation
+            split, and that key does not change between rungs.</p>
         </div>
 
         <div class="grid-2" style="margin-top:1.2rem">
@@ -536,6 +544,7 @@
           <h3>Budget discipline</h3>
           <ul class="compact-list">
             <li><strong>Pilot on 500 rows first, at every length rung.</strong> Measure real cost per row per model, and measure label quality on the development set, before any full run.</li>
+            <li><strong>Buy the validation key once.</strong> It is written at full passage length and reused at every rung, so it costs one run rather than three.</li>
             <li><strong>Set a dollar ceiling per task</strong> and make the runner stop at it rather than warn.</li>
             <li><strong>Cache every response</strong> by hash of prompt plus model plus passage. A rerun after a bug fix should cost nothing for rows that did not change.</li>
             <li><strong>Drop functions that do not pay.</strong> If removing a model changes label quality by less than noise, remove it and note the saving.</li>
