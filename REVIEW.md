@@ -3,10 +3,11 @@
 Reviewed 2026-08-18 against `PRODUCT.html`, `PROGRAM_DESIGN.html`, `ARCHITECTURE.html`, `VERTICAL_SLICES.html`.
 
 The question asked was narrow. Is there a valid benchmark to hill climb towards?
-The answer is no, for six separate reasons. Four of them are design faults that can be
-fixed by editing the plans. Two are facts about the borrowed data that the plans get wrong.
+The answer is no, for six separate reasons. Four are design faults that can be fixed by editing
+the plans. Two are facts about the borrowed data that the plans get wrong.
 
-Findings are ordered by how much they block progress.
+Findings are ordered by how much they block progress. Findings 3 and 4 were fixed in the plans
+on 2026-08-18 and are kept here as the record of why. Finding 10 was added afterwards.
 
 ---
 
@@ -56,6 +57,11 @@ labelling functions and the label model are still tuned only on the borrowed hum
 
 ## 3. The length ladder is measured against three different answer keys
 
+> **Fixed 2026-08-18.** The plans now specify one answer key, written at full passage length,
+> scored across all three rungs. See the Track R rules and the reference set section in
+> `PROGRAM_DESIGN.html`, and step 6b in `VERTICAL_SLICES.html`. The per-rung reference passes were
+> dropped rather than demoted, which also removes two of the three reference labelling runs.
+
 Slice 1 step 6b says: run the reference over the sampled passages "once at each rung".
 Program design repeats it. The reference reads 512 tokens for the 512 rung and 8,192 tokens
 for the 8,192 rung.
@@ -78,6 +84,11 @@ That is a diagnostic, not the key.
 ---
 
 ## 4. The context-sensitivity probe cannot tell context from noise
+
+> **Fixed 2026-08-18.** Three passes per condition, with a row counting as context sensitive only
+> when the between-condition flip rate beats the within-condition rate. Both rates are published,
+> and the report card carries a field for each. The reference is named as the model that runs the
+> probe, resolving the contradiction with `PRODUCT.html`.
 
 The plans define the long-evidence half as the rows where the model's answer changes between
 the bare sentence and the full passage.
@@ -184,8 +195,8 @@ already asks for, which is the number a reader actually needs.
 
 ## 7. Factual errors and leftovers
 
-**The reference model id is wrong in all four documents.** They say `gpt-sol-5.6`. The real API
-identifier is `gpt-5.6-sol`. Gate 1 exists to catch exactly this, but the wrong string is
+**The reference model id was wrong in all four documents.** *Fixed 2026-08-18, twelve occurrences.*
+They said `gpt-sol-5.6`. The real API identifier is `gpt-5.6-sol`. Gate 1 exists to catch exactly this, but the wrong string is
 already baked into the report card schema, the decision log and the slice steps. Worth noting
 that `medium` is the model's default reasoning effort, so pinning it is right but is a weaker
 statement than the documents imply.
@@ -254,21 +265,52 @@ between two configs on validation data is an obvious candidate. Accepting a benc
 
 ---
 
+## 10. The backbone is picked at 512 and assumed to still win at 8,192
+
+Raised after the first pass and worth recording.
+
+The bench runs all nine checkpoints at 512, because DeBERTa-v3 ships a 512 config and that is the
+only rung every candidate can run. The winner then inherits the length ladder and both later
+slices. Nothing tests whether the 512 winner is still the right backbone at 8,192.
+
+That assumption sits directly against the project's own thesis. If reading more of the document
+changes what works, then the model that wins on one sentence is not automatically the model that
+best uses a whole MD&A section. The plans never say this out loud.
+
+**Dropping DeBERTa-v3 does not fix it.** The next ceiling is NeoBERT at 4,096, so removing
+DeBERTa-v3 moves the bench to 4,096 and no further. Getting to 8,192 means dropping NeoBERT too,
+which leaves four Ettin sizes plus ModernBERT base and large. All six share one architecture, so
+the bench would then be measuring size and recipe rather than architecture, and the point of
+benching four families is gone.
+
+**Better fix, and it costs one extra ladder run.** Keep all nine at 512. Reclassify DeBERTa-v3
+from candidate to control, since a 512-only model can never ship as the long model anyway. Its
+job is to answer a genuinely useful question, which is whether the long-context families are
+worth anything at short length. Then carry the top two or three long-capable checkpoints up the
+ladder instead of the top one. That is 2x or 3x on one task's ladder, not 9x, and it is the only
+version that tests the assumption rather than asserting it.
+
+Not applied. Dropping or reclassifying a benched model changes what the bench claims, and the
+decision log marks the backbone as "Bench decides".
+
+---
+
 ## Smallest change that makes the repo climbable
 
 In order.
 
-1. Build the skeleton, the registry, the CI data checks and a fast CPU dev harness. No money
+1. ~~One answer key for the whole length ladder.~~ Done 2026-08-18.
+2. ~~Add the self-consistency control to the context-sensitivity probe.~~ Done 2026-08-18.
+3. ~~Fix `gpt-sol-5.6` to `gpt-5.6-sol` everywhere.~~ Done 2026-08-18.
+4. Build the skeleton, the registry, the CI data checks and a fast CPU dev harness. No money
    spent, and the repo gains a number it can print.
-2. One answer key for the whole length ladder.
-3. Gate 2 counts unique matches, and the 60% bar is re-argued against the real figure.
-4. Carve a readable 500 row dev slice out of the reference set.
-5. Add the self-consistency control to the context-sensitivity probe.
-6. Set the agreement bar after the step 10 pilot, and make Gate 6 block the claim.
-7. Fix `gpt-sol-5.6` to `gpt-5.6-sol` everywhere.
+5. Gate 2 counts unique matches, and the 60% bar is re-argued against the real figure.
+6. Carve a readable 500 row dev slice out of the reference set.
+7. Set the agreement bar after the reference self-agreement and the step 10 pilot are both known,
+   and make Gate 6 block the claim rather than the weights.
+8. Decide the backbone question in finding 10.
 
-Items 1, 3 and 7 cost nothing and can be done today. Item 3 is the one most likely to change
-what the project decides to build.
+Item 5 costs nothing and is the one most likely to change what the project decides to build.
 
 ---
 

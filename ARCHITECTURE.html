@@ -796,13 +796,13 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td class="mono">target_span</td><td>[int,&nbsp;int]</td><td>Character offsets of the target inside <code>passage</code>. Validated on load: the slice must equal <code>target</code> exactly.</td></tr>
               <tr><td class="mono">passage_unit</td><td>enum</td><td><code>paragraph</code>, <code>section</code>, <code>qa_turn</code>, <code>item</code>. What natural boundary the passage was cut at. Never a fixed token window.</td></tr>
               <tr><td class="mono">passage_tokens</td><td>int</td><td>Token count under the model tokenizer, computed at build time. Drives the length distribution report and the truncation gate.</td></tr>
-              <tr><td class="mono">context_sensitive</td><td>bool?</td><td>Replaces the old <code>evidence_distance</code> field, which needed an annotator this project no longer has. True when the pinned frontier reference's answer changed once the rebuilt passage was added to the bare sentence. Defines the long-evidence split, and every result on that split is graded one level lower because a model produced it.</td></tr>
+              <tr><td class="mono">context_sensitive</td><td>bool?</td><td>Replaces the old <code>evidence_distance</code> field, which needed an annotator this project no longer has. True when the pinned frontier reference's answer changed once the rebuilt passage was added to the bare sentence, more often than it changed across three reruns of the same input. The within-condition flip rate is recorded next to it, because without that control the field counts the model disagreeing with itself. Defines the long-evidence split, and every result on that split is graded one level lower because a model produced it.</td></tr>
               <tr><td class="mono">probe_version</td><td>string?</td><td>Which pinned ensemble produced <code>context_sensitive</code>. A different model list is a different split, not a refresh of the old one.</td></tr>
               <tr><td class="mono">passage_match</td><td>enum?</td><td><code>exact</code>, <code>fuzzy</code>, or <code>none</code>. How the borrowed sentence was matched back into its source document. <code>none</code> rows keep their label and are scored at sentence length only.</td></tr>
               <tr><td class="mono">aspect</td><td>string?</td><td>Required for <code>absa</code>, absent otherwise.</td></tr>
               <tr><td class="mono">label</td><td>string</td><td>The adjudicated label, from the task's label set.</td></tr>
               <tr><td class="mono">label_source</td><td>enum</td><td><code>public</code>, <code>human</code>, <code>weak</code>, or <code>reference</code>. This is the track. It is never dropped. A <code>reference</code> row was labelled by the pinned frontier model and carries the headline; a <code>human</code> row is the referee.</td></tr>
-              <tr><td class="mono">reference_model</td><td>string?</td><td>Exact pinned identifier of the frontier model that produced a <code>reference</code> label. <code>gpt-sol-5.6</code> for this project. Changing it makes a new dataset, not an updated one.</td></tr>
+              <tr><td class="mono">reference_model</td><td>string?</td><td>Exact pinned identifier of the frontier model that produced a <code>reference</code> label. <code>gpt-5.6-sol</code> for this project. Changing it makes a new dataset, not an updated one.</td></tr>
               <tr><td class="mono">reference_effort</td><td>string?</td><td>Reasoning effort the reference ran at. <code>medium</code> for this project. Part of the pin, because it changes both the answers and the cost.</td></tr>
               <tr><td class="mono">reference_reasoning_tokens</td><td>int?</td><td>Reasoning tokens billed for this row. Summed into the cost ratio denominator, which would otherwise be flattered by exactly what the effort setting costs.</td></tr>
               <tr><td class="mono">reference_raw</td><td>string?</td><td>The cached raw response. Kept so the label can be re-parsed without re-buying it, and so the benchmark still runs after the model is retired.</td></tr>
@@ -1397,7 +1397,9 @@ def routed(ex) -&gt; int | ABSTAIN:
   "backbone": {"hf_id": "", "revision": "", "params_m": 0, "native_max_length": 0,
                "adaptation": "lora-r16", "added_marker_tokens": 0},
   "test_hash": "sha256:7c1e...",
-  "reference": {"model": "gpt-sol-5.6", "effort": "medium", "prompt_version": "...", "n": 5000,
+  "reference": {"model": "gpt-5.6-sol", "effort": "medium", "prompt_version": "...", "n": 5000,
+                "key_length": "full_passage", "key_passes": 3, "key_rule": "majority",
+                "self_agreement": 0.000,
                 "agreement_student": 0.000, "agreement_teacher_ensemble": 0.000,
                 "weak_to_strong_delta": 0.000},
   "referee": {"source": "FinanceMTEB/FLS", "revision": "...", "split": "test", "n": 1000,
@@ -1410,7 +1412,8 @@ def routed(ex) -&gt; int | ABSTAIN:
   "macro_f1": {"value": 0.000, "ci95": [0.000, 0.000], "method": "bootstrap-10000"},
   "per_class": {"specific_fls": {...}, "non_specific_fls": {...}, "not_fls": {...}},
   "by_doc_type": {"filing": {...}, "transcript_qa": {...}},
-  "by_context_sensitive": {"true": {...}, "false": {...}, "probe_version": "..."},
+  "by_context_sensitive": {"true": {...}, "false": {...}, "probe_version": "...",
+                           "flip_rate_between": 0.000, "flip_rate_within": 0.000},
   "ensemble_contamination_check": {"on_benchmark": 0.000, "on_fresh_passages": 0.000, "gap": 0.000},
   "vs_short_control": {"control_run_id": "fls-...-512", "macro_f1_delta": 0.000,
                        "delta_ci95": [0.000, 0.000], "delta_on_far": 0.000,
