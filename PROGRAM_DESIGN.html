@@ -1809,9 +1809,9 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
                 <td>Find out in the bench, not at release. Pin the revision so the code cannot move underneath a rerun. If it will not export, it stays in the accuracy table and is not offered as the CPU model, stated plainly. If it will not take LoRA, run it as a full fine-tune at 512 only and label that row as the different recipe it is.</td>
               </tr>
               <tr>
-                <td><strong>CPU inference is slower than the claim implies</strong></td>
-                <td>A long passage on a CPU with no flash-attention kernels is a different cost from the same passage on a rented GPU. The cheap-inference headline has only ever been priced on the GPU.</td>
-                <td>Measure it in Slice 1, on a named machine, on the exact export. Publish the number even if it is bad. A model that is cheap only on hardware the reader does not have is a claim with a missing footnote.</td>
+                <td><strong>The CPU export work eats a week and returns nothing</strong></td>
+                <td>ONNX conversion and quantisation fail in ways that have nothing to do with the research question, and NeoBERT's custom modelling code is the likeliest to fight back. It is easy to sink days into a number that decides nothing.</td>
+                <td>CPU inference is optional. Try the plain PyTorch path first, timebox anything harder, and drop it the moment it resists. The cheap-inference claim stands on the GPU and router numbers, which are measured anyway. Where no CPU number was taken, the cards say nothing about CPU speed rather than guessing.</td>
               </tr>
               <tr>
                 <td><strong>Long context does not help</strong></td>

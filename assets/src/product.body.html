@@ -680,7 +680,7 @@
               </tr>
               <tr>
                 <td><strong>Latency</strong></td>
-                <td>Median latency per passage is measured and published at every length on the ladder, on the reported hardware and on CPU, with batch throughput at the largest batch that fits. The gate is under one second per passage at the shipped length. Under 50ms still holds at 512 and that number stays in the table.</td>
+                <td>Median latency per passage is measured and published at every length on the ladder, on the reported GPU hardware, with batch throughput at the largest batch that fits. The gate is under one second per passage at the shipped length. Under 50ms still holds at 512 and that number stays in the table. CPU latency is optional and never part of this gate.</td>
                 <td>Each model</td>
               </tr>
               <tr>
@@ -822,7 +822,7 @@
               <li>Every baseline number from the table above, in one comparison table.</li>
               <li>The full length ladder, with results on the near and long halves of the context-sensitivity split, or a plain statement that passages could not be rebuilt and no such split exists.</li>
               <li>The backbone bench table, all nine candidates at 512, including the ones that lost.</li>
-              <li>CPU latency and the macro-F1 of the exact export it was measured on, with the machine and thread count named.</li>
+              <li>CPU latency where it was measured, with the machine, the thread count and the macro-F1 of that exact export. Where it was not measured, the card says so and claims nothing.</li>
               <li>The measured truncation rate at the shipped length.</li>
               <li>Cost and latency measurements per length, with the hardware and prices stated.</li>
               <li>Named limitations, including the out-of-domain results.</li>
@@ -1000,7 +1000,7 @@
               <tr><td>Base encoder</td><td>Not assumed any more. Four families are benched at 512 and the winner is pinned: <a href="https://github.com/JHU-CLSP/ettin-encoder-vs-decoder">Ettin</a> at four sizes, ModernBERT base and large, NeoBERT, and DeBERTa-v3 small and base. See <a href="ARCHITECTURE.html#model">the backbone bench</a>.</td><td><span class="status notrun">Bench decides</span></td></tr>
               <tr><td>Model size</td><td>Small and medium first, roughly 32M to 250M parameters. The 400M and large checkpoints run only if the medium tier looks capped.</td><td><span class="status notrun">Assumed</span></td></tr>
               <tr><td>Comparing backbones</td><td>Only at 512, the one rung all nine candidates can run. No report card carries a delta between two different maximum lengths.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>CPU inference</td><td>Latency and macro-F1 measured for every candidate on a pinned CPU shape, in PyTorch, ONNX and int8. It breaks ties between close backbones and never overrides accuracy.</td><td><span class="status notrun">Assumed</span></td></tr>
+              <tr><td>CPU inference</td><td>Optional. Measured where it is cheap to measure, on a pinned CPU shape, with the macro-F1 of that export beside it. It is not a gate and it does not pick the backbone. Nothing is claimed where nothing was measured.</td><td><span class="status notrun">Optional</span></td></tr>
               <tr><td>Adaptation method</td><td>Full fine-tune and LoRA both run and compared. Paid Ampere-class hardware makes both affordable, so the prior LoRA result gets re-tested rather than inherited.</td><td><span class="status notrun">Assumed</span></td></tr>
               <tr><td>Labelling functions</td><td>Five routed models from different families, plus two or three cheap heuristic functions per task.</td><td><span class="status notrun">Assumed</span></td></tr>
               <tr><td>Label model</td><td>Snorkel's label model, with plain majority vote as the required comparison.</td><td><span class="status notrun">Assumed</span></td></tr>
