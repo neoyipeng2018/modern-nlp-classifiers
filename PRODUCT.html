@@ -868,7 +868,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <li><strong>It is the honest comparison.</strong> An LLM baseline is handed the whole passage. Handing the encoder two neighbouring sentences and then calling the result a fair fight is not a fair fight.</li>
               <li><strong>Finance evidence is far apart.</strong> The number is in a table at the top of the section. The judgement about it is three paragraphs down. Both are needed and they are rarely adjacent.</li>
               <li><strong>Attribution needs the speaker.</strong> "Margins will improve" is opinion or fact depending on who is talking, and in a transcript the speaker tag can be hundreds of tokens back.</li>
-              <li><strong>It is free capability.</strong> ModernBERT was pretrained at 8,192 tokens. Capping it at 512 throws away something already paid for.</li>
+              <li><strong>It is free capability.</strong> The long-context candidates were pretrained at 8,192 tokens. Capping them at 512 throws away something already paid for.</li>
               <li><strong>Cost still wins by a wide margin.</strong> A 150M encoder over 8,192 tokens is still orders of magnitude cheaper than a frontier model over the same text.</li>
             </ul>
           </div>
@@ -1450,6 +1450,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <li>The benchmark's provenance: which public dataset, what licence, what re-split, and the passage reconstruction match rate.</li>
               <li>Every baseline number from the table above, in one comparison table.</li>
               <li>The full length ladder, with results on the near and long halves of the context-sensitivity split, or a plain statement that passages could not be rebuilt and no such split exists.</li>
+              <li>The backbone bench table, all nine candidates at 512, including the ones that lost.</li>
+              <li>CPU latency and the macro-F1 of the exact export it was measured on, with the machine and thread count named.</li>
               <li>The measured truncation rate at the shipped length.</li>
               <li>Cost and latency measurements per length, with the hardware and prices stated.</li>
               <li>Named limitations, including the out-of-domain results.</li>
@@ -1624,7 +1626,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>Reference determinism</td><td>Not assumed. A reasoning model re-run on the same passage can return a different label, so the cached responses are the test set. Re-labelling is a new experiment with a new registry row, never a refresh.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Slicing</td><td>One vertical slice per task, end to end.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Open source scope</td><td>Weights, datasets, code, write-up, demo.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Base encoder</td><td>ModernBERT-base, with DeBERTa-v3-base as the architecture control.</td><td><span class="status notrun">Assumed</span></td></tr>
+              <tr><td>Base encoder</td><td>Not assumed any more. Four families are benched at 512 and the winner is pinned: <a href="https://github.com/JHU-CLSP/ettin-encoder-vs-decoder">Ettin</a> at four sizes, ModernBERT base and large, NeoBERT, and DeBERTa-v3 small and base. See <a href="ARCHITECTURE.html#model">the backbone bench</a>.</td><td><span class="status notrun">Bench decides</span></td></tr>
+              <tr><td>Model size</td><td>Small and medium first, roughly 32M to 250M parameters. The 400M and large checkpoints run only if the medium tier looks capped.</td><td><span class="status notrun">Assumed</span></td></tr>
+              <tr><td>Comparing backbones</td><td>Only at 512, the one rung all nine candidates can run. No report card carries a delta between two different maximum lengths.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>CPU inference</td><td>Latency and macro-F1 measured for every candidate on a pinned CPU shape, in PyTorch, ONNX and int8. It breaks ties between close backbones and never overrides accuracy.</td><td><span class="status notrun">Assumed</span></td></tr>
               <tr><td>Adaptation method</td><td>Full fine-tune and LoRA both run and compared. Paid Ampere-class hardware makes both affordable, so the prior LoRA result gets re-tested rather than inherited.</td><td><span class="status notrun">Assumed</span></td></tr>
               <tr><td>Labelling functions</td><td>Five routed models from different families, plus two or three cheap heuristic functions per task.</td><td><span class="status notrun">Assumed</span></td></tr>
               <tr><td>Label model</td><td>Snorkel's label model, with plain majority vote as the required comparison.</td><td><span class="status notrun">Assumed</span></td></tr>

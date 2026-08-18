@@ -7,11 +7,11 @@
       <p class="lede">
         The last project produced results that had to be withdrawn because the protocol moved while
         the models improved. This document is the machinery that stops that happening again. Phases,
-        data tracks, annotation, baselines, gates, and the rules for what a run has to record.
+        data tracks, benchmark sourcing, baselines, gates, and the rules for what a run has to record.
       </p>
       <div class="audit-strip">
         <div class="audit-stat"><strong>4 phases</strong><span>One per task, plus a suite release.</span></div>
-        <div class="audit-stat"><strong>3 data tracks</strong><span>Public, gold human, weakly supervised. Never merged silently.</span></div>
+        <div class="audit-stat"><strong>4 data tracks</strong><span>Public, borrowed human, weakly supervised, frontier reference. Never merged silently.</span></div>
         <div class="audit-stat"><strong>1 variable</strong><span>Per experiment. Everything else pinned.</span></div>
         <div class="audit-stat"><strong>7 gates</strong><span>Each phase has exit conditions that can fail.</span></div>
       </div>
@@ -33,7 +33,7 @@
         <a href="#phases">Phases</a>
         <a href="#data">Data program</a>
         <a href="#weak">Weak supervision</a>
-        <a href="#annotation">Annotation program</a>
+        <a href="#annotation">Benchmark program</a>
         <a href="#baselines">Baseline program</a>
         <a href="#protocol">Experiment protocol</a>
         <a href="#gates">Decision gates</a>
@@ -67,8 +67,9 @@
             <div class="n">1</div>
             <div>
               <h4>Freeze the test set before training anything</h4>
-              <p>The gold test set for a task is built, hashed and committed before the first training
-                run on that task. Its hash goes in the config. The eval harness refuses to score
+              <p>The borrowed test set for a task is adopted, re-split, reconstructed, hashed and
+                committed before the first training run on that task. Its hash goes in the config, and
+                so does the hash of its reconstructed passages. The eval harness refuses to score
                 against a hash it does not recognise.</p>
             </div>
           </div>
@@ -155,37 +156,52 @@
               <h3 style="margin:0">Phase 1 &mdash; Forward-looking, and the harness</h3>
               <span class="pill teal">First</span>
             </div>
-            <p>Goes first because the labels are the simplest to define and public annotated data is
-              the easiest to find. That keeps the risk in the machinery rather than in the task.
-              Everything reusable is built here: data schema, passage builder, weak-supervision
-              pipeline, eval harness, run registry, baseline runners, model card template, CI.</p>
-            <p>It also runs the length ladder for the first time, which is the phase's real headline.
+            <p>Goes first because it has the strongest borrowed benchmark of the three. Its sentences
+              come from real 10-K filings, which are on EDGAR in full, so it is also the task most likely
+              to get its passages back. That keeps the risk in the machinery rather than in the task.
+              Everything reusable is built here: data schema, passage builder, passage reconstructor,
+              weak-supervision pipeline, eval harness, run registry, baseline runners, model card
+              template, CI.</p>
+            <p>It also runs the backbone bench once, for the whole project. Four encoder families at
+              nine checkpoints, all at 512 tokens, which is the only length every candidate supports.
+              That picks the encoder the other two phases inherit. It is a cheap experiment and it comes
+              before the expensive one.</p>
+            <p>Then it runs the length ladder for the first time, which is the phase's real headline.
               Whatever 512 against 8,192 says on forward-looking sets the prior for the other two
               tasks, and it decides whether the long-context claim has legs at all.</p>
-            <p class="small"><strong>Exit:</strong> one released model, one released gold set, a published
-              length ladder, and a harness the next two phases use unchanged.</p>
+            <p class="small"><strong>Exit:</strong> one released model, one adopted and frozen benchmark
+              with its match rate published, a length ladder, and a harness the next two phases use
+              unchanged.</p>
           </div>
           <div class="timeline-item">
             <div class="timeline-meta">
               <h3 style="margin:0">Phase 2 &mdash; Aspect-based sentiment</h3>
               <span class="pill blue">Second</span>
             </div>
-            <p>Second because it adds one new thing to a proven pipeline: the aspect goes into the
-              input. Public data exists in the form of aspect-level financial sentiment sets with
-              continuous scores, so there is also a score-to-class mapping to decide and document.</p>
-            <p class="small"><strong>Exit:</strong> released model, released gold set, a length ladder for
-              this task, and a documented mapping from any continuous source scores to the three classes.</p>
+            <p>Second because it adds one new thing to a proven pipeline, which is that the aspect goes
+              into the input. FiQA 2018 supplies the benchmark, and it brings a target, an aspect
+              taxonomy and a continuous score, so the score-to-class mapping gets decided and documented
+              here.</p>
+            <p>It is also the phase where the long-context claim is dropped on purpose. FiQA is tweets
+              and headlines. There is no document to recover, so this task ships sentence-level and its
+              ladder measures cost, not accuracy. Better to plan that now than discover it at Gate 2.</p>
+            <p class="small"><strong>Exit:</strong> released model, adopted benchmark, a documented mapping
+              from the continuous source scores to the three classes, and a cost ladder rather than an
+              accuracy ladder.</p>
           </div>
           <div class="timeline-item">
             <div class="timeline-meta">
               <h3 style="margin:0">Phase 3 &mdash; Fact versus opinion</h3>
               <span class="pill violet">Third</span>
             </div>
-            <p>Last because the public data is weakest, so this phase leans hardest on weak
-              supervision. Doing it last means the annotation process and the labelling pipeline are
-              both proven, and the labelling bill at passage length is already a known quantity.</p>
-            <p class="small"><strong>Exit:</strong> released model, released gold set, a length ladder for
-              this task, and a measured overlap with the forward-looking labels.</p>
+            <p>Last because it is the only task with no matching public benchmark, so it carries the open
+              decision described in the benchmark program. Either it becomes premise versus claim and
+              adopts FinArg, or it keeps its current definition and ships a distillation claim with no
+              accuracy number. Doing it last means the labelling pipeline is proven and priced before
+              that call has to be made.</p>
+            <p class="small"><strong>Exit:</strong> released model, the fork resolved in writing, a length
+              ladder or a stated reason there is none, and a measured overlap with the forward-looking
+              labels.</p>
           </div>
           <div class="timeline-item old">
             <div class="timeline-meta">
@@ -203,6 +219,14 @@
           <p><strong>Phases do not overlap.</strong> The temptation after Phase 1 is to start all three at
             once. Do not. The harness will need changes discovered in Phase 2, and changing it while
             three models are mid-training is how protocol drift starts.</p>
+        </div>
+
+        <div class="callout info" style="margin-top:.8rem">
+          <p><strong>The backbone bench runs once, in Phase 1.</strong> Phases 2 and 3 inherit the winner
+            and do not re-run the nine candidates. The one thing that reopens it is a phase where the
+            inherited backbone lands below the classical baseline, which would say the bench answered a
+            question about forward-looking rather than a question about the encoder. If that happens, the
+            bench is re-run on that task and both results are published side by side.</p>
         </div>
 
         <div class="callout info" style="margin-top:.8rem">
@@ -243,15 +267,18 @@
             </ul>
           </div>
           <div class="card decision recommended">
-            <h3>Track B &mdash; Gold human</h3>
-            <span class="pill teal">The benchmark</span>
-            <p class="small muted" style="margin-top:.6rem">Labelled by you, under the codebook, on text
-              sampled from the real target distribution. This is the only track that decides whether a
-              model passed.</p>
+            <h3>Track B &mdash; Borrowed human</h3>
+            <span class="pill teal">The referee</span>
+            <p class="small muted" style="margin-top:.6rem">Published datasets whose labels were made by
+              people, adopted whole and frozen. Nobody on this project annotates anything. No longer the
+              headline, because the headline is now fidelity to the reference. This is the only track that
+              can settle whether the student matches or exceeds the frontier model.</p>
             <ul class="compact-list">
-              <li>Test set only. Never trained on. Never tuned against.</li>
+              <li>Test and development only. Never trained on.</li>
               <li>Frozen and hashed before training starts.</li>
-              <li>Individual annotator labels kept, not just the adjudicated one.</li>
+              <li>Source, licence and published annotator agreement recorded per set.</li>
+              <li>The codebook is written to fit the borrowed labels, not the other way round.</li>
+              <li>Small, and somebody else's definitions. Both caveats travel with every number.</li>
             </ul>
           </div>
           <div class="card decision caution">
@@ -263,23 +290,77 @@
               together.</p>
             <ul class="compact-list">
               <li>Training only, in its own split.</li>
+              <li>Deliberately not frontier models. Cheap is the point, because this track is bought at volume.</li>
               <li>Label quality measured against a human development set, never against the test set.</li>
               <li>Its contribution is proven by an ablation, never assumed.</li>
+              <li>Never the bar. The student is graded by the reference, which does not vote here.</li>
             </ul>
           </div>
         </div>
 
+        <div class="card decision recommended" style="margin-top:1.2rem">
+          <h3>Track R &mdash; The frontier reference</h3>
+          <span class="pill blue">The headline</span>
+          <p class="small muted" style="margin-top:.6rem">One pinned frontier model labels the test
+            passages, and those labels are the answer key the headline is measured against. This track did
+            not exist in the earlier plan, and adding it is what turns the project from an accuracy claim
+            into a distillation claim.</p>
+          <div class="gate" style="margin:.8rem 0">
+            <strong>The pin, in full:</strong> <code>gpt-sol-5.6</code>, reasoning effort
+            <code>medium</code>, one shared prompt per task carrying the codebook definition, structured
+            output. The effort setting is part of the pin. It is not a knob to tune later, because
+            changing it changes both the answers and the bill.
+          </div>
+          <div class="grid-2" style="margin-top:.8rem">
+            <div class="card">
+              <h3>Rules</h3>
+              <ul class="compact-list">
+                <li><strong>One model, one version, one effort setting.</strong> Not a router, not a fallback chain, not "whatever was current". <code>gpt-sol-5.6</code> at medium effort, written into the config and the model card. A different effort setting is a different reference.</li>
+                <li><strong>Verify the identifier resolves before buying anything.</strong> A single call at Gate 1, with the exact string, checking that the model exists, that medium effort is accepted, and that the returned metadata names the version you think you pinned. A typo here is discovered after the labelling spend otherwise.</li>
+                <li><strong>It never votes in Track C.</strong> A model cannot both teach the student and grade it. This separation is the whole point of the track.</li>
+                <li><strong>It touches the test split and nothing else.</strong> Not the training rows, not the development set, not the labelling-function prompts. Using it as a bigger cheaper ruler for Gate 4 tuning was considered and rejected. Tuning the teachers to match the reference would lift the headline while turning the weak-to-strong result into something engineered rather than found.</li>
+                <li><strong>Every response is cached and published, including the reasoning token counts.</strong> Hosted models get deprecated. The cached labels are the durable artifact, so the benchmark still runs in two years when the model is gone.</li>
+                <li><strong>Do not assume determinism.</strong> A reasoning model asked the same question twice can answer differently, so the cache is not an optimisation, it is the test set. Nothing re-queries the reference once the set is frozen.</li>
+                <li><strong>It reads the same passage the student reads,</strong> at the same rung, or the comparison is not like for like.</li>
+                <li><strong>Its cost per 1,000 passages is the denominator</strong> of the cost ratio, because it is the thing a practitioner would otherwise pay for. Reasoning tokens are billed and are counted in, since medium effort is the configuration being compared against.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>What it cannot do</h3>
+              <ul class="compact-list">
+                <li><strong>It cannot be beaten on its own labels.</strong> It scores 100% there by construction. That number is never printed as a result.</li>
+                <li><strong>It cannot tell you the student is correct.</strong> Only that the student copies it well. Fidelity and accuracy are different words and the documents use them differently on purpose.</li>
+                <li><strong>It cannot be swapped mid-project.</strong> Changing the reference changes the answer key, which makes every earlier number incomparable. A new reference is a new experiment with a new registry row.</li>
+                <li><strong>It cannot be assumed clean.</strong> It may have read the referee benchmarks during pretraining, which is why its score there carries the contamination caveat like everything else.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         <div class="callout danger" style="margin-top:1.2rem">
-          <h3>The circularity problem, stated plainly</h3>
-          <p>The models that produce Track C labels are also the baseline being compared against. Left
-            alone this makes the headline meaningless, because a student cannot cleanly beat its
-            teachers on answers the teachers wrote.</p>
-          <p style="margin-top:.5rem"><strong>How it is handled.</strong> Four things, all required.
-            The gold test set is human-labelled, so no model grades its own homework. The headline
-            comparison is against the whole ensemble, which is the actual teacher, rather than against
-            one of its members. Every model is reported twice, once trained without Track C and once
-            with it. And any single-model comparison is labelled a distillation result wherever it
-            appears, including in the model card.</p>
+          <h3>The circularity problem, and how splitting the roles fixes most of it</h3>
+          <p>The old design had one failure baked in. The models that produced the training labels were
+            also the baseline being compared against, so a student could not cleanly beat its teachers on
+            answers the teachers wrote. Separating the three model roles removes most of that by
+            construction, and it is worth being precise about which part is genuinely gone.</p>
+          <p style="margin-top:.5rem"><strong>The teachers are no longer the bar.</strong> Training labels
+            come from k cheap router models. The headline is agreement with a pinned frontier reference,
+            which is a different model of a different tier and never votes in the ensemble. So the student
+            is graded by something that did not teach it. That is the real fix.</p>
+          <p style="margin-top:.5rem"><strong>What replaces the old circularity is a subtler one.</strong>
+            The reference writes the answer key, so it scores 100% on its own test by definition. Agreement
+            with it measures faithful copying, not correctness, and the write-up says so every time the
+            number appears. Nothing about the headline shows whether the reference was right.</p>
+          <p style="margin-top:.5rem"><strong>Which is what the referee benchmark is for.</strong> The
+            borrowed human-labelled sets are the only place the student and the reference are both scored
+            against labels neither wrote. That is where "matches or exceeds the frontier model" is settled,
+            and it is the only place that sentence is permitted. Those sets are small, their label
+            definitions are somebody else's, and the reference may have read them during pretraining. All
+            three caveats travel with the number.</p>
+          <p style="margin-top:.5rem"><strong>Two habits survive from the old plan.</strong> Every model is
+            reported twice, once trained without Track C and once with it. And any comparison against a
+            single teacher is labelled a distillation result wherever it appears, including in the model
+            card. Contamination handling stays in the <a href="#annotation">benchmark program</a>.</p>
         </div>
 
         <h3 style="margin:1.6rem 0 .7rem">Candidate public sources</h3>
@@ -301,10 +382,10 @@
                 <td><span class="status notrun">Verify licence</span></td>
               </tr>
               <tr>
-                <td><strong>FiQA 2018 Task 1</strong></td>
-                <td>ABSA</td>
-                <td>Target-level sentiment on financial headlines and microblogs, with continuous scores. Closest public match to the ABSA contract. Needs a documented score-to-class mapping.</td>
-                <td><span class="status notrun">Verify licence</span></td>
+                <td><strong><code>pauri32/fiqa-2018</code></strong></td>
+                <td>ABSA &mdash; adopted</td>
+                <td>1,213 rows carrying a target company, an aspect from a published taxonomy, a continuous score from &minus;1 to 1, a mapped class, and the snippet the score was read from. This is the Track B benchmark for Phase 2. Headlines and microblogs, so no document exists to rebuild a passage from.</td>
+                <td><span class="status compromised">Verify licence</span></td>
               </tr>
               <tr>
                 <td><strong>SemEval-2017 Task 5</strong></td>
@@ -313,15 +394,15 @@
                 <td><span class="status notrun">Verify licence</span></td>
               </tr>
               <tr>
-                <td><strong>Annotated MD&amp;A forward-looking sets</strong></td>
-                <td>FLS</td>
-                <td>Public finance FLS work exists, most visibly behind released FLS classifiers trained on manually annotated 10-K sentences. Availability and terms of the underlying labels must be checked before any use.</td>
-                <td><span class="status compromised">Availability unknown</span></td>
+                <td><strong><code>FinanceMTEB/FLS</code></strong></td>
+                <td>FLS &mdash; adopted</td>
+                <td>3,600 manually annotated 10-K management-discussion sentences, three classes, with a 1,000-row test split already cut. This is the Track B benchmark for Phase 1. No licence is declared on the hub, so terms have to be traced back to the original annotation effort before anything is redistributed.</td>
+                <td><span class="status compromised">Verify licence</span></td>
               </tr>
               <tr>
                 <td><strong>SEC EDGAR filings</strong></td>
                 <td>All three</td>
-                <td>Unlabelled raw text. Public domain in the US. The main sampling pool for both gold annotation and the routed labelling runs.</td>
+                <td>Unlabelled raw text. Public domain in the US. Two jobs now. It is the sampling pool for the routed labelling runs, and it is the corpus the FLS benchmark sentences get matched back into so their passages can be rebuilt.</td>
                 <td><span class="status supported">Usable</span></td>
               </tr>
               <tr>
@@ -331,28 +412,32 @@
                 <td><span class="status compromised">Check per source</span></td>
               </tr>
               <tr>
-                <td><strong>General subjectivity corpora</strong></td>
-                <td>Fact vs opinion</td>
-                <td>General-domain subjectivity and claim-detection sets exist. They are out of domain and their label definitions differ from this codebook. Consider only as auxiliary pretraining, with the domain gap reported.</td>
-                <td><span class="status notrun">Low priority</span></td>
+                <td><strong><code>ChanceFocus/flare-finarg-ecc-auc</code></strong></td>
+                <td>Fact vs opinion &mdash; candidate</td>
+                <td>969 earnings-call sentences labelled premise or claim by people. In domain, and the only public human-labelled set anywhere near this task. Its label is not the same as fact versus opinion, which is the open decision in the benchmark program.</td>
+                <td><span class="status compromised">Decision pending</span></td>
               </tr>
             </tbody>
           </table>
-          <p class="table-caption">Nothing here is confirmed. The first task in each phase is to verify what
-            the source actually contains and what its licence actually permits. Anything unclear is excluded.</p>
+          <p class="table-caption">Contents are confirmed by inspection. Licences are not. Every adopted set
+            has to clear Gate 1 on terms before it is redistributed, and two of the three declare no licence
+            at all on the hub. Anything still unclear at Gate 1 is used for scoring but never republished.</p>
         </div>
 
-        <h3 style="margin:1.6rem 0 .7rem">Sampling rules for the gold set</h3>
+        <h3 style="margin:1.6rem 0 .7rem">Rules for adopting a borrowed set</h3>
         <div class="card">
+          <p class="small muted" style="margin-bottom:.7rem">The old version of this block was sampling
+            rules, because the gold set was going to be sampled and annotated here. It is not. What is
+            left is the discipline that has to be applied to somebody else's sample instead, and the
+            first rule is the one that hurts.</p>
           <ul class="compact-list">
-            <li><strong>Sample from the target distribution, not from what is easy.</strong> Mix filings, transcript prepared remarks, transcript question-and-answer, and news, in proportions written down before sampling.</li>
-            <li><strong>Stratify by document type</strong> so per-source performance can be reported.</li>
-            <li><strong>Do not balance the classes by sampling.</strong> The natural rate of forward-looking sentences is part of the problem. Report the rate and handle imbalance in training, not in the test set.</li>
-            <li><strong>Deduplicate before annotating.</strong> Boilerplate repeats across filings and will otherwise dominate the set.</li>
-            <li><strong>Keep the document and sentence position for every example</strong>, so leakage across splits can be checked later.</li>
-            <li><strong>Keep the whole passage, not the sentence.</strong> The gold set stores the passage the annotator read. Storing only the sentence would make the long rungs untestable after the fact, and re-fetching the surroundings later is how provenance broke last time.</li>
-            <li><strong>Sample passages long enough to matter.</strong> If every gold passage is 300 tokens, the ladder has nothing to measure. Stratify the sample by passage length so the long rungs are actually exercised, and publish the length distribution.</li>
-            <li><strong>Sample once and freeze.</strong> Re-sampling after seeing results is the same as tuning on the test set.</li>
+            <li><strong>You inherit their sample, including its biases.</strong> The distribution was chosen by other people for other reasons. Measure it, publish it, and stop describing it as the target distribution. Report per-source performance where the set carries a source field, and say when it does not.</li>
+            <li><strong>Do not rebalance the classes.</strong> Same rule as before. Report the natural rate and handle imbalance in training, never in the test set.</li>
+            <li><strong>Deduplicate before splitting,</strong> on full text, because boilerplate repeats across filings and the borrowed sets were not deduplicated against each other.</li>
+            <li><strong>Group the split by document, call or company</strong> wherever the set carries such a field. Where it does not, say so in the model card rather than implying a grouped split that was never possible.</li>
+            <li><strong>Rebuild the passage where a source corpus exists.</strong> The reconstructed passage is stored with the row, hashed with it, and its match method recorded. A row whose passage could not be rebuilt keeps its label and is scored at sentence length.</li>
+            <li><strong>Publish the token-length distribution</strong> after reconstruction. If the long rungs have nothing long to work on, the ladder has nothing to measure, and that is a finding to report rather than a problem to hide.</li>
+            <li><strong>Split once and freeze.</strong> Re-splitting after seeing results is the same as tuning on the test set, and it is easier to do accidentally with a borrowed set than with one you annotated yourself.</li>
           </ul>
         </div>
 
@@ -389,7 +474,7 @@
           <div class="flow-arrow">&darr;</div>
           <div class="flow-step"><strong>4. Diagnose</strong><span>Coverage, overlap, conflict, and pairwise agreement per function, measured on the human development set.</span></div>
           <div class="flow-arrow">&darr;</div>
-          <div class="flow-step"><strong>5. Fit the label model</strong><span>Snorkel's label model against plain majority vote. Whichever wins on the development set is the one used.</span></div>
+          <div class="flow-step"><strong>5. Fit the label model</strong><span>Snorkel's label model against plain majority vote. Whichever wins on the borrowed human development set is the one used. The reference model is not consulted here, or anywhere outside the test split.</span></div>
           <div class="flow-arrow">&darr;</div>
           <div class="flow-step"><strong>6. Train the student</strong><span>Soft labels, noise-aware loss. Low-confidence rows dropped by a threshold chosen on validation data.</span></div>
         </div>
@@ -462,123 +547,217 @@
       <section id="annotation">
         <div class="section-head">
           <div>
-            <p class="section-kicker">The most valuable and least glamorous work</p>
-            <h2>Annotation program</h2>
+            <p class="section-kicker">Where the benchmark comes from now</p>
+            <h2>Benchmark program</h2>
           </div>
           <span class="status compromised">Open item inside</span>
         </div>
         <p class="section-intro">
-          The gold sets are what make this project citable. They are also the part most likely to be
-          rushed. This section fixes the process so the quality is measurable rather than asserted.
+          There are two test sets per task now, and they answer different questions. The reference set
+          is the same passages labelled by one pinned frontier model, and it carries the headline, which is
+          fidelity. The referee set is borrowed whole from published datasets whose labels were made by
+          people, and it is the only place a claim to match or exceed that frontier model can be settled.
+          Nobody on this project annotates anything. This section names the borrowed sets, states what each
+          one buys, and states what it costs.
         </p>
 
         <div class="callout warning">
-          <p><strong>Weak supervision does not reduce this work.</strong> It replaces hand-labelled
-            training data, and the plan never had any. The human sets were always the benchmark. What
-            weak supervision adds is a second small human set to tune the labelling functions against,
-            so the annotation budget goes slightly up, not down. Anyone reading "we automated the
-            labelling" and expecting to annotate less will be disappointed, and the schedule should not
-            assume it.</p>
+          <p><strong>The trade is real and it is not free.</strong> Hand annotation bought three things:
+            labels that matched our own codebook, passages around every sentence, and an evidence-distance
+            tag on every row. Borrowed labels buy none of them. The codebook now has to be rewritten to
+            match somebody else's definitions, the passages have to be reconstructed from the source
+            documents or given up, and evidence distance has to be inferred rather than recorded. Every
+            claim that rested on those three things is downgraded or dropped below.</p>
+        </div>
+
+        <h3 style="margin:1.6rem 0 .7rem">The adopted sets</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th style="width:130px">Task</th><th style="width:200px">Dataset</th><th style="width:90px">Rows</th><th>Labels and text</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Forward-looking</strong></td>
+                <td><code>FinanceMTEB/FLS</code><br><span class="subtle-cell">from the FinBERT-FLS annotation effort</span></td>
+                <td>3,600<br><span class="subtle-cell">1,000 test</span></td>
+                <td>Three classes, not two: <code>specific-fls</code>, <code>non-specific-fls</code>,
+                  <code>not-fls</code>. Single sentences taken from the management discussion section of
+                  real 10-K filings, which is the target distribution this project wanted anyway.</td>
+              </tr>
+              <tr>
+                <td><strong>Aspect sentiment</strong></td>
+                <td><code>pauri32/fiqa-2018</code><br><span class="subtle-cell">FiQA 2018 Task 1</span></td>
+                <td>1,213</td>
+                <td>A target company, an aspect from a published taxonomy, a continuous sentiment score
+                  from &minus;1 to 1, and the snippet the score was read from. Text is tweets and news
+                  headlines, so it is short and informal.</td>
+              </tr>
+              <tr>
+                <td><strong>Fact versus opinion</strong></td>
+                <td><code>ChanceFocus/flare-finarg-ecc-auc</code><br><span class="subtle-cell">FinArg argument unit classification</span></td>
+                <td>969</td>
+                <td>Two classes, <code>premise</code> and <code>claim</code>, on earnings call sentences.
+                  This is a near neighbour of fact versus opinion, not the same label. See the open
+                  decision below.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         <div class="grid-2" style="margin:1.2rem 0">
           <div class="card decision recommended">
-            <h3>The gold test set</h3>
-            <span class="pill teal">1,000 per task</span>
-            <p class="small muted" style="margin-top:.6rem">The frozen benchmark. 300 double-annotated
-              for the agreement ceiling, every row tagged with evidence distance. Opened once per model,
-              at the end. Its size is what keeps the near and far halves large enough to read.</p>
+            <h3>What this settles for free</h3>
             <ul class="compact-list">
-              <li>Never used to tune anything, including labelling functions.</li>
-              <li>Hashed before the first training run.</li>
-              <li>Published with per-annotator labels.</li>
+              <li><strong>The aspect vocabulary question</strong> is answered. FiQA ships its own taxonomy, so aspects come from the source rather than being invented.</li>
+              <li><strong>The score mapping decision</strong> has a published reference point, because FiQA ships both the continuous score and a mapped class.</li>
+              <li><strong>The annotator count question</strong> is closed. There is no second annotator because there is no first one.</li>
+              <li><strong>Three months of annotation</strong> comes out of the schedule entirely.</li>
+            </ul>
+          </div>
+          <div class="card decision caution">
+            <h3>What it costs</h3>
+            <ul class="compact-list">
+              <li><strong>The forward-looking task becomes three-class.</strong> The binary codebook in Product is rewritten to match, or the labels cannot be used.</li>
+              <li><strong>No passages ship with any of the three sets.</strong> Every row is a bare sentence.</li>
+              <li><strong>No evidence-distance field exists,</strong> and it cannot be added without an annotator.</li>
+              <li><strong>All three sets are public and indexed,</strong> so the frontier models in the ensemble may have seen them.</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3 style="margin:1.6rem 0 .7rem">Rebuilding the passages</h3>
+        <div class="card">
+          <p class="small">This is the step the whole long-context claim now depends on, and it is
+            entirely automatable. Two of the three sets were cut from public corpora that can be
+            searched. Each borrowed sentence gets matched back into its source document, and the
+            passage around it gets rebuilt by the same passage builder the training data uses.</p>
+          <div class="table-wrap" style="margin-top:.7rem; box-shadow:none">
+            <table>
+              <thead><tr><th style="width:150px">Set</th><th>Source corpus</th><th style="width:250px">Outlook</th></tr></thead>
+              <tbody>
+                <tr><td><strong>FLS</strong></td><td>10-K filings on EDGAR, public domain in the United States, full text available.</td><td class="subtle-cell">Good. Exact sentence match against the filing text should recover most rows.</td></tr>
+                <tr><td><strong>FinArg</strong></td><td>Earnings call transcripts. Public, but scattered across sources with varying terms.</td><td class="subtle-cell">Mixed. Expect a lower match rate and a licence question on redistribution.</td></tr>
+                <tr><td><strong>FiQA</strong></td><td>Tweets and headlines. There is no surrounding document to recover.</td><td class="subtle-cell">None. This task has no long-context story and the plan should stop implying it does.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <ul class="compact-list" style="margin-top:.8rem">
+            <li><strong>Match on exact normalised text first,</strong> then on a high-similarity fallback, and record which method matched each row. A fuzzy match is a weaker row and is marked as one.</li>
+            <li><strong>Publish the match rate per set.</strong> It is the single number that says how much of the long-context claim survived.</li>
+            <li><strong>Rows that fail to match keep their label</strong> and are scored at sentence length only. They are counted, not quietly dropped.</li>
+            <li><strong>Reconstruction runs once and is hashed</strong> with the rest of the test set. Re-running it later against a changed corpus is a new experiment.</li>
+          </ul>
+          <div class="gate" style="margin-top:.8rem">
+            <strong>The bar, checked at Gate 2:</strong> if under 60% of a task's test rows recover a real
+            passage, that task reports a sentence-level headline and its length ladder moves to agreement
+            with the ensemble rather than accuracy against gold. Say which one happened, in the model card.
+          </div>
+        </div>
+
+        <h3 style="margin:1.6rem 0 .7rem">Evidence distance, without an annotator</h3>
+        <div class="card">
+          <p class="small">The old plan had the annotator record where the deciding evidence sat. That
+            field is gone. What replaces it is weaker, it is measured after the fact rather than before,
+            and it must be labelled as such everywhere it appears.</p>
+          <ul class="compact-list">
+            <li><strong>The substitute is a context-sensitivity probe.</strong> Run the frontier reference twice on every test passage, once on the bare sentence and once on the full passage. Rows where the answer changes are the rows where context carried the label.</li>
+            <li><strong>This is a model-derived split, not ground truth.</strong> It says the ensemble needed the context. It does not prove a person would have. The write-up says that in the same breath as the number, every time.</li>
+            <li><strong>It cannot be recorded before the models exist,</strong> which was the whole point of the original field. So the split is computed once, frozen, hashed, and never recomputed after seeing a student's results.</li>
+            <li><strong>If the sensitive bucket lands under 10% of recovered rows,</strong> report the long-context question as untestable on that task. That rule survives unchanged from the old plan and matters more now.</li>
+          </ul>
+          <div class="gate" style="margin-top:.8rem">
+            <strong>Evidence grade:</strong> results on this split are graded one level below results on the
+            whole set, permanently. It is a plausible split, not a validated one.
+          </div>
+        </div>
+
+        <h3 style="margin:1.6rem 0 .7rem">The human ceiling</h3>
+        <div class="card">
+          <p class="small">Every model card carries a ceiling next to the score. With borrowed labels the
+            ceiling is borrowed too, and where the source never published one, the card says so instead of
+            inventing a number.</p>
+          <ul class="compact-list">
+            <li><strong>Quote the source paper's agreement statistic</strong> where it exists, with the citation, and say plainly that it was measured by other people on their sample.</li>
+            <li><strong>Where no agreement figure was published,</strong> the card reads "not published by the source". That is an honest gap. Filling it with a guess is worse than leaving it open.</li>
+            <li><strong>Run a label-noise probe as a floor.</strong> Take the rows where every model in the ensemble agrees with each other and disagrees with the borrowed label, then read a sample by hand. That sample is small enough to be an afternoon, and it gives an upper bound on how noisy the borrowed labels are.</li>
+            <li><strong>An LLM is still not an annotator.</strong> The probe finds candidate bad rows. It does not decide them, and its output never becomes the ceiling.</li>
+          </ul>
+        </div>
+
+        <h3 style="margin:1.6rem 0 .7rem">The reference set, built by machine</h3>
+        <div class="card">
+          <p class="small">This is the set the headline is measured on, and building it needs no people at
+            all. Sample passages from the target corpora, run the pinned frontier reference over them once,
+            cache every response, freeze, hash. That is the whole procedure.</p>
+          <ul class="compact-list" style="margin-top:.7rem">
+            <li><strong>Size is a budget question, not a labour question.</strong> Nobody is reading these, so 5,000 passages per task is affordable where 1,000 hand labels were not. Bigger set, tighter intervals, and the long-evidence half stops being noise.</li>
+            <li><strong>Sample from the real target distribution,</strong> stratified by document type and by passage length, with the proportions written down before sampling. This is the sampling discipline the old gold set was going to have, and it is now actually achievable.</li>
+            <li><strong>Never trained on, never tuned against.</strong> Same rule as any test set. Its hash goes in the config and the harness refuses an unrecognised one.</li>
+            <li><strong>The reference reads the full passage at the rung being tested.</strong> A ladder comparison where the reference saw 512 tokens and the student saw 8,192 measures nothing.</li>
+            <li><strong>Publish the cached labels with the model identifier and the prompt.</strong> That is what makes the number reproducible after the model is retired.</li>
+          </ul>
+          <div class="gate" style="margin-top:.8rem">
+            <strong>The one number that is not a result:</strong> the reference's agreement with its own
+            labels. It is 100%, it is meaningless, and it never appears in a table.
+          </div>
+        </div>
+
+        <h3 style="margin:1.6rem 0 .7rem">Splitting the borrowed referee sets</h3>
+        <div class="grid-2" style="margin-top:.7rem">
+          <div class="card decision recommended">
+            <h3>The frozen test set</h3>
+            <span class="pill teal">Borrowed, re-split, hashed</span>
+            <ul class="compact-list" style="margin-top:.6rem">
+              <li><strong>FLS.</strong> Keep the published 1,000-row test split unchanged, so published numbers stay comparable.</li>
+              <li><strong>FiQA.</strong> The official 150-row test split is too small to read a result from. Pool all 1,213 rows and cut 500 for test, grouped by target company. Score the official 150 as well, and report both.</li>
+              <li><strong>FinArg.</strong> One 969-row split ships. Cut 600 for test, grouped by call.</li>
             </ul>
           </div>
           <div class="card decision caution">
             <h3>The development set</h3>
             <span class="pill amber">200 per task</span>
-            <p class="small muted" style="margin-top:.6rem">Human-labelled, and deliberately burnable.
-              This is what the labelling functions, the label model, the prompts and the confidence
-              threshold get tuned against.</p>
-            <ul class="compact-list">
-              <li>Sampled and labelled with the gold set, then split apart immediately.</li>
-              <li>Looked at as often as needed. That is what it is for.</li>
-              <li>Never reported as a headline result, because it has been tuned against.</li>
+            <ul class="compact-list" style="margin-top:.6rem">
+              <li>Carved from the borrowed rows that are not in test, at split time, and hashed separately.</li>
+              <li>Still what the labelling functions, prompts and thresholds get tuned against.</li>
+              <li>Still never a headline number, because it has been tuned against.</li>
+              <li>Grouped by document or company, so a tuned-on row cannot reappear in test wearing a different sentence.</li>
             </ul>
           </div>
         </div>
 
-        <div class="callout danger" style="margin-bottom:1.2rem">
-          <p><strong>These two sets must not touch.</strong> Tuning the label model on the gold set would
-            quietly turn the benchmark into training data, and every number after that would be inflated
-            in a way no reader could detect. Split them at sampling time, store them in separate files
-            with separate hashes, and let the harness refuse any run where the two hashes overlap.</p>
+        <div class="callout danger" style="margin-top:1.1rem">
+          <p><strong>A borrowed row used anywhere else poisons the benchmark.</strong> These datasets ship
+            train splits, and those splits are tempting free training data. Any row that lands in Track B
+            is banned from Track A and Track C by identifier, and the harness fails the build on an
+            overlap. Two of the sets ship no document identifier, so grouped splitting cannot be fully
+            verified on them. Near-duplicate checking on full text is the fallback, and the model card
+            states that document-level grouping is unverifiable for those sets.</p>
         </div>
 
-        <div class="grid-2">
-          <div class="card">
-            <h3>Process</h3>
-            <ol class="compact-list">
-              <li><strong>Draft the codebook</strong> from the definitions in <a href="PRODUCT.html#codebook">Product</a>. Version it.</li>
-              <li><strong>Pilot on 50 examples.</strong> Every disagreement or hesitation becomes a new rule in the codebook. Expect the codebook to roughly double in size here.</li>
-              <li><strong>Re-pilot on 50 fresh examples</strong> under the revised codebook. If you are still hesitating on more than one in five, the label definition is wrong, not the annotator.</li>
-              <li><strong>Bump the codebook version and discard the pilot labels.</strong> They were made under a different definition.</li>
-              <li><strong>Annotate the full 1,200</strong> in sittings of no more than 150, then split 1,000 to test and 200 to development. Fatigue shows up as label drift, and drift late in the set is invisible unless you shuffle.</li>
-              <li><strong>Shuffle before annotating</strong> so any drift spreads evenly rather than landing on one document type.</li>
-              <li><strong>Re-annotate 100 examples from early in the run, blind,</strong> at the end. Agreement with your own earlier labels is the drift measurement. Publish it.</li>
-              <li><strong>Adjudicate disagreements</strong> with a written reason, and fold the reason back into the codebook for next time.</li>
-            </ol>
-            <div class="gate" style="margin-top:.8rem">
-              <strong>One extra field per row:</strong> evidence distance. Two clicks, and it is what makes
-              the whole long-context claim testable.
-            </div>
-          </div>
-          <div class="card">
-            <h3>Measuring quality</h3>
-            <ul class="compact-list">
-              <li><strong>Two annotators is the strong version.</strong> 300 examples double-annotated, Cohen's kappa reported per task. Target above 0.7. Below 0.6 means the codebook has to be rewritten before any model is trained.</li>
-              <li><strong>One annotator is the fallback.</strong> If no second person is available, self-agreement on a blind re-annotation is the ceiling estimate. It is weaker evidence and must be labelled as such everywhere it appears.</li>
-              <li><strong>An LLM is not a second annotator.</strong> Claude's labels can be a useful third opinion for finding examples worth a second look. They cannot be the agreement ceiling, because the LLM is the thing being benchmarked.</li>
-              <li><strong>Publish the disagreements.</strong> The examples annotators split on are the most informative part of the dataset. Keep them in, with both labels.</li>
-            </ul>
-            <div class="gate" style="margin-top:.8rem">
-              <strong>Open decision:</strong> is a second human annotator available? This changes how the
-              ceiling is reported in every model card, so answer it before Phase 1 annotation starts.
-            </div>
-          </div>
+        <div class="callout warning" style="margin-top:.8rem">
+          <p><strong>Contamination, and where it now bites.</strong> All three borrowed sets are on Hugging
+            Face and have been for years. The headline is safe from this, because it is measured on freshly
+            sampled passages the reference labels itself. What is exposed is the referee comparison, which
+            is the one claim that says the student matches or exceeds the frontier model. A reference that
+            memorised those rows scores higher there than it should, and the student's win looks smaller
+            than it is. Two partial defences. Report the reference's score on the referee set next to its
+            score on fresh unlabelled passages from the same corpora, and flag any large gap. And note that
+            the reconstructed-passage version of each row is not the published form, so a memorised
+            sentence label is less directly reusable there.</p>
         </div>
 
-        <h3 style="margin:1.6rem 0 .7rem">Recording evidence distance</h3>
-        <div class="card">
-          <p class="small">The annotator answers a second question on every gold row: where was the
-            evidence that decided this label? It takes seconds, it is recorded before any model exists,
-            and it is the only honest way to test whether long context helps.</p>
-          <div class="table-wrap" style="margin-top:.7rem; box-shadow:none">
-            <table>
-              <thead><tr><th style="width:150px">Value</th><th>Means</th><th style="width:220px">Role in the results</th></tr></thead>
-              <tbody>
-                <tr><td><code>in_target</code></td><td>The sentence alone was enough.</td><td class="subtle-cell">Long context should change nothing here. If it does, something is wrong.</td></tr>
-                <tr><td><code>near</code></td><td>Needed a sentence or two either side.</td><td class="subtle-cell">What a 512-token model can already reach.</td></tr>
-                <tr><td><code>far</code></td><td>Needed something further away. A speaker tag, an earlier number, a heading, a prior paragraph.</td><td class="subtle-cell">The subset the whole claim rests on.</td></tr>
-                <tr><td><code>unknown</code></td><td>The annotator could not say.</td><td class="subtle-cell">Reported, excluded from the split, and the rate is published.</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <ul class="compact-list" style="margin-top:.8rem">
-            <li><strong>Record it before seeing any model output.</strong> Assigning it afterwards would let the results decide the split, which is the same sin as tuning on test.</li>
-            <li><strong>It is annotator judgement, not ground truth.</strong> Say so wherever the split appears. On the double-annotated portion, agreement on this field is measured and published alongside the label agreement.</li>
-            <li><strong>If <code>far</code> comes in under 10% of the gold set</strong>, the long-context question is close to untestable on that task. Report that rather than reading a difference out of forty examples.</li>
-          </ul>
-        </div>
-
-        <div class="callout info" style="margin-top:1.1rem">
-          <p><strong>Time is the real constraint.</strong> 1,200 passages per task at a realistic pace is
-            several sittings of focused work, three times over, and passages take longer to read than
-            sentences did. Budget it as a first-class task in each phase, not as something squeezed in
-            around training runs. If the budget will not stretch, cut the test set to 600 and accept
-            that the near and far halves get noisy. Do not cut the development set, because the whole
-            labelling pipeline is tuned against it, and do not cut the double-annotated portion,
-            because that is what makes the rest of the numbers interpretable.</p>
+        <div class="callout info" style="margin-top:.8rem">
+          <p><strong>Open decision, and it changes the third product.</strong> No public dataset matches
+            the fact-versus-opinion codebook. FinArg's premise-versus-claim labels are close in spirit but
+            not the same rule, and its own examples show it: a sentence beginning "I think" is labelled a
+            premise there, and would be opinion under our codebook. Two ways out.
+            <strong>Adopt premise versus claim as the real task</strong> and rename the model, which keeps
+            a human benchmark and a defensible accuracy claim. Or <strong>keep fact versus opinion</strong>
+            and ship it with a distillation claim only, measured as agreement with the ensemble plus cost
+            and latency, with no accuracy number at all. The recommendation is the first, because a
+            published human benchmark is the thing this whole programme is built around. Decide before
+            Phase 3 opens.</p>
         </div>
       </section>
 
@@ -617,13 +796,23 @@
                 <td>Identical in every respect except max length. Run at three seeds, like the long rungs.</td>
               </tr>
               <tr>
-                <td><strong>The routed ensemble</strong></td>
-                <td>The actual teacher. All k labelling functions combined by the same label model used for training, over the same passages, scored on the gold set. This is the headline number to match.</td>
-                <td>Identical pipeline to the training-label run, including the pinned model list. Its full cost is measured.</td>
+                <td><strong>Every other benched backbone</strong></td>
+                <td>Shows whether the chosen encoder was actually the best one, and what the runners-up cost. Ettin's four sizes also give a parameters-versus-score curve, which says whether the medium tier is already at the ceiling.</td>
+                <td>All nine candidates at 512, three seeds, one shared label set. Scored on validation for the pick, and the winner alone is scored on the borrowed test set. No delta is ever reported between two candidates at different maximum lengths.</td>
+              </tr>
+              <tr>
+                <td><strong>The pinned frontier reference</strong></td>
+                <td><code>gpt-sol-5.6</code> at medium reasoning effort. It writes the test labels, so the headline metric is how often the student agrees with it. Its agreement with its own labels is 100% by construction and is never reported as a result. On the referee benchmark it is scored like any other system, and that is the one place it can be beaten.</td>
+                <td>One prompt, the codebook definition, structured output, every response cached and published so the benchmark outlives the model. Its cost per 1,000 passages, reasoning tokens included, is the denominator of the cost ratio.</td>
+              </tr>
+              <tr>
+                <td><strong>The routed teacher ensemble</strong></td>
+                <td>The actual teacher, and deliberately not frontier. All k cheap labelling functions combined by the same label model used for training. Its agreement with the reference is the number the student is trying to exceed, because exceeding it is the weak-to-strong result.</td>
+                <td>Identical pipeline to the training-label run, including the pinned model list. Its full cost is measured, and reported as the one-off price of building the student rather than as a running cost.</td>
               </tr>
               <tr>
                 <td><strong>Each single routed model</strong></td>
-                <td>Shows which teachers carried the ensemble. Also gives the familiar small-model-versus-one-frontier-model comparison readers will look for.</td>
+                <td>Shows which teachers carried the ensemble, and how far a single cheap model gets on its own.</td>
                 <td>Reported per model, over the full passage. Always labelled as a distillation comparison, since the student trained on these labels.</td>
               </tr>
               <tr>
@@ -754,24 +943,39 @@
           <div class="card next-card">
             <div class="priority"><span>Gate</span><strong>1</strong></div>
             <div>
-              <h3>Codebook is usable</h3>
-              <p class="small muted">Two pilot rounds done. Hesitation rate under one in five. Kappa above
-                0.7 if a second annotator exists, or stable self-agreement if not.</p>
-              <div class="gate"><strong>If it fails:</strong> rewrite the label definitions. Do not annotate
-                1,200 passages against a definition you are unsure of. This is the cheapest failure in
-                the whole programme and the most expensive one to skip.</div>
+              <h3>The benchmarks are admissible, and the reference is pinned</h3>
+              <p class="small muted">Two things pass together. The referee set's labels were made by
+                people, and the source says so. Its licence permits the use and the redistribution actually
+                planned. Its class definitions are written into our codebook verbatim, with every place they
+                differ from the original intent recorded. Its published annotator agreement is quoted, or its
+                absence is stated. No row overlaps any training source.</p>
+              <p class="small muted" style="margin-top:.5rem">And the frontier reference is verified.
+                <code>gpt-sol-5.6</code> at medium effort resolves on a live call, returns the version
+                metadata expected, is confirmed absent from the router's model list, and its response cache
+                is writing. Its terms of service permit using its outputs this way, which is a licence
+                question as real as the dataset one and is easier to get wrong.</p>
+              <div class="gate"><strong>If it fails:</strong> do not adopt the set. A benchmark whose labels
+                mean something slightly different from the codebook produces a headline that means
+                something slightly different from what it says, and no reader can detect the gap. This is
+                now the cheapest failure in the programme and the most expensive one to skip.</div>
             </div>
           </div>
           <div class="card next-card">
             <div class="priority"><span>Gate</span><strong>2</strong></div>
             <div>
-              <h3>Data is clean, and the passages are intact</h3>
+              <h3>Data is clean, and the passages came back</h3>
               <p class="small muted">No near-duplicates across splits, checked on full passages. Every row
                 has provenance. Every target span resolves inside its passage. Licence confirmed for every
                 source that will be redistributed, at the passage length being published. Class rates and
-                token-length distribution recorded.</p>
-              <div class="gate"><strong>If it fails:</strong> no training run starts. Leakage found later
-                invalidates everything downstream of it, and long passages make leakage easier, not harder.</div>
+                token-length distribution recorded. And the reconstruction bar is met: at least 60% of the
+                test rows recovered a real passage from the source corpus, with the match rate and the
+                match method published per row.</p>
+              <div class="gate"><strong>If it fails on leakage:</strong> no training run starts. Leakage
+                found later invalidates everything downstream of it, and long passages make leakage easier,
+                not harder. <strong>If it fails on reconstruction:</strong> the task drops to a
+                sentence-level headline and its length ladder is reported as agreement with the ensemble
+                rather than accuracy. That is a documented outcome, not a blocker, but it must be named in
+                the model card rather than glossed.</div>
             </div>
           </div>
           <div class="card next-card">
@@ -790,7 +994,7 @@
             <div class="priority"><span>Gate</span><strong>4</strong></div>
             <div>
               <h3>Weak labels are worth buying</h3>
-              <p class="small muted">On the human development set, at the length rung about to be
+              <p class="small muted">On the borrowed human development set, and only that set, at the length rung about to be
                 labelled, the label model beats both plain majority vote and the best single labelling
                 function. Coverage, conflict, pairwise agreement and measured cost per row are all
                 recorded.</p>
@@ -815,13 +1019,21 @@
             <div class="priority"><span>Gate</span><strong>6</strong></div>
             <div>
               <h3>Model meets the success bar</h3>
-              <p class="small muted">Test macro-F1 at or above the routed ensemble on the same passages,
-                tested as a paired bootstrap, cost ratio at least 50&times;, latency within budget at the
-                shipped length, all measured once on the frozen gold set. The full length ladder is
-                reported, including the rungs that lost.</p>
+              <p class="small muted">The bar is fidelity, cost and latency, all measured once on the frozen
+                reference-labelled test set. Agreement with the pinned frontier reference at or above 95%
+                of passages. Cost ratio against that same reference at least 50&times;. Latency within
+                budget at the shipped length. The full length ladder is reported, including the rungs that
+                lost.</p>
+              <p class="small muted" style="margin-top:.5rem">Three more numbers are required but do not
+                gate. The teacher ensemble's own agreement with the reference, so the weak-to-strong
+                comparison is readable. The student and the reference scored side by side on the referee
+                benchmark, which is the only place a claim to match or exceed the frontier model is
+                allowed. And the confusion matrix of student against reference, so a reader sees where
+                they part company rather than only how often.</p>
               <div class="gate"><strong>If it fails:</strong> the model still ships, with the miss in the model
                 card and an honest section in the write-up about why. Failing this gate does not block the
-                next phase. Hiding it does. A ladder that comes out flat is a reported result, not a failure.</div>
+                next phase. Hiding it does. A ladder that comes out flat is a reported result, not a failure.
+                A student that lands below its own teachers is also a reported result, and an informative one.</div>
             </div>
           </div>
           <div class="card next-card">
@@ -863,11 +1075,16 @@
           <div class="card">
             <h3>Only you can do this</h3>
             <ul class="compact-list">
-              <li><strong>Annotation.</strong> The gold labels are the human contribution, and delegating them to a model destroys their purpose.</li>
-              <li><strong>Codebook judgement calls.</strong> Every hard case resolved becomes a rule everything else follows.</li>
               <li><strong>Deciding what a result means.</strong> Especially deciding when a result is not good enough to claim.</li>
-              <li><strong>Licence and redistribution calls.</strong></li>
+              <li><strong>Licence and redistribution calls.</strong> An agent can read the terms. It cannot accept the liability.</li>
+              <li><strong>Accepting a borrowed benchmark at Gate 1.</strong> Adopting someone else's labels means adopting their definitions and their mistakes. That is a judgement call, not a check.</li>
+              <li><strong>The fact-versus-opinion fork.</strong> Renaming the third task or dropping its accuracy claim changes the product, so it is not an agent's decision.</li>
+              <li><strong>Reading the label-noise probe sample.</strong> Perhaps an afternoon, and the only hand-labelling left in the whole programme.</li>
             </ul>
+            <div class="gate" style="margin-top:.8rem">
+              <strong>This list used to start with annotation.</strong> That was months of work and it is
+              gone. What is left is a handful of decisions and one afternoon of reading.
+            </div>
           </div>
           <div class="card">
             <h3>Good agent work</h3>
@@ -903,29 +1120,44 @@
             </thead>
             <tbody>
               <tr>
-                <td><strong>Annotation stalls the project</strong></td>
-                <td>3,600 careful judgements over long passages is a lot of work, and it is the least fun part. Weak supervision makes it tempting to assume the human sets got smaller. They did not.</td>
-                <td>Cut the test set to 600 per task before cutting quality, and accept noisier near and far halves. Never cut the development set or the double-annotated portion.</td>
+                <td><strong>The borrowed labels mean something slightly different</strong></td>
+                <td>Every existing dataset was labelled for someone else's purpose, under someone else's rules, by people who are not available to ask. The gap is usually small and always invisible in the score.</td>
+                <td>The codebook is rewritten to match the borrowed definitions rather than the other way round, and every known difference is listed in the model card. Gate 1 refuses a set whose definitions cannot be written down cleanly. The forward-looking task becomes three-class because of this rule.</td>
               </tr>
               <tr>
-                <td><strong>Public data does not match the codebook</strong></td>
-                <td>Every existing dataset was labelled for someone else's purpose.</td>
-                <td>Publish the mapping, and report performance on the gold set separately from performance on public test splits. Never blend the two into one headline.</td>
+                <td><strong>Reconstruction fails and the long-context claim dies</strong></td>
+                <td>All three borrowed sets ship bare sentences. The long-context claim now depends on matching those sentences back into source documents that may be missing, revised, or paywalled.</td>
+                <td>Measure the match rate first, at Gate 2, before any training run. Below 60% the task ships a sentence-level headline and says so. FiQA has no document to recover at all, so that task is planned as sentence-level from the start rather than discovering it late.</td>
               </tr>
               <tr>
-                <td><strong>Public data ships sentences without their documents</strong></td>
-                <td>Almost every published sentence-level finance set was built for short-context models. The surrounding text was thrown away.</td>
-                <td>Ask this question during the source survey, not during training. Rows without a recoverable passage are marked and counted. If they dominate the training set, the long rungs train on less real context than the short rung, and that would break the comparison. In that case, say so and lean on the passages that were kept.</td>
+                <td><strong>The reference has memorised the referee benchmark</strong></td>
+                <td>All three borrowed sets are public and have sat on Hugging Face for years. The one claim that needs the referee is "the student matches or exceeds the frontier model", and a reference that memorised the answers inflates exactly that comparison.</td>
+                <td>Score the reference on the referee set and on fresh unlabelled passages from the same corpora, and publish both. A large gap is reported as suspected contamination, and the match-or-exceed claim is downgraded accordingly. The reconstructed-passage form of each row is also not the published form, which helps a little.</td>
               </tr>
               <tr>
-                <td><strong>Fact versus opinion has no usable public data</strong></td>
-                <td>It is the least studied of the three in a finance setting.</td>
-                <td>Plan for it. Weak supervision is exactly the answer here, and Phase 3 runs last so the labelling pipeline is already proven and priced.</td>
+                <td><strong>Fact versus opinion has no matching public benchmark</strong></td>
+                <td>It is the least studied of the three in a finance setting, and the nearest public set labels premise versus claim, which is a different question.</td>
+                <td>An open decision, stated in the benchmark program. Either rename the task to premise versus claim and keep a human benchmark, or keep the current definition and ship a distillation claim with no accuracy number. Recommendation is the rename. Phase 3 runs last, so there is time to decide.</td>
               </tr>
               <tr>
-                <td><strong>The LLM baseline wins</strong></td>
-                <td>Frontier models are strong at exactly this kind of short classification task.</td>
-                <td>Ship the result. "A 150M encoder gets within a point of a frontier model at one fiftieth the cost" is a good outcome and an honest one.</td>
+                <td><strong>The borrowed test sets are small</strong></td>
+                <td>FiQA ships 150 test rows and FinArg ships 969 in one split. Confidence intervals on a 150-row three-class test are wide enough to swallow most differences worth reporting.</td>
+                <td>Re-split FiQA and FinArg into larger test sets, grouped by company or call. Report the official split as well so published comparisons stay possible. Where an interval is too wide to separate two rungs, say the ladder was inconclusive rather than picking the higher number.</td>
+              </tr>
+              <tr>
+                <td><strong>The student cannot reach 95% agreement</strong></td>
+                <td>It learns from cheap teachers and is graded against a frontier reference. If the teachers disagree with the reference in a consistent way, the student inherits that gap and no amount of training closes it.</td>
+                <td>Measure the ceiling first. The teacher ensemble's own agreement with the reference is an estimate of how far the student can get, and it is known before training starts. If that ceiling is already under 95%, either lower the bar and say why, or spend more on better teachers. Do not discover this after the training bill.</td>
+              </tr>
+              <tr>
+                <td><strong>The student beats its teachers and nobody believes it</strong></td>
+                <td>Weak-to-strong sounds like a bug. A student trained on noisy cheap labels scoring higher than the ensemble that produced them is the expected behaviour of a label model that denoises, but it reads as leakage.</td>
+                <td>Make it falsifiable rather than asserting it. Publish the teacher ensemble's agreement, each single teacher's agreement, plain majority vote, and the student, all on the same frozen set. Gate 4 already proves the label model beats its best member, so the mechanism is documented before the result appears.</td>
+              </tr>
+              <tr>
+                <td><strong>The frontier reference is deprecated</strong></td>
+                <td>Hosted models get retired, renamed and silently updated. The answer key would then be unreproducible, which is the exact failure this programme exists to avoid.</td>
+                <td>The cached reference responses are the artifact, not the model. They are frozen, hashed and published with the test set, so the benchmark runs unchanged after the model is gone. Re-labelling with a newer reference is a new experiment with a new registry row, never a refresh.</td>
               </tr>
               <tr>
                 <td><strong>Labelling spend runs away</strong></td>
@@ -938,6 +1170,21 @@
                 <td>Pin exact model identifiers per run and record them. Cache all responses. Treat a model list change as a new experiment with a new registry row, not a rerun of the old one.</td>
               </tr>
               <tr>
+                <td><strong>The backbone bench comes out flat</strong></td>
+                <td>Nine checkpoints on one task with a 200-example development set is not much resolution. Modern encoders of similar size often land within a point of each other on a single classification task.</td>
+                <td>That is a publishable result, and it is a cheap one. If the top few sit inside each other's confidence interval, the CPU tie-break picks the model and the card says the pick was made on latency rather than on accuracy. Do not run more seeds hunting for a separation that is not there.</td>
+              </tr>
+              <tr>
+                <td><strong>NeoBERT will not export or will not take LoRA</strong></td>
+                <td>It ships custom modelling code loaded through <code>trust_remote_code</code>, so the ONNX path and the LoRA target-module names are both untested here.</td>
+                <td>Find out in the bench, not at release. Pin the revision so the code cannot move underneath a rerun. If it will not export, it stays in the accuracy table and is not offered as the CPU model, stated plainly. If it will not take LoRA, run it as a full fine-tune at 512 only and label that row as the different recipe it is.</td>
+              </tr>
+              <tr>
+                <td><strong>CPU inference is slower than the claim implies</strong></td>
+                <td>A long passage on a CPU with no flash-attention kernels is a different cost from the same passage on a rented GPU. The cheap-inference headline has only ever been priced on the GPU.</td>
+                <td>Measure it in Slice 1, on a named machine, on the exact export. Publish the number even if it is bad. A model that is cheap only on hardware the reader does not have is a claim with a missing footnote.</td>
+              </tr>
+              <tr>
                 <td><strong>Long context does not help</strong></td>
                 <td>Small training sets and more tokens to attend to is a real recipe for no gain, or for a loss.</td>
                 <td>The 512 control runs on every task, so the answer is measurable rather than arguable. A flat ladder ships as the short model, with the ladder published. That is a result the field is short of.</td>
@@ -948,19 +1195,14 @@
                 <td>Near-duplicate checks run on full passages, not targets, and they fail the build. Grouped splitting by document stays in place on top of that.</td>
               </tr>
               <tr>
-                <td><strong>The gold set has no long-evidence examples</strong></td>
-                <td>Sampling by sentence tends to pull self-contained sentences, and then there is nothing for the long rungs to win on.</td>
-                <td>Stratify the gold sample by passage length. Record evidence distance at annotation time. If the far bucket lands under 10%, say the question was untestable on that task rather than reading a result out of noise.</td>
-              </tr>
-              <tr>
-                <td><strong>Annotation gets slower</strong></td>
-                <td>Reading a 2,000-token passage per label is not the same job as reading a sentence.</td>
-                <td>Budget fewer examples per sitting. Cut the set to 600 before cutting the passage. A label made without reading the context is worse than no label at all now that context is the whole point.</td>
+                <td><strong>The test set has no long-evidence examples</strong></td>
+                <td>The borrowed sets were sampled by other people for sentence-level tasks, so they lean towards self-contained sentences. There may be nothing for the long rungs to win on.</td>
+                <td>The evidence-distance field is gone, so the substitute is the context-sensitivity probe: rows where the ensemble's answer changes once the passage is added. If that bucket lands under 10% of recovered rows, say the question was untestable on that task rather than reading a result out of noise. The probe is model-derived, so its results are graded one level below everything else.</td>
               </tr>
               <tr>
                 <td><strong>Licences block the dataset release</strong></td>
-                <td>Financial text is commercially valuable and often restricted.</td>
-                <td>Check licences before annotating, not after. Prefer EDGAR, which is public domain in the US. Release document identifiers and offsets rather than raw text where terms are unclear.</td>
+                <td>Financial text is commercially valuable and often restricted, and borrowed datasets carry their original terms with them. Two of the three adopted sets have no licence declared on the hub at all.</td>
+                <td>Confirm terms at Gate 1, before adoption, not after training. Reconstructed passages come from EDGAR where possible, which is public domain in the US. Where terms are unclear, release row identifiers and document offsets rather than the text itself, and link to the original set rather than mirroring it.</td>
               </tr>
               <tr>
                 <td><strong>Scope creep back into non-goals</strong></td>

@@ -791,7 +791,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               Everything reusable is built here: data schema, passage builder, passage reconstructor,
               weak-supervision pipeline, eval harness, run registry, baseline runners, model card
               template, CI.</p>
-            <p>It also runs the length ladder for the first time, which is the phase's real headline.
+            <p>It also runs the backbone bench once, for the whole project. Four encoder families at
+              nine checkpoints, all at 512 tokens, which is the only length every candidate supports.
+              That picks the encoder the other two phases inherit. It is a cheap experiment and it comes
+              before the expensive one.</p>
+            <p>Then it runs the length ladder for the first time, which is the phase's real headline.
               Whatever 512 against 8,192 says on forward-looking sets the prior for the other two
               tasks, and it decides whether the long-context claim has legs at all.</p>
             <p class="small"><strong>Exit:</strong> one released model, one adopted and frozen benchmark
@@ -844,6 +848,14 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <p><strong>Phases do not overlap.</strong> The temptation after Phase 1 is to start all three at
             once. Do not. The harness will need changes discovered in Phase 2, and changing it while
             three models are mid-training is how protocol drift starts.</p>
+        </div>
+
+        <div class="callout info" style="margin-top:.8rem">
+          <p><strong>The backbone bench runs once, in Phase 1.</strong> Phases 2 and 3 inherit the winner
+            and do not re-run the nine candidates. The one thing that reopens it is a phase where the
+            inherited backbone lands below the classical baseline, which would say the bench answered a
+            question about forward-looking rather than a question about the encoder. If that happens, the
+            bench is re-run on that task and both results are published side by side.</p>
         </div>
 
         <div class="callout info" style="margin-top:.8rem">
@@ -1413,6 +1425,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
                 <td>Identical in every respect except max length. Run at three seeds, like the long rungs.</td>
               </tr>
               <tr>
+                <td><strong>Every other benched backbone</strong></td>
+                <td>Shows whether the chosen encoder was actually the best one, and what the runners-up cost. Ettin's four sizes also give a parameters-versus-score curve, which says whether the medium tier is already at the ceiling.</td>
+                <td>All nine candidates at 512, three seeds, one shared label set. Scored on validation for the pick, and the winner alone is scored on the borrowed test set. No delta is ever reported between two candidates at different maximum lengths.</td>
+              </tr>
+              <tr>
                 <td><strong>The pinned frontier reference</strong></td>
                 <td><code>gpt-sol-5.6</code> at medium reasoning effort. It writes the test labels, so the headline metric is how often the student agrees with it. Its agreement with its own labels is 100% by construction and is never reported as a result. On the referee benchmark it is scored like any other system, and that is the one place it can be beaten.</td>
                 <td>One prompt, the codebook definition, structured output, every response cached and published so the benchmark outlives the model. Its cost per 1,000 passages, reasoning tokens included, is the denominator of the cost ratio.</td>
@@ -1780,6 +1797,21 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
                 <td><strong>Router models change underneath you</strong></td>
                 <td>Hosted models get updated, deprecated and silently reassigned. A rerun months later is not the same experiment, and long-context support in particular varies between versions.</td>
                 <td>Pin exact model identifiers per run and record them. Cache all responses. Treat a model list change as a new experiment with a new registry row, not a rerun of the old one.</td>
+              </tr>
+              <tr>
+                <td><strong>The backbone bench comes out flat</strong></td>
+                <td>Nine checkpoints on one task with a 200-example development set is not much resolution. Modern encoders of similar size often land within a point of each other on a single classification task.</td>
+                <td>That is a publishable result, and it is a cheap one. If the top few sit inside each other's confidence interval, the CPU tie-break picks the model and the card says the pick was made on latency rather than on accuracy. Do not run more seeds hunting for a separation that is not there.</td>
+              </tr>
+              <tr>
+                <td><strong>NeoBERT will not export or will not take LoRA</strong></td>
+                <td>It ships custom modelling code loaded through <code>trust_remote_code</code>, so the ONNX path and the LoRA target-module names are both untested here.</td>
+                <td>Find out in the bench, not at release. Pin the revision so the code cannot move underneath a rerun. If it will not export, it stays in the accuracy table and is not offered as the CPU model, stated plainly. If it will not take LoRA, run it as a full fine-tune at 512 only and label that row as the different recipe it is.</td>
+              </tr>
+              <tr>
+                <td><strong>CPU inference is slower than the claim implies</strong></td>
+                <td>A long passage on a CPU with no flash-attention kernels is a different cost from the same passage on a rented GPU. The cheap-inference headline has only ever been priced on the GPU.</td>
+                <td>Measure it in Slice 1, on a named machine, on the exact export. Publish the number even if it is bad. A model that is cheap only on hardware the reader does not have is a claim with a missing footnote.</td>
               </tr>
               <tr>
                 <td><strong>Long context does not help</strong></td>

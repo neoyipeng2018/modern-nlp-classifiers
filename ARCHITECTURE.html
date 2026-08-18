@@ -641,7 +641,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
       </p>
       <div class="audit-strip">
         <div class="audit-stat"><strong>8,192 tokens</strong><span>Native ceiling. Passage with a marked target span.</span></div>
-        <div class="audit-stat"><strong>ModernBERT-base</strong><span>Chosen for the long context, not despite it.</span></div>
+        <div class="audit-stat"><strong>Four encoder families</strong><span>Benched at 512. The winner climbs the ladder.</span></div>
         <div class="audit-stat"><strong>LoRA first</strong><span>The only way 8k fits in 16GB.</span></div>
         <div class="audit-stat"><strong>Config-driven</strong><span>No notebook is the source of truth.</span></div>
       </div>
@@ -665,10 +665,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         <a href="#input">Input construction</a>
         <a href="#length">Length budget</a>
         <a href="#weak">Weak supervision</a>
-        <a href="#model">Model and training</a>
+        <a href="#model">Backbone bench and training</a>
         <a href="#compute">Compute platform</a>
         <a href="#eval">Evaluation harness</a>
         <a href="#baselines">Baseline runners</a>
+        <a href="#cpu">CPU inference budget</a>
         <a href="#inference">Inference and serving</a>
         <a href="#repro">Reproducibility machinery</a>
         <a href="#testing">Testing and CI</a>
@@ -1079,35 +1080,101 @@ def routed(ex) -&gt; int | ABSTAIN:
       <section id="model">
         <div class="section-head">
           <div>
-            <p class="section-kicker">The encoder</p>
-            <h2>Model and training</h2>
+            <p class="section-kicker">The encoders</p>
+            <h2>Backbone bench and training</h2>
           </div>
-          <span class="status notrun">Assumed, cheap to change</span>
+          <span class="status notrun">Bench decides it</span>
+        </div>
+        <p class="section-intro">
+          The backbone is no longer assumed. Four encoder families go through the same harness, at the
+          same length, on the same labels, and one of them gets picked. The bench is cheap and it is not
+          the headline experiment. The length ladder still is.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th style="width:150px">Family</th><th style="width:230px">Checkpoints in the bench</th><th style="width:110px">Native max length</th><th>Why it is in</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Ettin</strong><br><span class="small muted">JHU-CLSP, MIT</span></td>
+                <td class="mono">jhu-clsp/ettin-encoder-32m<br>jhu-clsp/ettin-encoder-68m<br>jhu-clsp/ettin-encoder-150m<br>jhu-clsp/ettin-encoder-400m</td>
+                <td>8,192</td>
+                <td>Six sizes trained on one recipe over roughly 2T tokens of open data, with the context extended to 8K in mid-training. The size sweep is the point. Everything except parameter count is held constant across it, which is not true of any other family here. It uses the ModernBERT architecture, so it needs no new training code. See <a href="https://github.com/JHU-CLSP/ettin-encoder-vs-decoder">the repository</a> and <a href="https://arxiv.org/abs/2507.11412">arXiv:2507.11412</a>.</td>
+              </tr>
+              <tr>
+                <td><strong>ModernBERT</strong><br><span class="small muted">Answer.AI, Apache-2.0</span></td>
+                <td class="mono">answerdotai/ModernBERT-base<br>answerdotai/ModernBERT-large</td>
+                <td>8,192</td>
+                <td>The incumbent, and the continuation of the previous project. Keeping it in is what makes the earlier results comparable. 150M and 395M parameters.</td>
+              </tr>
+              <tr>
+                <td><strong>NeoBERT</strong><br><span class="small muted">Chandar Lab, MIT</span></td>
+                <td class="mono">chandar-lab/NeoBERT</td>
+                <td>4,096</td>
+                <td>250M parameters, a different pretraining recipe, and a depth-to-width shape chosen deliberately rather than inherited from BERT. It is the one candidate that is neither a ModernBERT derivative nor a 512-token model. It ships custom modelling code, so it needs <code>trust_remote_code</code>, and that is also why it is the least certain to export cleanly.</td>
+              </tr>
+              <tr>
+                <td><strong>DeBERTa-v3</strong><br><span class="small muted">Microsoft, MIT</span></td>
+                <td class="mono">microsoft/deberta-v3-small<br>microsoft/deberta-v3-base</td>
+                <td>512</td>
+                <td>The old guard, and still the strongest 512-token classification encoder in most published comparisons. It is here to answer whether the newer models actually earn their keep, and its ceiling is what makes it a control rather than a candidate.</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="table-caption">Nine checkpoints. Small tier is roughly 30M to 70M, medium is 150M to
+            250M. The 400M and large checkpoints are the only ones above that, and they run only if the
+            medium tier looks capped.</p>
         </div>
 
-        <div class="grid-2">
-          <div class="card decision recommended">
-            <h3>Primary: ModernBERT-base</h3>
-            <p class="small muted">Roughly 150M parameters, modern training recipe, and pretrained at
-              8,192 tokens. That last point is now the reason it was chosen rather than an unused
-              feature. It is also the natural continuation of the previous work, which keeps the
-              comparison meaningful.</p>
+        <div class="callout warning" style="margin-top:1.1rem">
+          <h3>The bench is decided at 512, because that is the only rung all nine can run</h3>
+          <p>The families do not share a ceiling. Comparing a model at 8,192 against one that stopped at
+            512 measures the ceiling, not the model, and this project already bans that kind of
+            cross-protocol comparison everywhere else.</p>
+          <div class="table-wrap" style="margin-top:.7rem">
+            <table>
+              <thead><tr><th style="width:120px">Rung</th><th style="width:120px">Candidates</th><th>Who is in</th></tr></thead>
+              <tbody>
+                <tr><td><code>512</code></td><td>9</td><td>Everything. This is where the bench is settled.</td></tr>
+                <tr><td><code>2,048</code></td><td>7</td><td>Everything except DeBERTa-v3.</td></tr>
+                <tr><td><code>4,096</code></td><td>7</td><td>NeoBERT's ceiling. Run only if NeoBERT wins at 512, since it is the only reason this rung exists.</td></tr>
+                <tr><td><code>8,192</code></td><td>6</td><td>Ettin and ModernBERT only.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="margin-top:.6rem"><strong>A report card never carries a delta between two different
+            maximum lengths.</strong> The harness refuses to compute one.</p>
+        </div>
+
+        <div class="grid-3" style="margin-top:1.1rem">
+          <div class="card">
+            <h3>How the bench runs</h3>
             <ul class="compact-list">
-              <li>Classification head on the pooled representation, one head per model.</li>
-              <li>Marker tokens added to the vocabulary and their embeddings trained.</li>
-              <li>Max length up to 8,192, which the architecture was pretrained for. No position embedding surgery, no extrapolation.</li>
-              <li>Alternating local and global attention is what makes 8,192 affordable at all on this budget.</li>
+              <li>One task only, forward-looking, in Slice 1. The other two inherit the answer.</li>
+              <li>512 tokens, LoRA, three seeds, one shared set of training labels. Nothing else moves.</li>
+              <li>Twenty-seven short runs. At 512 that is a small fraction of the cost of one full ladder, which is why this is affordable at all.</li>
+              <li>Decided on validation macro-F1. The borrowed test set is not opened for it.</li>
+              <li>Every candidate stays in the published table, including the ones that lost.</li>
             </ul>
           </div>
-          <div class="card decision caution">
-            <h3>Control: DeBERTa-v3-base</h3>
-            <p class="small muted">Run once per task with everything else identical. It answers the
-              question the last project could not: how much of the result is the architecture and how
-              much is the data and protocol.</p>
+          <div class="card">
+            <h3>What the winner buys</h3>
             <ul class="compact-list">
-              <li>Same input builder, same splits, same seeds, same harness.</li>
-              <li><strong>It cannot run the long rungs.</strong> DeBERTa-v3 is a 512-token model, so the control comparison is only valid at the 512 rung. Saying otherwise would be exactly the kind of cross-protocol comparison this project bans.</li>
-              <li>Still the fallback if ModernBERT training proves unstable, in which case the long-context claim goes with it and that gets reported.</li>
+              <li>The best 8,192-capable model climbs the full length ladder. That is the shipped model.</li>
+              <li>If a model that cannot reach 8,192 wins the 512 bench outright, that is reported as its own finding, and the ladder still runs on the best long-capable model. Two claims, kept apart.</li>
+              <li>DeBERTa-v3-base doubles as the architecture control it always was, now without a separate run.</li>
+              <li>Ettin's size sweep gives a parameters-versus-score curve for free, which is the cheapest way to find out whether the medium tier is already at the ceiling.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Where the code has to change</h3>
+            <ul class="compact-list">
+              <li>Ettin loads through the ModernBERT classes, so it is a config change and nothing more.</li>
+              <li>NeoBERT needs <code>trust_remote_code</code>, a pinned revision, and its own LoRA target-module list. Pinning the revision is not optional when the modelling code lives in the repository.</li>
+              <li>DeBERTa-v3 needs its own pooling path and cannot take the 2,048 config at all. The harness rejects that combination rather than silently truncating.</li>
+              <li>Marker tokens are added to each tokenizer separately, and the added-token count goes in the registry row. Four tokenizers means four chances to get this wrong.</li>
             </ul>
           </div>
         </div>
@@ -1115,8 +1182,8 @@ def routed(ex) -&gt; int | ABSTAIN:
         <div class="callout info" style="margin-top:1.1rem">
           <h3>Paying for the GPU is what makes long context possible</h3>
           <p>On a free T4 this was the plan's largest open risk. The T4 is a Turing card with no bf16
-            and no support for the flash-attention kernels recent encoders assume. ModernBERT was
-            trained in bf16 and leans on those kernels for both its unpadding path and its memory
+            and no support for the flash-attention kernels recent encoders assume. ModernBERT and Ettin
+            were both trained in bf16 and lean on those kernels for both the unpadding path and the memory
             profile. Without them it falls back to a slower, hungrier path, and long context makes that
             cost land hardest exactly at the rung the project cares about. 8,192 tokens on a free T4 was
             genuinely uncertain.</p>
@@ -1136,6 +1203,7 @@ def routed(ex) -&gt; int | ABSTAIN:
           <table>
             <thead><tr><th style="width:200px">Setting</th><th style="width:180px">Default</th><th>Reasoning</th></tr></thead>
             <tbody>
+              <tr><td><strong>Backbone</strong></td><td>Whatever the bench picked, pinned per task</td><td>One exact Hugging Face identifier plus a revision hash in the config, never a family name. The bench result and the pinned identifier both go in the registry row, so a later reader can see which of the nine is being reported.</td></tr>
               <tr><td><strong>Adaptation</strong></td><td>LoRA, rank 16, on attention and feed-forward projections</td><td>At 8,192 tokens a full fine-tune does not fit 16GB at all, so LoRA stops being a preference and becomes the only option. The previous project also found LoRA beat the full fine-tune it tested. A full fine-tune is run once per task at the 512 rung only, as a comparison.</td></tr>
               <tr><td><strong>Precision</strong></td><td>bf16</td><td>Native on Ampere and newer, and what the base model was trained in. The fp16 overflow risk the free-tier plan had to work around does not arise.</td></tr>
               <tr><td><strong>Max length</strong></td><td>512 / 2,048 / 8,192</td><td>The one swept hyperparameter. Every rung is trained on every task. The shipped value is picked on validation and then pinned.</td></tr>
@@ -1326,6 +1394,8 @@ def routed(ex) -&gt; int | ABSTAIN:
 <pre><code>{
   "run_id": "fls-a3f21c-20260901T1412",
   "task": "fls",
+  "backbone": {"hf_id": "", "revision": "", "params_m": 0, "native_max_length": 0,
+               "adaptation": "lora-r16", "added_marker_tokens": 0},
   "test_hash": "sha256:7c1e...",
   "reference": {"model": "gpt-sol-5.6", "effort": "medium", "prompt_version": "...", "n": 5000,
                 "agreement_student": 0.000, "agreement_teacher_ensemble": 0.000,
@@ -1353,7 +1423,9 @@ def routed(ex) -&gt; int | ABSTAIN:
   "calibration": {"ece": 0.000, "n_bins": 15},
   "cost": {"usd_per_1k_passages": 0.000, "priced_on": "YYYY-MM-DD"},
   "latency": {"p50_ms": 0.0, "batch_throughput_per_s": 0.0, "batch_size": 0,
-              "device": "", "cpu_p50_ms": 0.0},
+              "device": ""},
+  "cpu": {"export": "", "threads": 0, "batch_size": 1, "max_length": 0,
+          "p50_ms": 0.0, "p95_ms": 0.0, "macro_f1_of_export": 0.000, "machine": ""},
   "spend": {"labelling_usd": 0.000, "training_usd": 0.000, "eval_usd": 0.000},
   "human_ceiling": {"metric": "cohens_kappa", "value": 0.00, "n_double": 300},
   "evidence_grade": "supported"
@@ -1415,6 +1487,51 @@ def routed(ex) -&gt; int | ABSTAIN:
         </div>
       </section>
 
+      <section id="cpu">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Where these models actually get run</p>
+            <h2>CPU inference budget</h2>
+          </div>
+          <span class="pill blue">Measured on every candidate</span>
+        </div>
+        <p class="section-intro">
+          Most people who download a 150M encoder run it on a CPU. A long passage on a CPU is a real
+          cost and nobody has measured it here, so it gets measured rather than assumed. The number is a
+          tie-break for the shipped model, not a gate.
+        </p>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>What gets measured</h3>
+            <ul class="compact-list">
+              <li>One pinned CPU shape, with the vCPU count and the thread count written into the config. A latency figure without a machine attached means nothing.</li>
+              <li>Batch 1 and batch 8, at every rung the candidate supports.</li>
+              <li>p50 and p95 milliseconds per passage, plus throughput.</li>
+              <li>Three export paths: plain PyTorch fp32, ONNX Runtime fp32, and ONNX with dynamic int8 quantisation.</li>
+              <li><strong>Macro-F1 of the exact export</strong>, next to its latency. Quantisation moves scores, and an export that was never scored is not a shipped model.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>What is already known to bite</h3>
+            <ul class="compact-list">
+              <li>ModernBERT and Ettin lose the flash-attention kernels on CPU and fall back to a plain path. Their alternating local and global attention still helps at the long rungs, and how much is exactly what this measures.</li>
+              <li>DeBERTa-v3's disentangled attention is slower per token than its parameter count suggests. Small is not the same as fast, and the 44M checkpoint may not win this.</li>
+              <li>NeoBERT's custom modelling code is the least likely to export. If it will not, it keeps its place in the accuracy table and is not offered as the CPU model. That gets written down, not hidden.</li>
+              <li>Cost per passage on CPU sits in the same table as the GPU and router numbers, so the cheap-inference claim is priced on the hardware a reader would actually use.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="callout info" style="margin-top:1.1rem">
+          <p><strong>The tie-break rule.</strong> When two backbones land inside each other's confidence
+            interval on validation macro-F1, the faster one on CPU ships. When they do not, accuracy wins
+            and the latency goes in the card as a known cost. Latency never picks the model before the
+            accuracy question is settled, because that is how you end up shipping a fast model that is
+            worse and calling it a trade-off nobody chose.</p>
+        </div>
+      </section>
+
       <section id="inference">
         <div class="section-head">
           <div>
@@ -1463,8 +1580,9 @@ t.scan(document=doc, tasks=["fls", "factop"])</code></pre>
               <li>CPU inference is fine at demo volume, which keeps it free to host.</li>
             </ul>
             <div class="gate" style="margin-top:.8rem">
-              <strong>Not built:</strong> a hosted API, batching service, quantised or ONNX exports. All
-              possible later, none part of this project.
+              <strong>Not built:</strong> a hosted API or a batching service. Both possible later, neither
+              part of this project. ONNX and quantised exports are built, because the CPU numbers below
+              cannot be measured without them.
             </div>
           </div>
         </div>
@@ -1648,6 +1766,21 @@ t.scan(document=doc, tasks=["fls", "factop"])</code></pre>
                 <td><strong>Passage boundaries</strong></td>
                 <td>Document structure: paragraph, section, question-and-answer turn</td>
                 <td>A fixed sliding token window centred on the target. It is simpler and it cuts arguments in half, which is the failure mode that broke the previous long-context data.</td>
+              </tr>
+              <tr>
+                <td><strong>Backbone</strong></td>
+                <td>Four families benched at 512, then the winner climbs the ladder</td>
+                <td>Picking ModernBERT-base on reputation, which is what the earlier plan did. Also rejected: running the full length ladder on all nine candidates, which multiplies the most expensive experiment in the project by nine to answer a question the 512 rung already answers.</td>
+              </tr>
+              <tr>
+                <td><strong>Model size</strong></td>
+                <td>Small and medium tiers first, roughly 32M to 250M</td>
+                <td>Starting at 400M or 1B. The accuracy gain is unknown, the CPU cost is not, and Ettin's size sweep makes adding the large tier later a one-config job if the medium tier turns out to be capped.</td>
+              </tr>
+              <tr>
+                <td><strong>CPU inference</strong></td>
+                <td>Measured on every candidate, and a tie-break between close backbones</td>
+                <td>Publishing GPU-only numbers, which describe a machine most downloaders do not have. Also rejected: making CPU latency a gate, which would pick the backbone before the accuracy question was settled.</td>
               </tr>
               <tr>
                 <td><strong>Adaptation</strong></td>
