@@ -40,7 +40,7 @@
         <a href="#compute">Compute platform</a>
         <a href="#eval">Evaluation harness</a>
         <a href="#baselines">Baseline runners</a>
-        <a href="#cpu">CPU inference budget</a>
+        <a href="#cpu">CPU inference, optional</a>
         <a href="#inference">Inference and serving</a>
         <a href="#repro">Reproducibility machinery</a>
         <a href="#testing">Testing and CI</a>
@@ -750,7 +750,7 @@ def routed(ex) -&gt; int | ABSTAIN:
               <li><strong>The long-evidence split</strong>, scored separately on the near and far halves. This is where a long-context gain has to appear if it is real.</li>
               <li><strong>Truncation statistics for the evaluated configuration</strong>, so a score is never read without knowing what the model was allowed to see.</li>
               <li><strong>Calibration:</strong> expected calibration error and a reliability curve. Reported, never claimed.</li>
-              <li><strong>Cost and latency</strong>, measured on the same run that produced the predictions, on GPU and on CPU.</li>
+              <li><strong>Cost and latency</strong>, measured on the same run that produced the predictions, on GPU. The CPU figure is optional and appears only where it was taken.</li>
               <li><strong>Spend</strong>, split into labelling, training and evaluation, for the configuration being reported.</li>
               <li><strong>The human agreement ceiling</strong>, printed in the same table as the scores.</li>
             </ul>
@@ -795,8 +795,8 @@ def routed(ex) -&gt; int | ABSTAIN:
   "cost": {"usd_per_1k_passages": 0.000, "priced_on": "YYYY-MM-DD"},
   "latency": {"p50_ms": 0.0, "batch_throughput_per_s": 0.0, "batch_size": 0,
               "device": ""},
-  "cpu": {"export": "", "threads": 0, "batch_size": 1, "max_length": 0,
-          "p50_ms": 0.0, "p95_ms": 0.0, "macro_f1_of_export": 0.000, "machine": ""},
+  "cpu": {"measured": false, "skipped_reason": "", "export": "", "threads": 0, "batch_size": 1,
+          "max_length": 0, "p50_ms": 0.0, "p95_ms": 0.0, "macro_f1_of_export": 0.000, "machine": ""},
   "spend": {"labelling_usd": 0.000, "training_usd": 0.000, "eval_usd": 0.000},
   "human_ceiling": {"metric": "cohens_kappa", "value": 0.00, "n_double": 300},
   "evidence_grade": "supported"
@@ -862,44 +862,56 @@ def routed(ex) -&gt; int | ABSTAIN:
         <div class="section-head">
           <div>
             <p class="section-kicker">Where these models actually get run</p>
-            <h2>CPU inference budget</h2>
+            <h2>CPU inference, optional</h2>
           </div>
-          <span class="pill blue">Measured on every candidate</span>
+          <span class="status notrun">Optional, run if it is cheap</span>
         </div>
         <p class="section-intro">
-          Most people who download a 150M encoder run it on a CPU. A long passage on a CPU is a real
-          cost and nobody has measured it here, so it gets measured rather than assumed. The number is a
-          tie-break for the shipped model, not a gate.
+          Most people who download a 150M encoder run it on a CPU, so a CPU number would be useful. It is
+          also the part of this plan most likely to go wrong for reasons that have nothing to do with the
+          research question. Export paths break, kernels are missing, and a week can go on it. So this is
+          optional. Nothing in the project waits for it.
         </p>
+
+        <div class="callout warning">
+          <h3>What optional means here</h3>
+          <ul class="compact-list">
+            <li><strong>It is not a gate.</strong> No slice, no release and no claim waits on a CPU number.</li>
+            <li><strong>It does not pick the backbone.</strong> The bench is decided on validation macro-F1 alone. If two candidates tie, the tie is broken on parameter count, which is known for free.</li>
+            <li><strong>Skipping is a normal outcome</strong>, per candidate. The card says which candidates were measured and which were not, and does not imply a number that was never taken.</li>
+            <li><strong>No claim without a measurement.</strong> If nobody measured it, the docs say nothing about CPU speed rather than guessing from parameter count.</li>
+            <li><strong>Timebox it.</strong> If an export fights back, stop and write down that it did. Nothing here is worth a week.</li>
+          </ul>
+        </div>
 
         <div class="grid-2">
           <div class="card">
-            <h3>What gets measured</h3>
+            <h3>What gets measured, if it is measured</h3>
             <ul class="compact-list">
               <li>One pinned CPU shape, with the vCPU count and the thread count written into the config. A latency figure without a machine attached means nothing.</li>
               <li>Batch 1 and batch 8, at every rung the candidate supports.</li>
               <li>p50 and p95 milliseconds per passage, plus throughput.</li>
-              <li>Three export paths: plain PyTorch fp32, ONNX Runtime fp32, and ONNX with dynamic int8 quantisation.</li>
+              <li>Plain PyTorch fp32 first, because it always works. ONNX Runtime and int8 quantisation only if they come easily.</li>
               <li><strong>Macro-F1 of the exact export</strong>, next to its latency. Quantisation moves scores, and an export that was never scored is not a shipped model.</li>
             </ul>
           </div>
           <div class="card">
-            <h3>What is already known to bite</h3>
+            <h3>Why this is optional and not required</h3>
             <ul class="compact-list">
               <li>ModernBERT and Ettin lose the flash-attention kernels on CPU and fall back to a plain path. Their alternating local and global attention still helps at the long rungs, and how much is exactly what this measures.</li>
               <li>DeBERTa-v3's disentangled attention is slower per token than its parameter count suggests. Small is not the same as fast, and the 44M checkpoint may not win this.</li>
-              <li>NeoBERT's custom modelling code is the least likely to export. If it will not, it keeps its place in the accuracy table and is not offered as the CPU model. That gets written down, not hidden.</li>
-              <li>Cost per passage on CPU sits in the same table as the GPU and router numbers, so the cheap-inference claim is priced on the hardware a reader would actually use.</li>
+              <li>NeoBERT ships custom modelling code, so the ONNX path may simply not work. That is a tooling problem, not a research result, and it is exactly the kind of thing that eats a week for nothing.</li>
+              <li>An 8,192-token passage on a CPU may turn out to be slow enough that nobody would run it that way anyway. Finding that out is nice. It is not worth blocking the ladder for.</li>
+              <li>Where a CPU number does get taken, it sits in the same table as the GPU and router numbers, so a reader can price the model on hardware they actually have.</li>
             </ul>
           </div>
         </div>
 
         <div class="callout info" style="margin-top:1.1rem">
-          <p><strong>The tie-break rule.</strong> When two backbones land inside each other's confidence
-            interval on validation macro-F1, the faster one on CPU ships. When they do not, accuracy wins
-            and the latency goes in the card as a known cost. Latency never picks the model before the
-            accuracy question is settled, because that is how you end up shipping a fast model that is
-            worse and calling it a trade-off nobody chose.</p>
+          <p><strong>Latency never picks the model.</strong> An earlier draft of this section used CPU
+            speed to break ties between close backbones. That is dropped. It made an optional measurement
+            load-bearing, and it is how you end up shipping a worse model and calling it a trade-off
+            nobody chose. Accuracy decides. CPU numbers are reported where they exist and nothing more.</p>
         </div>
       </section>
 
@@ -952,8 +964,8 @@ t.scan(document=doc, tasks=["fls", "factop"])</code></pre>
             </ul>
             <div class="gate" style="margin-top:.8rem">
               <strong>Not built:</strong> a hosted API or a batching service. Both possible later, neither
-              part of this project. ONNX and quantised exports are built, because the CPU numbers below
-              cannot be measured without them.
+              part of this project. ONNX and quantised exports are attempted only if the optional CPU
+              numbers get taken, and skipping them is fine.
             </div>
           </div>
         </div>
@@ -1150,8 +1162,8 @@ t.scan(document=doc, tasks=["fls", "factop"])</code></pre>
               </tr>
               <tr>
                 <td><strong>CPU inference</strong></td>
-                <td>Measured on every candidate, and a tie-break between close backbones</td>
-                <td>Publishing GPU-only numbers, which describe a machine most downloaders do not have. Also rejected: making CPU latency a gate, which would pick the backbone before the accuracy question was settled.</td>
+                <td>Optional, per candidate, and it decides nothing</td>
+                <td>Making it required, which puts an export toolchain on the critical path of a research project. Also rejected: using CPU latency as a tie-break, which quietly made an optional measurement load-bearing. Nothing is claimed about CPU speed where nothing was measured.</td>
               </tr>
               <tr>
                 <td><strong>Adaptation</strong></td>
