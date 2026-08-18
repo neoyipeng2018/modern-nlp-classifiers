@@ -9,6 +9,9 @@ the plans. Two are facts about the borrowed data that the plans get wrong.
 Findings are ordered by how much they block progress. Findings 3 and 4 were fixed in the plans
 on 2026-08-18 and are kept here as the record of why. Finding 10 was added afterwards.
 
+A second pass on 2026-08-18 added findings 11 to 21. Read that section first. It starts at
+"Second pass" below.
+
 ---
 
 ## 1. There is nothing to run
@@ -295,26 +298,245 @@ decision log marks the backbone as "Bench decides".
 
 ---
 
+# Second pass, 2026-08-18
+
+Reviewed again against the same four documents after the first three fixes landed. The question
+is the same. Is there a valid benchmark to hill climb towards?
+
+Still no. Findings 1, 2, 5, 6, 8, 9 and 10 from the first pass are open. Eleven new findings
+follow. The first four are the ones that stop the benchmark existing at all.
+
+---
+
+## 11. The headline gate measures accuracy on a set with no class control
+
+Gate 6 reads "agreement with the pinned frontier reference at or above 95% of passages". That is
+plain accuracy. Every other metric in the project is macro-F1.
+
+The reference set is 5,000 passages sampled from EDGAR, stratified by document type and by
+passage length. Nothing stratifies by class. Forward-looking sentences are a minority of
+management-discussion text, so `not-fls` will dominate the sample heavily.
+
+For scale, the borrowed referee split was curated by the original annotators and is still
+uneven: 539 `not-fls`, 292 `non-specific fls`, 169 `specific fls`. A freshly sampled EDGAR set is
+skewed much further than that.
+
+So a student that always answers `not-fls` can score most of the way to 95%. The gate cannot
+tell that model apart from a good one, and the number moves with the sample rather than with the
+model.
+
+**Fix.** Make the headline macro-F1 agreement, not passage agreement. Print the majority-class
+agreement in the same table. Stratify the reference sample by the reference's own first-pass
+label, and write the target proportions down before sampling.
+
+---
+
+## 12. The reference set has no rule for choosing the target sentence
+
+Step 6b says "sample 5,000 EDGAR passages". All three model contracts take a target sentence plus
+the passage around it. A passage on its own is not an example.
+
+Nothing in any document says which sentence in a sampled passage is the target. Nothing says how
+many targets a passage carries. Nothing says how the ABSA aspect is obtained for a sampled
+passage, and the aspect is a required input on that task.
+
+The set that carries the headline therefore cannot be built from the instructions given.
+
+**Fix.** Write the target-selection rule into step 6b. State one target per passage or state the
+rule for several. State how the aspect comes from the row for ABSA. Hash the rule with the set.
+
+---
+
+## 13. Two of the three models have no headline at all
+
+Every model's headline is agreement with the reference. Slice 1 builds a reference set at step
+6b. Slice 2 has no such step. Slice 3 has no such step.
+
+Slice 3 goes further and contradicts the design. Its step 5 says "the headline is stated against
+the ensemble either way". That is the old headline from before the three roles were split.
+
+ABSA is worse than a missing step. FiQA is tweets and headlines, so there is no corpus to sample
+passages from, and a sampled passage carries no aspect.
+
+**Fix.** Add a reference-set step to Slices 2 and 3, and name the corpus each one samples from.
+For ABSA, say plainly where the aspect comes from. Delete the ensemble-headline sentence in
+Slice 3.
+
+---
+
+## 14. The rung that ships is picked against three different answer keys
+
+Finding 3 was fixed for the test key. The same fault survives at the point where the decision is
+actually made.
+
+Two rules combine. Labels are bought per length rung, because "a label produced from a 512-token
+window is not a valid label for an 8,192-token student". And "the shipped length is whichever won
+on validation".
+
+So the 512 rung is graded by teachers who read 512 tokens. The 8,192 rung is graded by teachers
+who read 8,192 tokens. The comparison that picks the shipped length runs against three different
+keys, which is exactly what the test-key fix removed.
+
+**Fix.** Buy one validation key at full passage length, by the same rule as the test key. Keep
+the per-rung training labels. Score every rung on the one validation key.
+
+---
+
+## 15. The far half does not exist on validation
+
+Step 18 says the ladder is "scored on the whole validation set and on the near and far halves".
+
+The halves come from the context-sensitivity probe. The probe runs on the reference set at step
+13, and the report card carries `by_context_sensitive` under the reference block. Validation rows
+are weakly labelled training-track rows, and no probe ever runs on them.
+
+So the project's central number, which is 8,192 against 512 on the far half, exists only on the
+frozen test set. Operating principle 4 opens that set once, at step 21, after every dollar is
+spent.
+
+This is finding 2 again, in the one place it hurts most. Nothing about the flagship experiment
+can be read while the experiment is being built.
+
+**Fix.** Either run the probe on a held-out slice of the reference set and read it during
+development, per finding 2, or delete "near and far halves" from step 18 and admit the ladder is
+a one-shot measurement.
+
+---
+
+## 16. Reconstruction and the ladder are attached to different sets
+
+The documents say in four places that the long-context claim rests on passage reconstruction.
+That is true of the referee set, which ships bare sentences.
+
+It is not true of the reference set. Those passages are sampled whole from EDGAR, so there is
+nothing to rebuild. The ladder and the probe both run there.
+
+So for forward-looking the ladder does not depend on reconstruction at all, while Gate 2, the
+risk register and Slice 1 step 5 all say it does. The 60% bar and the "10% of recovered rows"
+rule are written about recovered rows, and the probe never touches a recovered row.
+
+One of two things is true and the plans do not say which. Either the ladder runs on the reference
+set, and reconstruction only limits the referee accuracy claim. Or the ladder runs on the referee
+set, and then finding 5 applies in full and roughly 27 usable rows are left.
+
+**Fix.** Name the set the ladder is read on, once, in Program design, and make Gate 2 and the
+slice steps agree with it.
+
+---
+
+## 17. Forward-looking is still binary in the product spec
+
+The decision log says three classes. The benchmark program says three classes. The Slice 1 risk
+list says three classes.
+
+The model contract block in `PRODUCT.html` still says "Binary", with output
+`forward_looking | not_forward_looking` and a positive class. Slice 3 still says it reuses "the
+binary metric setup from Slice 1".
+
+Both are stale text from before the borrowed set was adopted. Prompts, labelling functions and
+the metric breakdown are all written from that block.
+
+---
+
+## 18. The probe owner is still named twice
+
+Finding 4 fixed the method and named the reference as the model that runs the probe. Two places
+still say the ensemble does.
+
+The release checklist in `PRODUCT.html` asks for "the context-sensitivity flag on every recovered
+row, with the ensemble version that produced it". The risk register row in `PROGRAM_DESIGN.html`
+says the probe finds "rows where the ensemble's answer changes once the passage is added".
+
+Those are different experiments. The ensemble also teaches the student, so an ensemble-derived
+split is contaminated in a way a reference-derived split is not.
+
+---
+
+## 19. The report card leftovers from finding 7 are unchanged
+
+Three of them survive in `ARCHITECTURE.html`.
+
+`human_ceiling` still carries `{"metric": "cohens_kappa", "n_double": 300}`. Nobody
+double-annotates, and the line two above it says the source published no agreement figure.
+
+There is one `test_hash` and three frozen artifacts: the reference set, the referee set and the
+probe output.
+
+The top-level `macro_f1` is computed on the reference set, where a model wrote the labels.
+Nothing in the schema marks it as fidelity.
+
+---
+
+## 20. The success bar is still movable and the cost bar still cannot fail
+
+The bar is better than it was. Step 6b measures the reference's self-agreement before training,
+and step 10 measures the teacher ensemble's agreement. Both land before the bill.
+
+The bar itself did not change. The risk register still says "if either lands under 95%, move the
+bar and say why". A bar that moves when you miss it is not a bar, and Gate 6 still ships the
+model on a miss.
+
+The 50x cost gate is still arithmetic rather than a measurement. A 150M encoder on rented GPU
+beats a frontier reasoning model by about three orders of magnitude.
+
+---
+
+## 21. Only one task can produce an accuracy ladder
+
+FiQA is planned as sentence-level from the start, so its ladder measures cost.
+
+FinArg reconstruction is rated "mixed" against scattered transcript sources, so its ladder may go
+the same way.
+
+That leaves forward-looking carrying the whole length claim. The plans then say twice that
+forward-looking is "the most likely of the three to be decidable from the sentence alone", and
+therefore "the task least likely to reward long context".
+
+So the flagship experiment runs on one task, and it is the task the authors expect to come out
+flat. That is worth stating as a program risk before Slice 1 starts, not after.
+
+**Fix.** Say in Program design that the ladder may be untestable on two of three tasks, and
+decide now what the write-up claims if forward-looking comes out flat.
+
+---
+
 ## Smallest change that makes the repo climbable
 
-In order.
+Rewritten after the second pass. In order.
 
 1. ~~One answer key for the whole length ladder.~~ Done 2026-08-18.
 2. ~~Add the self-consistency control to the context-sensitivity probe.~~ Done 2026-08-18.
 3. ~~Fix `gpt-sol-5.6` to `gpt-5.6-sol` everywhere.~~ Done 2026-08-18.
-4. Build the skeleton, the registry, the CI data checks and a fast CPU dev harness. No money
-   spent, and the repo gains a number it can print.
-5. Gate 2 counts unique matches, and the 60% bar is re-argued against the real figure.
-6. Carve a readable 500 row dev slice out of the reference set.
-7. Set the agreement bar after the reference self-agreement and the step 10 pilot are both known,
-   and make Gate 6 block the claim rather than the weights.
-8. Decide the backbone question in finding 10.
+4. Write the target-selection rule for the reference set, and add a reference-set step to Slices
+   2 and 3. Findings 12 and 13. Without this the headline has no test set on two of three models.
+5. Make the headline macro-F1 agreement, and print the majority-class agreement beside it.
+   Finding 11. Costs nothing and stops a trivial model passing Gate 6.
+6. Buy one validation key at full passage length. Finding 14. Same fix as item 1, applied where
+   the shipped rung is chosen.
+7. Name the set the ladder is read on, once, and make Gate 2 agree with it. Finding 16.
+8. Build the skeleton, the registry, the CI data checks and a fast CPU dev harness. Finding 8.
+   No money spent, and the repo gains a number it can print.
+9. Carve a readable 500 row dev slice out of the reference set. Findings 2 and 15.
+10. Gate 2 counts unique matches, and the 60% bar is re-argued against the real figure.
+    Finding 5. Only needed if item 7 says the ladder reads the referee set.
+11. Clean the stale text: binary FLS, the ensemble probe owner, the report card leftovers.
+    Findings 17, 18 and 19.
+12. Set the agreement bar once from the measured ceilings, and make Gate 6 block the claim rather
+    than the weights. Finding 20.
+13. Decide the backbone question in finding 10.
 
-Item 5 costs nothing and is the one most likely to change what the project decides to build.
+Items 4 and 5 cost nothing and are now ahead of everything else. Item 4 is the one without which
+there is no benchmark to climb.
 
 ---
 
 ## Method
+
+Second-pass class counts for the `FinanceMTEB/FLS` test split come from the Hugging Face
+datasets server statistics endpoint, read on 2026-08-18. They are 539 `not-fls`,
+292 `non-specific fls` and 169 `specific fls`, over 1,000 rows.
+
+First pass, unchanged below.
 
 Dataset facts were checked directly against the Hugging Face dataset viewer for
 `FinanceMTEB/FLS`, `pauri32/fiqa-2018` and `ChanceFocus/flare-finarg-ecc-auc`. All three exist
