@@ -6,7 +6,7 @@ The question asked was narrow. Is there a valid benchmark to hill climb towards?
 The answer is no, for six separate reasons. Four are design faults that can be fixed by editing
 the plans. Two are facts about the borrowed data that the plans get wrong.
 
-Findings are ordered by how much they block progress. Findings 3 and 4 were fixed in the plans
+Findings are ordered by how much they block progress. Findings 3, 4 and 14 were fixed in the plans
 on 2026-08-18 and are kept here as the record of why. Finding 10 was added afterwards.
 
 A second pass on 2026-08-18 added findings 11 to 21. Read that section first. It starts at
@@ -366,6 +366,12 @@ Slice 3.
 
 ## 14. The rung that ships is picked against three different answer keys
 
+> **Fixed 2026-08-18.** The teacher ensemble now buys one validation key at full passage length.
+> Every rung is scored against it. Per-rung labels stay, and they are training labels only. See the
+> Track C rules and the labelling-cost section in `PROGRAM_DESIGN.html`, the labelling callout in
+> `ARCHITECTURE.html`, and steps 10, 12 and 18 in `VERTICAL_SLICES.html`. A CI check stops a ladder
+> that finds two different validation keys.
+
 Finding 3 was fixed for the test key. The same fault survives at the point where the decision is
 actually made.
 
@@ -511,8 +517,7 @@ Rewritten after the second pass. In order.
    2 and 3. Findings 12 and 13. Without this the headline has no test set on two of three models.
 5. Make the headline macro-F1 agreement, and print the majority-class agreement beside it.
    Finding 11. Costs nothing and stops a trivial model passing Gate 6.
-6. Buy one validation key at full passage length. Finding 14. Same fix as item 1, applied where
-   the shipped rung is chosen.
+6. ~~Buy one validation key at full passage length.~~ Done 2026-08-18.
 7. Name the set the ladder is read on, once, and make Gate 2 agree with it. Finding 16.
 8. Build the skeleton, the registry, the CI data checks and a fast CPU dev harness. Finding 8.
    No money spent, and the repo gains a number it can print.
