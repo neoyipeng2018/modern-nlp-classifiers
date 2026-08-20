@@ -10,16 +10,16 @@
 >
 > | Finding | Now |
 > |---|---|
-> | 1. Nothing to run | Open, and cheaper. Slice 1 reaches a first number in 16 steps with no frontier answer key to buy. |
+> | 1. Nothing to run | **Closed, by design.** The plans come before the code. A repository holding only documents is the expected state at this stage, and Slice 1 step 1 is the skeleton. Stated in `PROGRAM_DESIGN.html`. |
 > | 2. Headline unreadable while you work | **Moot.** The headline is macro-F1 on borrowed human labels, and validation carries the same kind of label from the same annotators. |
 > | 3. Ladder measured against three keys | **Moot.** No ladder. |
 > | 4. Probe cannot tell context from noise | **Moot.** No probe. |
 > | 5. Gate 2 counts any EDGAR match | **Moot.** Reconstruction is no longer a gate. The 27% measurement is kept in `PROGRAM_DESIGN.html` as the reason. |
 > | 6. No quality gate can fail | **Fixed.** Gate 6 is macro-F1 against a bar set from measured baselines before the test split opens, and it blocks the claim rather than the weights. The 50x cost gate is replaced by break-even volume. |
 > | 7. Factual errors and leftovers | Mostly fixed. Model id, `human_ceiling`, `macro_f1` labelling, hashes, FLS dedup, FiQA group sizes all addressed. |
-> | 8. No cheap inner loop | **Open.** Still the main gap. |
+> | 8. No cheap inner loop | **Closed, accepted.** No fast local metric is planned. The development split is a few hundred human-labelled rows, so scoring it is one short forward pass on the GPU the bench already pays for. The bench is a batch decided once, not a tight edit-and-rerun cycle, and the stop rule forbids tuning the recipe against validation data anyway. Written up in `PROGRAM_DESIGN.html`. |
 > | 9. Every judgement needs a human | **Fixed.** `PROGRAM_DESIGN.html` now lists what an agent may decide alone, with a rule for each. |
-> | 10. Backbone picked at 512 | **Reframed and open.** The bench is now the headline, and the DeBERTa-v3 versus shared-cap trade is written out as an open decision. |
+> | 10. Backbone picked at 512 | **Closed.** DeBERTa-v3 stays and the shared bench cap is 512 for all nine candidates. The models are small, so 512 is a working window rather than a handicap, and keeping DeBERTa-v3 keeps four architecture families in the comparison. The original objection was that a 512 winner might not win at 8,192, and that objection is void now that the project makes no context-length claim. Where a task's measured p95 pushes the shipped `max_length` above 512, the bench winner is retrained once at that cap. |
 > | 11. Headline is plain accuracy, no class control | **Moot.** The headline is macro-F1 on a set someone else sampled. |
 > | 12. No target-selection rule for the reference set | **Moot.** No reference set. |
 > | 13. Two of three models have no headline | **Fixed.** All three score on their own borrowed human split. Fact-versus-opinion branch 1b now means shipping with no headline, so the rename is the recommendation. |
@@ -31,6 +31,11 @@
 > | 19. Report card leftovers | **Fixed.** |
 > | 20. Success bar movable, cost bar cannot fail | **Fixed.** See finding 6 above. |
 > | 21. Only one task can produce a ladder | **Moot.** |
+>
+> **No finding in this file is open any more.** Twelve are moot because the thing they were about no
+> longer exists. Six were fixed by editing the plans. Three, findings 1, 8 and 10, were closed by a
+> decision rather than by a change, and each of those decisions is written into the plans with its
+> reason.
 >
 > The text below is the record as written on 2026-08-18. It is not updated in place.
 

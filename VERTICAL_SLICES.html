@@ -765,7 +765,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               </thead>
               <tbody>
                 <tr><td>1</td><td><strong>Repo skeleton</strong></td><td>Package layout, config loading with inheritance and hashing, registry read and write, CI running an empty test suite.</td><td class="subtle-cell">Everything</td></tr>
-                <tr><td>2</td><td><strong>Platform smoke check</strong></td><td>A few hundred training steps of ModernBERT-base at 512, 2,048 and 8,192 tokens in bf16, as a serverless job. Records peak memory, throughput, minutes and dollars at each setting, so the bench can be priced before it is bought. Also loads all nine bench checkpoints once, so the awkward ones surface now: NeoBERT wants <code>trust_remote_code</code> and a pinned revision, DeBERTa-v3 will not take any cap above 512.</td><td class="subtle-cell">Everything after</td></tr>
+                <tr><td>2</td><td><strong>Platform smoke check</strong></td><td>A few hundred training steps of ModernBERT-base at 512 in bf16, as a serverless job, plus 2,048 and 8,192 once each so a higher shipped cap is priced before anyone needs it. Records peak memory, throughput, minutes and dollars at each setting, so the bench can be priced before it is bought. Also loads all nine bench checkpoints once, so the awkward ones surface now: NeoBERT wants <code>trust_remote_code</code> and a pinned revision, DeBERTa-v3 will not take any cap above 512, which is why the bench cap is 512.</td><td class="subtle-cell">Everything after</td></tr>
                 <tr><td>3</td><td><strong>Benchmark adoption and Gate 1</strong></td><td>Pull <code>FinanceMTEB/FLS</code>, 3,600 human-annotated 10-K management-discussion sentences in three classes with a 1,000-row test split, and trace its labels back to the original effort for terms and agreement. Write the three class definitions into the codebook verbatim. Separately, pin the LLM baselines: <code>gpt-5.6-sol</code> at medium reasoning effort, verified on a live call, terms checked, response cache writing. Gate 1 decides whether the benchmark is admissible.</td><td class="subtle-cell">Everything downstream</td></tr>
                 <tr><td>4</td><td><strong>Ingest and input builder</strong></td><td>Borrowed rows to a normalised schema, with provenance, licence and codebook version on every row. Marker tokens, span handling, and the assembled input the model will actually see. Reused unchanged by both later slices, so its tests are written properly here.</td><td class="subtle-cell">Everything downstream</td></tr>
                 <tr><td>5</td><td><strong>Length profile and the <code>max_length</code> decision</strong></td><td>Tokenise every row in the assembled form, per split and per source, and record p50, p95, p99 and max. Pick the smallest supported cap that keeps truncation under 5%, write it into the config, publish the distribution beside it. One measurement, no training runs. This replaces the three-rung length ladder the earlier plan ran here.</td><td class="subtle-cell">Bench, training</td></tr>
@@ -779,7 +779,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
                 <tr><td>13</td><td><strong>Evaluation harness</strong></td><td>Metrics, paired bootstrap, calibration, per-class and per-source breakdowns, test-split hash enforcement, report card output. It refuses to score a split containing a non-human label, and it refuses to compute a delta between two runs whose <code>max_length</code> disagrees. Written before the first real training run, so there is never a number without a harness.</td><td class="subtle-cell">Every result</td></tr>
                 <tr><td>14</td><td><strong>Baselines, and the success bar</strong></td><td>Majority, TF-IDF plus logistic regression, each pinned routed model, the teacher ensemble, an off-the-shelf finance encoder, and <code>gpt-5.6-sol</code>. All on the development split first. <strong>The success bar is written into the config here,</strong> from these measured numbers, before the test split is ever opened.</td><td class="subtle-cell">Gate 6</td></tr>
                 <tr><td>15</td><td><strong>Training loop</strong></td><td>Soft-label fine-tune as a serverless job, checkpoint to volume, registry row at start, dollar cost at end.</td><td class="subtle-cell">Results</td></tr>
-                <tr><td>16</td><td><strong>Backbone bench</strong> <span class="pill">headline</span></td><td>Nine checkpoints at one shared cap, three seeds each, LoRA, one shared label set, nothing else moving. Four Ettin sizes, ModernBERT base and large, NeoBERT, DeBERTa-v3 small and base. Decided on validation macro-F1, on the paired difference against the incumbent leader rather than the raw maximum of nine noisy draws. Ties go to the cheaper checkpoint. The frozen test split stays shut. This is the project's main experiment and the full table is a deliverable.</td><td class="subtle-cell">Slices 2, 3</td></tr>
+                <tr><td>16</td><td><strong>Backbone bench</strong> <span class="pill">headline</span></td><td>Nine checkpoints at a shared 512-token cap, three seeds each, LoRA, one shared label set, nothing else moving. Four Ettin sizes, ModernBERT base and large, NeoBERT, DeBERTa-v3 small and base. Decided on validation macro-F1, on the paired difference against the incumbent leader rather than the raw maximum of nine noisy draws. Ties go to the cheaper checkpoint. The frozen test split stays shut. This is the project's main experiment and the full table is a deliverable.</td><td class="subtle-cell">Slices 2, 3</td></tr>
                 <tr><td>17</td><td><strong>Supporting ablations</strong></td><td>LoRA versus full fine-tune, soft versus hard labels, the confidence threshold, and with-Track-C versus without. One variable each, three seeds each, on the bench winner only.</td><td class="subtle-cell">Claims</td></tr>
                 <tr><td>18</td><td><strong>CPU inference bench <span class="pill">optional</span></strong></td><td>Plain PyTorch fp32 on one pinned CPU shape with the thread count recorded, p50 and p95 per row, with the macro-F1 of that export beside it. ONNX and int8 only if they come easily. Timeboxed. Skipping a candidate, or the whole step, is a normal outcome and gets written down. Nothing downstream waits for it.</td><td class="subtle-cell">Nothing</td></tr>
                 <tr><td>19</td><td><strong>Final evaluation</strong></td><td>One run for the chosen model, three seeds, on the frozen test split opened here for the first time. Macro-F1 with its interval against the human labels, per-class breakdown, confusion matrix. Beside it on the same rows: the teacher ensemble for the weak-to-strong pair, <code>gpt-5.6-sol</code> for the frontier comparison with a paired bootstrap, and every other baseline. Plus the break-even volume and the measured latency. Full report card.</td><td class="subtle-cell">Release</td></tr>
@@ -1173,10 +1173,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <h3>Answer the open questions</h3>
               <p class="small muted">Most of them are already closed. Nobody annotates. ABSA aspects come
                 from FiQA's taxonomy. Nothing is redistributed except row identifiers and split
-                assignments. What is left is three things: the labelling budget ceiling with the router and
-                the k models behind it, the fact-versus-opinion fork, and whether DeBERTa-v3 stays in the
-                bench, since keeping it caps every candidate at 512. The fork can wait for Phase 3. The
-                other two gate the first real spend and the bench design respectively.</p>
+                assignments. DeBERTa-v3 stays in the bench and the shared cap is 512. What is left is two
+                things: the labelling budget ceiling with the router and the k models behind it, and the
+                fact-versus-opinion fork. The fork can wait for Phase 3. The budget gates the first real
+                spend.</p>
               <div class="gate"><strong>Output:</strong> a decision-log entry each in <a href="PRODUCT.html#decisions">Product</a>.</div>
             </div>
           </div>
@@ -1199,14 +1199,14 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <h3>Measure the token distribution and clear the licence</h3>
               <p class="small muted">Pull <code>FinanceMTEB/FLS</code>, tokenise all 3,600 rows with the
                 ModernBERT tokeniser, and record p50, p95, p99 and max. This is an afternoon with no
-                infrastructure, and it decides <code>max_length</code>, which in turn may decide the
-                DeBERTa-v3 question for free: if p95 sits under 512, the higher caps buy nothing and
-                keeping all nine candidates costs nothing. Separately, trace the dataset's terms back to
-                the original annotation effort, because no licence is declared on the hub and a licence
-                read wrong is discovered at release time.</p>
-              <div class="gate"><strong>Output:</strong> a token-length distribution, a proposed
-                <code>max_length</code>, a written licence finding, and a recommendation on the bench
-                roster. All before a line of training code is written.</div>
+                infrastructure, and it decides the shipped <code>max_length</code>. It does not decide the
+                bench cap, which is pinned at 512 for every candidate. If p95 sits under 512 the two
+                numbers are simply the same and nothing is retrained. Separately, trace the dataset's
+                terms back to the original annotation effort, because no licence is declared on the hub
+                and a licence read wrong is discovered at release time.</p>
+              <div class="gate"><strong>Output:</strong> a token-length distribution, a proposed shipped
+                <code>max_length</code>, and a written licence finding. All before a line of training code
+                is written.</div>
             </div>
           </div>
         </div>

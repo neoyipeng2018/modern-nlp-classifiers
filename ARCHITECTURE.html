@@ -641,7 +641,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
       </p>
       <div class="audit-strip">
         <div class="audit-stat"><strong>8,192 tokens</strong><span>Native ceiling. Passage with a marked target span.</span></div>
-        <div class="audit-stat"><strong>Four encoder families</strong><span>Nine checkpoints, three seeds, one shared cap. The bench is the experiment.</span></div>
+        <div class="audit-stat"><strong>Four encoder families</strong><span>Nine checkpoints, three seeds, one shared 512 cap. The bench is the experiment.</span></div>
         <div class="audit-stat"><strong>LoRA first</strong><span>The only way 8k fits in 16GB.</span></div>
         <div class="audit-stat"><strong>Config-driven</strong><span>No notebook is the source of truth.</span></div>
       </div>
@@ -919,9 +919,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td><strong>4. Assert it</strong></td><td>The gate re-runs at build time on every run, against the pinned value.</td><td class="subtle-cell">Registry fields, or a stopped run.</td></tr>
             </tbody>
           </table>
-          <p class="table-caption">One measurement per task, no training runs involved. The bench then
-            runs all nine candidates at one shared cap, so the bench measures the backbone rather than the
-            backbone plus its length.</p>
+          <p class="table-caption">One measurement per task, no training runs involved. The bench runs
+            all nine candidates at 512 regardless of what this measurement returns, so the pick is never
+            confounded by the ceiling. Where the measurement puts a task's <code>max_length</code> above
+            512, the bench winner is retrained once at that cap and that is the run that ships.</p>
         </div>
 
         <div class="grid-2" style="margin-top:1.1rem">
@@ -1081,9 +1082,9 @@ def routed(ex) -&gt; int | ABSTAIN:
           <span class="status notrun">Bench decides it</span>
         </div>
         <p class="section-intro">
-          The backbone is no longer assumed. Four encoder families go through the same harness, at the
-          same cap, on the same labels, and one of them gets picked. This is the headline experiment of
-          the project and the table it produces is a deliverable in its own right.
+          The backbone is no longer assumed. Four encoder families, nine checkpoints, one harness, one
+          512-token cap, one set of labels, and one of them gets picked. This is the headline experiment
+          of the project and the table it produces is a deliverable in its own right.
         </p>
 
         <div class="table-wrap">
@@ -1139,12 +1140,18 @@ def routed(ex) -&gt; int | ABSTAIN:
               </tbody>
             </table>
           </div>
-          <p style="margin-top:.6rem"><strong>This is an open decision, and it is a real trade.</strong>
-            Keeping DeBERTa-v3 keeps four families in the comparison and caps everything at 512. Dropping
-            it raises the cap but narrows what the bench can claim. Whichever is chosen, the model card
-            names the shared cap and the roster together, because the second is only interpretable with
-            the first. Note that the token distributions may settle this for free: if a task's p95 sits
-            under 512, the higher caps buy nothing anyway.</p>
+          <p style="margin-top:.6rem"><strong>Decided: the shared cap is 512 and all nine stay in.</strong>
+            The top row of that table is the one this project takes. Three reasons. The models being
+            benched are small, so 512 tokens is a reasonable working window rather than a handicap.
+            Keeping DeBERTa-v3 keeps four architecture families in the comparison, and four families is
+            what makes this a bench rather than a size sweep. And the project no longer makes any claim
+            about context length, so the cap does not have to carry an argument. The model card names the
+            shared cap and the roster together, because the second is only interpretable with the first.</p>
+          <p style="margin-top:.6rem"><strong>The shipped cap can still differ from the bench cap, and
+            only upward.</strong> If a task's measured p95 pushes <code>max_length</code> above 512, the
+            bench winner is retrained once at that cap and that run is what ships. The bench itself stays
+            at 512 for every candidate, so the pick is never confounded by the ceiling. Both numbers go in
+            the card.</p>
           <p style="margin-top:.6rem"><strong>A report card never carries a delta between two different
             maximum lengths.</strong> The harness refuses to compute one.</p>
         </div>
@@ -1154,7 +1161,7 @@ def routed(ex) -&gt; int | ABSTAIN:
             <h3>How the bench runs</h3>
             <ul class="compact-list">
               <li>One task only, forward-looking, in Slice 1. The other two inherit the answer and re-open it only if the inherited encoder underperforms the classical baseline.</li>
-              <li>One shared cap, LoRA, three seeds, one shared set of training labels. Nothing else moves.</li>
+              <li>A 512-token cap for every candidate, LoRA, three seeds, one shared set of training labels. Nothing else moves.</li>
               <li>Twenty-seven short runs. This is the project's main experiment and its main published table.</li>
               <li>Decided on validation macro-F1, on the paired difference against the incumbent leader rather than on the raw maximum of nine noisy draws. The frozen test split is not opened for it.</li>
               <li>Ties go to the cheaper checkpoint, and the card says the pick was made on cost.</li>
@@ -1175,7 +1182,7 @@ def routed(ex) -&gt; int | ABSTAIN:
             <ul class="compact-list">
               <li>Ettin loads through the ModernBERT classes, so it is a config change and nothing more.</li>
               <li>NeoBERT needs <code>trust_remote_code</code>, a pinned revision, and its own LoRA target-module list. Pinning the revision is not optional when the modelling code lives in the repository.</li>
-              <li>DeBERTa-v3 needs its own pooling path and cannot take any cap above 512. The harness rejects that combination rather than silently truncating.</li>
+              <li>DeBERTa-v3 needs its own pooling path and cannot take any cap above 512. That is why the bench cap is 512. The harness rejects any higher cap for this checkpoint rather than silently truncating.</li>
               <li>Marker tokens are added to each tokenizer separately, and the added-token count goes in the registry row. Four tokenizers means four chances to get this wrong.</li>
             </ul>
           </div>

@@ -1468,6 +1468,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <li><strong>Three seeds before any comparison.</strong> A one-seed difference of a point or two is noise. Report mean and spread.</li>
               <li><strong>Checkpoint selection on validation macro-F1</strong>, evaluated often enough to catch the peak. The previous project found frequent selection helped.</li>
               <li><strong>Test evaluation is a separate deliberate step</strong>, run once per candidate model, and it writes to the registry.</li>
+              <li><strong>The loop is a batch, and that is on purpose.</strong> There is no seconds-scale local metric and none is planned. See below.</li>
             </ul>
           </div>
           <div class="card">
@@ -1616,6 +1617,26 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             separated outside the noise band, that is the answer: ship the cheaper one and publish the
             tie. Re-running the bench with a tuned recipe until a favourite wins is tuning on validation
             data, and it is exactly the failure mode this document exists to prevent.</p>
+        </div>
+
+        <div class="callout info" style="margin-top:.8rem">
+          <p><strong>There is no fast local development loop, and the programme does not need one.</strong>
+            An earlier review called this a gap. It is now a decision. Three reasons. The development
+            split is a few hundred human-labelled rows, so scoring it is one short forward pass on the GPU
+            the bench already pays for, not a separate build. The main experiment is a batch of
+            twenty-seven short runs decided once, so a metric that returned in seconds would not change
+            how the work is done. And the stop rule above says the recipe is not tuned against validation
+            data anyway, so a tight edit-and-rerun cycle would invite exactly the behaviour the rule
+            forbids. What the repository does need is the registry, the config hashing and the CI data
+            checks, and those are Slice 1 step 1.</p>
+        </div>
+
+        <div class="callout info" style="margin-top:.8rem">
+          <p><strong>The plans come before the code, and the repository holding only documents is the
+            expected state.</strong> Nothing is built until the four documents agree and the open items in
+            the <a href="PRODUCT.html#decisions">decision log</a> are closed. The first code written is
+            Slice 1 step 1, the skeleton, and the first number produced is the token-length distribution,
+            which needs no training at all.</p>
         </div>
       </section>
 
