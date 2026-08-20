@@ -641,7 +641,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
       </p>
       <div class="audit-strip">
         <div class="audit-stat"><strong>8,192 tokens</strong><span>Native ceiling. Passage with a marked target span.</span></div>
-        <div class="audit-stat"><strong>Four encoder families</strong><span>Benched at 512. The winner climbs the ladder.</span></div>
+        <div class="audit-stat"><strong>Four encoder families</strong><span>Nine checkpoints, three seeds, one shared cap. The bench is the experiment.</span></div>
         <div class="audit-stat"><strong>LoRA first</strong><span>The only way 8k fits in 16GB.</span></div>
         <div class="audit-stat"><strong>Config-driven</strong><span>No notebook is the source of truth.</span></div>
       </div>
@@ -702,13 +702,13 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         <div class="flow">
           <div class="flow-step"><strong>1. Ingest</strong><span>Raw documents in, passages and sentences out. Structure preserved, sentence splitting, deduplication, document and position recorded on every row.</span></div>
           <div class="flow-arrow">&darr;</div>
-          <div class="flow-step"><strong>2. Label</strong><span>Four tracks. Public sets are mapped to the codebook. The reference test set is labelled once by one pinned frontier model and cached. The referee set is borrowed whole from published human-labelled datasets, then matched back into its source documents so the passage can be rebuilt. Training labels go through k cheap routed models and a label model. Each writes its own provenance.</span></div>
+          <div class="flow-step"><strong>2. Label</strong><span>Three tracks. Public sets are mapped to the codebook. The benchmark set is borrowed whole from a published human-labelled dataset and used as the source shipped it. Extra training labels go through k cheap routed models and a label model. Each writes its own provenance.</span></div>
           <div class="flow-arrow">&darr;</div>
           <div class="flow-step"><strong>3. Split and freeze</strong><span>The borrowed set becomes test plus development and is hashed, along with its reconstructed passages. Training and validation splits come from the other tracks. Leakage checks run here and can fail the build, including the check that no borrowed row leaked into training.</span></div>
           <div class="flow-arrow">&darr;</div>
           <div class="flow-step"><strong>4. Build inputs</strong><span>Passage assembled around the target span, aspect injected for ABSA, trimmed to the configured length by a rule that never cuts the target. Truncation rate measured and asserted here.</span></div>
           <div class="flow-arrow">&darr;</div>
-          <div class="flow-step"><strong>5. Train</strong><span>Config-driven fine-tune at each rung of the length ladder, as a serverless GPU job. Writes a registry row, checkpoints to a persistent volume, records its own dollar cost.</span></div>
+          <div class="flow-step"><strong>5. Train</strong><span>Config-driven fine-tune at the task's pinned cap, as a serverless GPU job. Writes a registry row, checkpoints to a persistent volume, records its own dollar cost.</span></div>
           <div class="flow-arrow">&darr;</div>
           <div class="flow-step"><strong>6. Evaluate</strong><span>Same harness for the model and every baseline. Checks the test-set hash before it will score anything. Emits one report card.</span></div>
           <div class="flow-arrow">&darr;</div>
@@ -796,16 +796,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td class="mono">target_span</td><td>[int,&nbsp;int]</td><td>Character offsets of the target inside <code>passage</code>. Validated on load: the slice must equal <code>target</code> exactly.</td></tr>
               <tr><td class="mono">passage_unit</td><td>enum</td><td><code>paragraph</code>, <code>section</code>, <code>qa_turn</code>, <code>item</code>. What natural boundary the passage was cut at. Never a fixed token window.</td></tr>
               <tr><td class="mono">passage_tokens</td><td>int</td><td>Token count under the model tokenizer, computed at build time. Drives the length distribution report and the truncation gate.</td></tr>
-              <tr><td class="mono">context_sensitive</td><td>bool?</td><td>Replaces the old <code>evidence_distance</code> field, which needed an annotator this project no longer has. True when the pinned frontier reference's answer changed once the rebuilt passage was added to the bare sentence, more often than it changed across three reruns of the same input. The within-condition flip rate is recorded next to it, because without that control the field counts the model disagreeing with itself. Defines the long-evidence split, and every result on that split is graded one level lower because a model produced it. The probe runs over the whole reference set before the 500-row development slice is carved off, so both slices carry the flag and the near and far halves are readable during the work.</td></tr>
-              <tr><td class="mono">probe_version</td><td>string?</td><td>Which pinned ensemble produced <code>context_sensitive</code>. A different model list is a different split, not a refresh of the old one.</td></tr>
-              <tr><td class="mono">passage_match</td><td>enum?</td><td><code>exact</code>, <code>fuzzy</code>, or <code>none</code>. How the borrowed sentence was matched back into its source document. <code>none</code> rows keep their label and are scored at sentence length only.</td></tr>
-              <tr><td class="mono">aspect</td><td>string?</td><td>Required for <code>absa</code>, absent otherwise.</td></tr>
-              <tr><td class="mono">label</td><td>string</td><td>The adjudicated label, from the task's label set.</td></tr>
-              <tr><td class="mono">label_source</td><td>enum</td><td><code>public</code>, <code>human</code>, <code>weak</code>, or <code>reference</code>. This is the track. It is never dropped. A <code>reference</code> row was labelled by the pinned frontier model and carries the headline; a <code>human</code> row is the referee.</td></tr>
-              <tr><td class="mono">reference_model</td><td>string?</td><td>Exact pinned identifier of the frontier model that produced a <code>reference</code> label. <code>gpt-5.6-sol</code> for this project. Changing it makes a new dataset, not an updated one.</td></tr>
-              <tr><td class="mono">reference_effort</td><td>string?</td><td>Reasoning effort the reference ran at. <code>medium</code> for this project. Part of the pin, because it changes both the answers and the cost.</td></tr>
-              <tr><td class="mono">reference_reasoning_tokens</td><td>int?</td><td>Reasoning tokens billed for this row. Summed into the cost ratio denominator, which would otherwise be flattered by exactly what the effort setting costs.</td></tr>
-              <tr><td class="mono">reference_raw</td><td>string?</td><td>The cached raw response. Kept so the label can be re-parsed without re-buying it, and so the benchmark still runs after the model is retired.</td></tr>
+              <tr><td class="mono">label_source</td><td>enum</td><td><code>public</code>, <code>human</code>, or <code>weak</code>. This is the track. It is never dropped. Only <code>human</code> rows may appear in an evaluation split, and the harness enforces that rather than trusting it.</td></tr>
               <tr><td class="mono">borrowed_from</td><td>string?</td><td>The published dataset a <code>human</code> row came from, with its revision. Present on every Track B row and absent everywhere else.</td></tr>
               <tr><td class="mono">borrowed_row_id</td><td>string?</td><td>The row's identifier in the source dataset, so our splits can be republished as identifiers rather than as a mirror of somebody else's labels.</td></tr>
               <tr><td class="mono">lf_votes</td><td>dict?</td><td>One entry per labelling function, keyed by function name. Abstention is recorded explicitly, never as a guess. Present on <code>weak</code> rows.</td></tr>
@@ -829,9 +820,9 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <h3>Splitting rules</h3>
             <ul class="compact-list">
               <li><strong>Group by document</strong> where a document identifier exists. All sentences from one document land in the same split. Sentence-level random splitting leaks context and inflates scores. For FiQA the grouping key is the target company, because there is no document.</li>
-              <li><strong>Two test splits, kept apart, and the reference split is cut in two.</strong> The reference split carries the headline and the referee split carries the match-or-exceed claim. Nothing from Track A or Track C ever enters either one. The reference split is further cut into a 4,500-row headline slice that opens once and a 500-row development slice that is read on every run. The development slice is still never trained on, and a data test enforces that.</li>
-              <li><strong>The reference never votes in Track C.</strong> The harness fails the build if the pinned reference identifier appears in the labelling-function model list. A model may teach or it may grade, never both.</li>
-              <li><strong>The reference appears only on test rows.</strong> A <code>reference</code> label on a row whose split is <code>train</code> or <code>val</code>, or on a development row, fails the build. That check is what keeps Gate 4 tuning honest.</li>
+              <li><strong>One evaluation source, and it is human.</strong> The borrowed dataset supplies the test split and the development split. Nothing from Track A or Track C ever enters either one, and a data test fails the build if a <code>weak</code> or <code>public</code> row appears in an evaluation split.</li>
+              <li><strong>The frontier baseline never votes in Track C.</strong> The harness fails the build if the pinned baseline identifier appears in the labelling-function model list. A model may teach or it may be a comparator, never both.</li>
+              <li><strong>The frontier baseline writes no dataset row at all.</strong> Its answers live in the results, keyed by run id, not in the data schema. That is the structural difference from the removed reference track, and it is why "we beat the frontier model" is now a sentence this project can say.</li>
               <li><strong>A borrowed row is banned everywhere else.</strong> These datasets ship train splits that look like free training data. Any row whose <code>borrowed_row_id</code> appears in test or development is refused in training, and the build fails on an overlap.</li>
               <li><strong>Grouping is unverifiable on some borrowed sets.</strong> Two of the three ship no document identifier, so <code>doc_id</code> is absent and grouped splitting cannot be enforced. Fall back to near-duplicate checking on full text and say so in the model card rather than implying a grouped split that never happened.</li>
               <li><strong>Validation comes from the same tracks as training.</strong> Otherwise validation stops predicting test behaviour.</li>
@@ -910,27 +901,27 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <span class="status supported">Decided</span>
         </div>
         <p class="section-intro">
-          Length is the one hyperparameter that gets a full three-seed sweep on every task. It is the
-          project's headline claim and it is also the most expensive knob, so it is measured properly
-          once and then pinned.
+          <code>max_length</code> is a configuration number, measured once per task and then pinned. It
+          is not swept, and no report card carries a delta between two different caps. There used to be a
+          three-rung ladder here and it is removed; the reasoning is in
+          <a href="PRODUCT.html#longcontext">Product</a>.
         </p>
 
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th style="width:120px">Length</th><th style="width:200px">Covers roughly</th><th>What it is there for</th></tr>
+              <tr><th style="width:150px">Step</th><th>What happens</th><th style="width:200px">Output</th></tr>
             </thead>
             <tbody>
-              <tr><td><code>512</code></td><td class="subtle-cell">Target plus a few neighbours</td><td>The internal control. Every long-context claim is a difference against this run, with everything else identical.</td></tr>
-              <tr><td><code>2,048</code></td><td class="subtle-cell">A paragraph block, or a full question and answer</td><td>Tests whether the gain arrives early and then flattens, which is the cheapest good outcome.</td></tr>
-              <tr><td><code>8,192</code></td><td class="subtle-cell">An MD&amp;A subsection, a long exchange</td><td>The native ceiling. Tests whether the far tail of the passage carries anything.</td></tr>
+              <tr><td><strong>1. Tokenise</strong></td><td>Every row of every split, with the chosen backbone's tokeniser, in the exact assembled form the model will see.</td><td class="subtle-cell">Token length per row.</td></tr>
+              <tr><td><strong>2. Read the distribution</strong></td><td>p50, p95, p99 and max, per split and per source.</td><td class="subtle-cell">Published in the model card.</td></tr>
+              <tr><td><strong>3. Pick the cap</strong></td><td>Smallest supported setting where the truncation gate below passes. Shorter is cheaper to train and to serve, so shorter wins ties.</td><td class="subtle-cell"><code>max_length</code> in the pinned config.</td></tr>
+              <tr><td><strong>4. Assert it</strong></td><td>The gate re-runs at build time on every run, against the pinned value.</td><td class="subtle-cell">Registry fields, or a stopped run.</td></tr>
             </tbody>
           </table>
-          <p class="table-caption">Three seeds per rung, per task. Reported on the whole test set and on both
-            halves of the context-sensitivity split, where passages could be rebuilt. Where they could not,
-            the ladder reports cost and agreement with the ensemble instead. One answer key on test, and one
-            answer key on validation, both written at full passage length. The shipped length is chosen on
-            validation and the losing rungs stay in the published table.</p>
+          <p class="table-caption">One measurement per task, no training runs involved. The bench then
+            runs all nine candidates at one shared cap, so the bench measures the backbone rather than the
+            backbone plus its length.</p>
         </div>
 
         <div class="grid-2" style="margin-top:1.1rem">
@@ -945,27 +936,28 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <li>Full token-length distribution, with the median and the 95th percentile.</li>
             </ul>
             <div class="gate" style="margin-top:.8rem">
-              <strong>If it fails:</strong> the run does not start. Fix passage assembly, or lower the rung
-              and record why. Training through a failed truncation check is the exact mistake this project
-              is built to not repeat.
+              <strong>If it fails:</strong> the run does not start. Fix input assembly, or raise
+              <code>max_length</code> to the next supported setting and record why. Training through a
+              failed truncation check is the exact mistake this project is built to not repeat.
             </div>
           </div>
           <div class="card">
-            <h3>What the ladder can conclude</h3>
+            <h3>Rules that keep the cap honest</h3>
             <ul class="compact-list">
-              <li><strong>Long wins on the far half only.</strong> The expected result. Ship long, and report that the gain is concentrated where the evidence is distant.</li>
-              <li><strong>Long wins everywhere.</strong> Check for leakage before believing it. Longer passages share more text across rows, so the near-duplicate check has to pass at the long length too.</li>
-              <li><strong>Long wins nowhere.</strong> Ship 512, publish the ladder, and say the task is decidable from the sentence. That is a useful result and the write-up gives it real space.</li>
-              <li><strong>Long is worse.</strong> Also possible. More tokens is more chance to attend to the wrong thing on a small training set. Report it and say so.</li>
+              <li><strong>One cap per task, pinned in the config and hashed with it.</strong> Changing it is a new experiment with a new registry row, never an adjustment.</li>
+              <li><strong>The bench shares one cap across all nine candidates.</strong> Otherwise the bench measures architecture and length together and can separate neither.</li>
+              <li><strong>The cap binds every baseline too.</strong> An LLM baseline reads exactly the text the encoder reads, trimmed once by the same code.</li>
+              <li><strong>No cross-cap deltas, anywhere.</strong> The harness refuses to compute a difference between two runs whose <code>max_length</code> fields disagree.</li>
+              <li><strong>Re-measure when the inputs change.</strong> A new corpus means a new distribution, not an inherited constant.</li>
             </ul>
           </div>
         </div>
 
         <div class="callout info" style="margin-top:1.1rem">
-          <p class="small"><strong>Why the ladder is not just 512 against 8,192.</strong> Two points cannot
-            tell you whether the curve saturates. If 2,048 gets almost all of the gain, the shipped model
-            is four times cheaper to run for nearly the same score, and that is worth knowing before
-            committing every downstream user to the long configuration.</p>
+          <p class="small"><strong>What this gives up, said plainly.</strong> Without a ladder the project
+            cannot say whether a longer cap would have scored better. It does not say so. The model card
+            reports the cap, the distribution it came from and the truncation rate, and makes no claim
+            about lengths that were never trained.</p>
         </div>
       </section>
 
@@ -989,7 +981,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <h3>The router client</h3>
             <ul class="compact-list">
               <li>One prompt per task, versioned and hashed, shared with the baseline runner so the teacher and the baseline are literally the same code.</li>
-              <li>Sends the assembled passage with the target span marked exactly as the student sees it, at the rung being labelled.</li>
+              <li>Sends the assembled input with the target span marked exactly as the student sees it, at the task's pinned cap.</li>
               <li>Structured output, so a parse failure is rare and is recorded as an abstention rather than a guess.</li>
               <li>Exact model identifiers pinned in the config, never a floating alias.</li>
               <li>Every response cached on disk by hash of prompt plus model plus passage. Reruns are free, which at passage length is the difference between a rerun and a second invoice.</li>
@@ -1018,20 +1010,16 @@ def routed(ex) -&gt; int | ABSTAIN:
         </div>
 
         <div class="callout danger" style="margin-top:1.1rem">
-          <h3>Training labels are bought per rung, validation labels are bought once</h3>
-          <p>A label produced by a model that read 512 tokens is not a valid training label for a
-            student that reads 8,192. The teacher saw less evidence than the student will, so the
-            student learns to imitate a handicapped teacher, and the length ladder measures nothing.</p>
-          <p style="margin-top:.5rem"><strong>So the training labelling run is repeated at each
-            rung</strong>, and the cache key includes the passage, which makes that automatic rather than
-            a discipline. This is the single largest cost consequence of the long-context decision, and it
-            is why the pilot runs before every rung rather than once at the start.</p>
-          <p style="margin-top:.5rem"><strong>The validation split is the exception, and it is a hard
-            one.</strong> The ensemble reads the whole passage once for validation, and that single key
-            grades every rung. The shipped rung is picked on validation. A key per rung would put the
-            three rungs on three different scales, and the pick would be meaningless. The config names
-            which of the two jobs a labelling run is doing, and the harness refuses a ladder scored
-            against more than one validation key.</p>
+          <h3>One labelling run per task, over training rows only</h3>
+          <p>The teachers read exactly what the student reads, at the task's pinned
+            <code>max_length</code>. A teacher that saw less evidence than the student will is teaching a
+            different task, so the cache key includes the assembled input and the cap, which makes that
+            automatic rather than a discipline.</p>
+          <p style="margin-top:.5rem"><strong>Evaluation labels are never bought.</strong> Validation and
+            test labels come from the borrowed dataset's annotators. The harness refuses to score any
+            split whose <code>label_source</code> is <code>weak</code>. An earlier design bought training
+            labels three times over, plus a validation key, plus a 5,000-passage frontier key; all of that
+            is removed, and the removal is most of the budget.</p>
         </div>
 
         <div class="card" style="margin-top:1.1rem">
@@ -1045,10 +1033,10 @@ def routed(ex) -&gt; int | ABSTAIN:
               <tbody>
                 <tr><td><strong>Coverage</strong></td><td>Fraction of rows where the function answers. A heuristic at 15% is fine. A routed model below 90% means the prompt, the parser or the context limit is broken.</td></tr>
                 <tr><td><strong>Empirical accuracy</strong></td><td>Accuracy on the development set, where the function answers. The single most useful number for deciding whether a function is worth its cost.</td></tr>
-                <tr><td><strong>Accuracy on the far half</strong></td><td>The same number restricted to rows whose evidence is distant. A model that only wins on near evidence is not paying for its long passage, and neither is the student it teaches.</td></tr>
+                <tr><td><strong>Accuracy per class</strong></td><td>The same number split by gold class. A function that is only accurate on the majority class adds nothing where the task is hard, and the label model needs to know that.</td></tr>
                 <tr><td><strong>Overlap and conflict</strong></td><td>How often functions answer the same rows, and how often they disagree. Zero conflict is a warning sign, not a good result.</td></tr>
                 <tr><td><strong>Pairwise conditional agreement</strong></td><td>How often two functions are wrong in the same way on the same row. The direct measurement of the independence assumption, and it is published.</td></tr>
-                <tr><td><strong>Cost per function per rung</strong></td><td>Dollars per thousand rows at each length. Read next to empirical accuracy, this decides which models stay in the set.</td></tr>
+                <tr><td><strong>Cost per function</strong></td><td>Dollars per thousand rows. Read next to empirical accuracy, this decides which models stay in the set.</td></tr>
               </tbody>
             </table>
           </div>
@@ -1094,8 +1082,8 @@ def routed(ex) -&gt; int | ABSTAIN:
         </div>
         <p class="section-intro">
           The backbone is no longer assumed. Four encoder families go through the same harness, at the
-          same length, on the same labels, and one of them gets picked. The bench is cheap and it is not
-          the headline experiment. The length ladder still is.
+          same cap, on the same labels, and one of them gets picked. This is the headline experiment of
+          the project and the table it produces is a deliverable in its own right.
         </p>
 
         <div class="table-wrap">
@@ -1136,21 +1124,27 @@ def routed(ex) -&gt; int | ABSTAIN:
         </div>
 
         <div class="callout warning" style="margin-top:1.1rem">
-          <h3>The bench is decided at 512, because that is the only rung all nine can run</h3>
+          <h3>All nine share one cap, and the cap is whatever the whole field can run</h3>
           <p>The families do not share a ceiling. Comparing a model at 8,192 against one that stopped at
-            512 measures the ceiling, not the model, and this project already bans that kind of
-            cross-protocol comparison everywhere else.</p>
+            512 measures the ceiling, not the model, and this project bans that kind of cross-protocol
+            comparison everywhere else. So the bench runs at the highest cap every candidate in it
+            supports, which makes the roster and the cap one decision rather than two.</p>
           <div class="table-wrap" style="margin-top:.7rem">
             <table>
-              <thead><tr><th style="width:120px">Rung</th><th style="width:120px">Candidates</th><th>Who is in</th></tr></thead>
+              <thead><tr><th style="width:140px">Shared cap</th><th style="width:120px">Candidates</th><th>What it costs to get there</th></tr></thead>
               <tbody>
-                <tr><td><code>512</code></td><td>9</td><td>Everything. This is where the bench is settled.</td></tr>
-                <tr><td><code>2,048</code></td><td>7</td><td>Everything except DeBERTa-v3.</td></tr>
-                <tr><td><code>4,096</code></td><td>7</td><td>NeoBERT's ceiling. Run only if NeoBERT wins at 512, since it is the only reason this rung exists.</td></tr>
-                <tr><td><code>8,192</code></td><td>6</td><td>Ettin and ModernBERT only.</td></tr>
+                <tr><td><code>512</code></td><td>9</td><td>Everyone in. DeBERTa-v3 sets this ceiling.</td></tr>
+                <tr><td><code>4,096</code></td><td>7</td><td>Drop DeBERTa-v3. NeoBERT now sets the ceiling.</td></tr>
+                <tr><td><code>8,192</code></td><td>6</td><td>Drop NeoBERT too. The six survivors are four Ettin sizes plus ModernBERT base and large, which all share one architecture, so the bench stops comparing architectures and starts comparing size and recipe.</td></tr>
               </tbody>
             </table>
           </div>
+          <p style="margin-top:.6rem"><strong>This is an open decision, and it is a real trade.</strong>
+            Keeping DeBERTa-v3 keeps four families in the comparison and caps everything at 512. Dropping
+            it raises the cap but narrows what the bench can claim. Whichever is chosen, the model card
+            names the shared cap and the roster together, because the second is only interpretable with
+            the first. Note that the token distributions may settle this for free: if a task's p95 sits
+            under 512, the higher caps buy nothing anyway.</p>
           <p style="margin-top:.6rem"><strong>A report card never carries a delta between two different
             maximum lengths.</strong> The harness refuses to compute one.</p>
         </div>
@@ -1159,18 +1153,19 @@ def routed(ex) -&gt; int | ABSTAIN:
           <div class="card">
             <h3>How the bench runs</h3>
             <ul class="compact-list">
-              <li>One task only, forward-looking, in Slice 1. The other two inherit the answer.</li>
-              <li>512 tokens, LoRA, three seeds, one shared set of training labels. Nothing else moves.</li>
-              <li>Twenty-seven short runs. At 512 that is a small fraction of the cost of one full ladder, which is why this is affordable at all.</li>
-              <li>Decided on validation macro-F1. The borrowed test set is not opened for it.</li>
+              <li>One task only, forward-looking, in Slice 1. The other two inherit the answer and re-open it only if the inherited encoder underperforms the classical baseline.</li>
+              <li>One shared cap, LoRA, three seeds, one shared set of training labels. Nothing else moves.</li>
+              <li>Twenty-seven short runs. This is the project's main experiment and its main published table.</li>
+              <li>Decided on validation macro-F1, on the paired difference against the incumbent leader rather than on the raw maximum of nine noisy draws. The frozen test split is not opened for it.</li>
+              <li>Ties go to the cheaper checkpoint, and the card says the pick was made on cost.</li>
               <li>Every candidate stays in the published table, including the ones that lost.</li>
             </ul>
           </div>
           <div class="card">
             <h3>What the winner buys</h3>
             <ul class="compact-list">
-              <li>The best 8,192-capable model climbs the full length ladder. That is the shipped model.</li>
-              <li>If a model that cannot reach 8,192 wins the 512 bench outright, that is reported as its own finding, and the ladder still runs on the best long-capable model. Two claims, kept apart.</li>
+              <li>The winner is the shipped encoder for that task, and the inherited encoder for the other two.</li>
+              <li>The full table is a deliverable in its own right. Nine modern encoders, three seeds, one recipe, on a real finance task is a comparison the field is short of.</li>
               <li>DeBERTa-v3-base doubles as the architecture control it always was, now without a separate run.</li>
               <li>Ettin's size sweep gives a parameters-versus-score curve for free, which is the cheapest way to find out whether the medium tier is already at the ceiling.</li>
             </ul>
@@ -1180,29 +1175,30 @@ def routed(ex) -&gt; int | ABSTAIN:
             <ul class="compact-list">
               <li>Ettin loads through the ModernBERT classes, so it is a config change and nothing more.</li>
               <li>NeoBERT needs <code>trust_remote_code</code>, a pinned revision, and its own LoRA target-module list. Pinning the revision is not optional when the modelling code lives in the repository.</li>
-              <li>DeBERTa-v3 needs its own pooling path and cannot take the 2,048 config at all. The harness rejects that combination rather than silently truncating.</li>
+              <li>DeBERTa-v3 needs its own pooling path and cannot take any cap above 512. The harness rejects that combination rather than silently truncating.</li>
               <li>Marker tokens are added to each tokenizer separately, and the added-token count goes in the registry row. Four tokenizers means four chances to get this wrong.</li>
             </ul>
           </div>
         </div>
 
         <div class="callout info" style="margin-top:1.1rem">
-          <h3>Paying for the GPU is what makes long context possible</h3>
+          <h3>Paying for the GPU is what makes the bench affordable</h3>
           <p>On a free T4 this was the plan's largest open risk. The T4 is a Turing card with no bf16
             and no support for the flash-attention kernels recent encoders assume. ModernBERT and Ettin
             were both trained in bf16 and lean on those kernels for both the unpadding path and the memory
             profile. Without them it falls back to a slower, hungrier path, and long context makes that
-            cost land hardest exactly at the rung the project cares about. 8,192 tokens on a free T4 was
+            cost land hardest exactly where a long cap is needed. 8,192 tokens on a free T4 was
             genuinely uncertain.</p>
           <p style="margin-top:.5rem"><strong>Renting Ampere-class hardware or newer removes the
-            question.</strong> bf16 is native, the fast kernels are available, and the full ladder is
-            trainable without contortions. The length ladder stops being a hardware gamble and goes back
-            to being a research question, which is what it was supposed to be.</p>
-          <p style="margin-top:.5rem"><strong>The smoke check still runs at every rung in Slice 1.</strong>
-            It now measures memory, throughput and cost per rung so the ladder can be priced, rather than
-            deciding whether the ladder is possible at all.</p>
+            question.</strong> bf16 is native, the fast kernels are available, and every cap the bench
+            might use is trainable without contortions. The cap stops being a hardware gamble and goes back
+            to being a straightforward engineering question.</p>
+          <p style="margin-top:.5rem"><strong>The smoke check still runs at several caps in Slice 1.</strong>
+            It measures memory, throughput and cost so that the bench can be priced before it is bought,
+            and so that the chosen cap is known to fit.</p>
           <p style="margin-top:.5rem"><strong>What is still not a mitigation.</strong> Quietly lowering the
-            length and continuing to describe the model as long-context.</p>
+            cap and continuing to describe the model as long-context. With the length claim removed there
+            is nothing to describe it as, which is the point.</p>
         </div>
 
         <h3 style="margin:1.6rem 0 .7rem">Training configuration</h3>
@@ -1211,11 +1207,11 @@ def routed(ex) -&gt; int | ABSTAIN:
             <thead><tr><th style="width:200px">Setting</th><th style="width:180px">Default</th><th>Reasoning</th></tr></thead>
             <tbody>
               <tr><td><strong>Backbone</strong></td><td>Whatever the bench picked, pinned per task</td><td>One exact Hugging Face identifier plus a revision hash in the config, never a family name. The bench result and the pinned identifier both go in the registry row, so a later reader can see which of the nine is being reported.</td></tr>
-              <tr><td><strong>Adaptation</strong></td><td>LoRA, rank 16, on attention and feed-forward projections</td><td>At 8,192 tokens a full fine-tune does not fit 16GB at all, so LoRA stops being a preference and becomes the only option. The previous project also found LoRA beat the full fine-tune it tested. A full fine-tune is run once per task at the 512 rung only, as a comparison.</td></tr>
+              <tr><td><strong>Adaptation</strong></td><td>LoRA, rank 16, on attention and feed-forward projections</td><td>One shared recipe across all nine bench candidates, so the bench measures the backbone rather than the tuning. The previous project also found LoRA beat the full fine-tune it tested. A full fine-tune is run once, on the bench winner only, as a comparison.</td></tr>
               <tr><td><strong>Precision</strong></td><td>bf16</td><td>Native on Ampere and newer, and what the base model was trained in. The fp16 overflow risk the free-tier plan had to work around does not arise.</td></tr>
-              <tr><td><strong>Max length</strong></td><td>512 / 2,048 / 8,192</td><td>The one swept hyperparameter. Every rung is trained on every task. The shipped value is picked on validation, against one key written at full passage length, and then pinned.</td></tr>
-              <tr><td><strong>Batch size</strong></td><td>Fixed effective 32, per-device size set by what fits</td><td>Roughly 16 at 512, 4 at 2,048, 1 at 8,192, with accumulation making up the rest. Effective size stays constant across rungs, so length is the only thing that changed.</td></tr>
-              <tr><td><strong>Gradient checkpointing</strong></td><td>Off at 512, on at 2,048 and above</td><td>Trades roughly 30% throughput for the memory that makes the long rungs possible. Turning it on does not change results, and the setting is recorded per run.</td></tr>
+              <tr><td><strong>Max length</strong></td><td>Per task, from the token distribution</td><td>Not swept. Smallest supported setting that keeps measured truncation under 5%, pinned in the config and shared by all nine bench candidates. See the <a href="#length">length budget</a>.</td></tr>
+              <tr><td><strong>Batch size</strong></td><td>Fixed effective 32, per-device size set by what fits</td><td>Roughly 16 at 512 and 1 at 8,192, with accumulation making up the rest. Effective size stays constant across every run in a bench, so the backbone is the only thing that changed.</td></tr>
+              <tr><td><strong>Gradient checkpointing</strong></td><td>Off at 512, on above it</td><td>Trades roughly 30% throughput for memory. Turning it on does not change results, and the setting is recorded per run. Within one bench it is the same for every candidate.</td></tr>
               <tr><td><strong>Learning rate</strong></td><td>2e-4 for LoRA, 2e-5 for full fine-tune</td><td>Standard starting points. Tuned per task on validation data, and the sweep is recorded.</td></tr>
               <tr><td><strong>Epochs</strong></td><td>3 to 5, early stopped</td><td>Small datasets overfit fast. Selection is by validation macro-F1, not by epoch count.</td></tr>
               <tr><td><strong>Evaluation frequency</strong></td><td>Several times per epoch</td><td>The previous project found frequent macro-F1 checkpoint selection helped. The peak is often mid-epoch.</td></tr>
@@ -1247,7 +1243,7 @@ def routed(ex) -&gt; int | ABSTAIN:
         <p class="section-intro">
           Serverless GPU jobs. A training run is a containerised function invoked from the command
           line, billed only while it executes. Nothing idles, nothing times out mid-run, and there is
-          no notebook session to lose. The length ladder is what this buys.
+          no notebook session to lose. A twenty-seven-run bench is what this buys.
         </p>
 
         <div class="grid-3">
@@ -1256,7 +1252,7 @@ def routed(ex) -&gt; int | ABSTAIN:
             <p class="small muted">These jobs are bursty and vary hugely in length. A 512-token run is
               minutes; an 8,192-token run is longer but still not hours. Paying per second matches that
               shape. A box rented by the hour would bill through every gap while you read results, and a
-              free session would drop the long rungs halfway.</p>
+              free session would drop a long run halfway.</p>
           </div>
           <div class="card">
             <h3>Hardware class</h3>
@@ -1268,7 +1264,7 @@ def routed(ex) -&gt; int | ABSTAIN:
           <div class="card">
             <h3>What it replaces</h3>
             <p class="small muted">No mounted Drive, no session keep-alive, no rerunning a lost epoch,
-              and no rung that cannot be attempted. Checkpoints go to a persistent volume, artifacts are
+              and no configuration that cannot be attempted. Checkpoints go to a persistent volume, artifacts are
               pulled down by run id, and the whole thing is scriptable, which is what makes it
               reproducible.</p>
           </div>
@@ -1287,7 +1283,7 @@ def routed(ex) -&gt; int | ABSTAIN:
             </div>
             <div class="protocol-step">
               <div class="n">3</div>
-              <div><h4>Job runs and self-reports</h4><p>Registry row written at start with the config hash and the rung. Metrics, wall time, peak memory, GPU class and dollar cost written at the end.</p></div>
+              <div><h4>Job runs and self-reports</h4><p>Registry row written at start with the config hash and the cap. Metrics, wall time, peak memory, GPU class and dollar cost written at the end.</p></div>
             </div>
             <div class="protocol-step">
               <div class="n">4</div>
@@ -1299,7 +1295,7 @@ def routed(ex) -&gt; int | ABSTAIN:
         <div class="card" style="margin-top:1.1rem">
           <h3>What the smoke check now fills in</h3>
           <p class="small">These are still the numbers nobody has. The question has changed from "does it
-            fit" to "what does each rung cost", which is the more useful question anyway. The table ships
+            fit" to "what does each configuration cost", which is the more useful question anyway. The table ships
             in the write-up with real measurements in place of the dashes.</p>
           <div class="table-wrap" style="margin-top:.7rem; box-shadow:none">
             <table>
@@ -1322,7 +1318,7 @@ def routed(ex) -&gt; int | ABSTAIN:
             <h3>Cost accounting</h3>
             <ul class="compact-list">
               <li><strong>Every registry row carries a dollar cost.</strong> GPU seconds times the rate in effect, or router tokens times their rates, recorded with the date.</li>
-              <li><strong>Labelling and training costs are tracked separately, per rung</strong>, because they behave differently. Labelling scales with rows and passage length, training scales with sweeps.</li>
+              <li><strong>Labelling and training costs are tracked separately</strong>, because they behave differently. Labelling scales with rows and row length, training scales with the number of bench candidates.</li>
               <li><strong>A running project total</strong> is printed by the registry query tool, so the spend is visible without adding up invoices.</li>
               <li><strong>The write-up publishes the total.</strong> "This cost roughly X to build, and here is how it split" is one of the more useful things a reader can take from an open project.</li>
             </ul>
@@ -1331,11 +1327,11 @@ def routed(ex) -&gt; int | ABSTAIN:
             <h3>Rules that follow</h3>
             <ul class="compact-list">
               <li><strong>Every run is resumable.</strong> A job can still be preempted, and a resumed run is cheaper than a restarted one in money as well as time.</li>
-              <li><strong>Effective batch size is fixed across rungs.</strong> Only per-device batch and accumulation move, so a length comparison is a length comparison.</li>
-              <li><strong>GPU class is pinned per experiment</strong> and recorded. Comparing rungs across different cards is protocol drift.</li>
+              <li><strong>Effective batch size is fixed across a bench.</strong> Only per-device batch and accumulation move, so a backbone comparison is a backbone comparison.</li>
+              <li><strong>GPU class is pinned per experiment</strong> and recorded. Comparing bench candidates across different cards is protocol drift.</li>
               <li><strong>Data preparation happens off the GPU</strong> and its outputs are cached. Passage building and tokenizing at 8,192 is slow enough that this matters.</li>
               <li><strong>The registry row is written at run start</strong>, so a job that dies still leaves evidence it was attempted, and its partial spend is still counted.</li>
-              <li><strong>Sweeps are sequential and small.</strong> The length ladder is the sweep. There is no budget for a grid on top of it, and now that is a budget in dollars, not just hours.</li>
+              <li><strong>Sweeps are sequential and small.</strong> The backbone bench is the sweep. There is no budget for a grid on top of it, and now that is a budget in dollars, not just hours.</li>
             </ul>
           </div>
         </div>
@@ -1383,7 +1379,7 @@ def routed(ex) -&gt; int | ABSTAIN:
               <li><strong>Per-class precision, recall and F1</strong>, and the full confusion matrix.</li>
               <li><strong>Accuracy</strong>, for readers who expect it, clearly marked as secondary.</li>
               <li><strong>Per-document-type breakdown</strong>, so a model that only works on filings gets caught.</li>
-              <li><strong>The long-evidence split</strong>, scored separately on the near and far halves. This is where a long-context gain has to appear if it is real.</li>
+              <li><strong>The bench table</strong>, all nine candidates with seed means and spreads, and the paired difference between the winner and the runner-up.</li>
               <li><strong>Truncation statistics for the evaluated configuration</strong>, so a score is never read without knowing what the model was allowed to see.</li>
               <li><strong>Calibration:</strong> expected calibration error and a reliability curve. Reported, never claimed.</li>
               <li><strong>Cost and latency</strong>, measured on the same run that produced the predictions, on GPU. The CPU figure is optional and appears only where it was taken.</li>
@@ -1403,49 +1399,42 @@ def routed(ex) -&gt; int | ABSTAIN:
   "task": "fls",
   "backbone": {"hf_id": "", "revision": "", "params_m": 0, "native_max_length": 0,
                "adaptation": "lora-r16", "added_marker_tokens": 0},
-  "ref_test_hash":  "sha256:7c1e...",
-  "ref_dev_hash":   "sha256:9b04...",
-  "referee_hash":   "sha256:1d77...",
-  "probe_hash":     "sha256:44a2...",
-  "reference": {"model": "gpt-5.6-sol", "effort": "medium", "prompt_version": "...",
-                "n_headline": 4500, "n_dev": 500,
-                "key_length": "full_passage", "key_passes": 3, "key_rule": "majority",
-                "self_agreement": 0.000,
-                "agreement_student": 0.000, "agreement_teacher_ensemble": 0.000,
-                "weak_to_strong_delta": 0.000,
-                "dev_agreement_student": 0.000, "dev_headline_gap": 0.000, "dev_reads": 0},
-  "referee": {"source": "FinanceMTEB/FLS", "revision": "...", "split": "test", "n": 1000,
-              "passage_match_rate": 0.00, "human_agreement": "not published by source",
-              "macro_f1_student": 0.000, "macro_f1_reference": 0.000, "delta_ci95": [0.000, 0.000]},
-  "n_test": 4500,
-  "max_length": 8192,
+  "test_hash": "sha256:7c1e...",
+  "dev_hash":  "sha256:9b04...",
+  "benchmark": {"source": "FinanceMTEB/FLS", "revision": "...", "split": "test", "n_test": 1000,
+                "n_dev": 200, "label_author": "human", "human_agreement": "not published by source",
+                "resplit_rule": null},
+  "n_test": 1000,
+  "max_length": 512,
+  "length_profile": {"p50": 0, "p95": 0, "p99": 0, "max": 0, "cap_rule": "smallest setting under 5% truncation"},
   "truncation": {"rows_trimmed_pct": 0.0, "near_target_loss_pct": 0.0, "rows_dropped": 0,
                  "tokens_p50": 0, "tokens_p95": 0},
-  "macro_f1": {"value": 0.000, "ci95": [0.000, 0.000], "method": "bootstrap-10000"},
+  "macro_f1": {"value": 0.000, "ci95": [0.000, 0.000], "method": "bootstrap-10000",
+               "labels": "human", "note": "the headline"},
   "per_class": {"specific_fls": {...}, "non_specific_fls": {...}, "not_fls": {...}},
   "by_doc_type": {"filing": {...}, "transcript_qa": {...}},
-  "by_context_sensitive": {"true": {...}, "false": {...}, "probe_version": "...",
-                           "flip_rate_between": 0.000, "flip_rate_within": 0.000},
-  "ensemble_contamination_check": {"on_benchmark": 0.000, "on_fresh_passages": 0.000, "gap": 0.000},
-  "proxy_check": {"metric": "pearson_r", "value": 0.000, "n_runs": 0,
-                  "x": "val_macro_f1_weak_labels", "y": "ref_dev_macro_f1_agreement"},
-  "vs_short_control": {"control_run_id": "fls-...-512", "macro_f1_delta": 0.000,
-                       "delta_ci95": [0.000, 0.000], "delta_on_far": 0.000,
-                       "dev_macro_f1_delta": 0.000, "dev_delta_on_far": 0.000,
-                       "method": "paired-bootstrap-10000"},
-  "vs_ensemble":      {"comparator": "labelmodel-ensemble", "macro_f1_delta": 0.000,
-                       "delta_ci95": [0.000, 0.000], "delta_on_far": 0.000,
-                       "method": "paired-bootstrap-10000"},
+  "bench": {"shared_max_length": 512, "n_candidates": 9, "seeds": 3,
+            "decided_on": "val_macro_f1", "rule": "paired-bootstrap vs incumbent leader",
+            "winner": "", "runner_up": "", "delta_ci95": [0.000, 0.000],
+            "separated": false, "tie_break": "cost"},
+  "llm_contamination_check": {"on_benchmark": 0.000, "on_fresh_rows": 0.000, "gap": 0.000},
+  "vs_frontier":  {"comparator": "gpt-5.6-sol@medium", "macro_f1_delta": 0.000,
+                   "delta_ci95": [0.000, 0.000], "method": "paired-bootstrap-10000"},
+  "vs_ensemble":  {"comparator": "labelmodel-ensemble", "macro_f1_delta": 0.000,
+                   "delta_ci95": [0.000, 0.000], "method": "paired-bootstrap-10000"},
   "label_quality":    {"label_model_acc": 0.000, "majority_vote_acc": 0.000,
                        "best_single_lf_acc": 0.000, "n_dev": 200},
   "calibration": {"ece": 0.000, "n_bins": 15},
-  "cost": {"usd_per_1k_passages": 0.000, "priced_on": "YYYY-MM-DD"},
+  "cost": {"usd_per_1k_rows": 0.000, "frontier_usd_per_1k_rows": 0.000,
+           "one_off_labelling_usd": 0.000, "one_off_training_usd": 0.000,
+           "break_even_rows_per_month": 0, "priced_on": "YYYY-MM-DD"},
   "latency": {"p50_ms": 0.0, "batch_throughput_per_s": 0.0, "batch_size": 0,
               "device": ""},
   "cpu": {"measured": false, "skipped_reason": "", "export": "", "threads": 0, "batch_size": 1,
           "max_length": 0, "p50_ms": 0.0, "p95_ms": 0.0, "macro_f1_of_export": 0.000, "machine": ""},
   "spend": {"labelling_usd": 0.000, "training_usd": 0.000, "eval_usd": 0.000},
-  "human_ceiling": {"metric": "cohens_kappa", "value": 0.00, "n_double": 300},
+  "human_ceiling": {"metric": "cohens_kappa", "value": null,
+                    "source": "not published by source"},
   "evidence_grade": "supported"
 }</code></pre>
           <p class="small muted" style="margin-top:.6rem">Zeros are placeholders. The schema is fixed now so
@@ -1460,12 +1449,12 @@ def routed(ex) -&gt; int | ABSTAIN:
             examples and resolves much smaller gaps. Both comparisons this project lives on are paired:
             the student against the ensemble, and 8,192 against the 512 control on the far half. The
             report card has a field for each, so neither can be quietly skipped.</p>
-          <p style="margin-top:.5rem">The same rule decides how the 500-row reference development slice is
-            read. Its absolute agreement carries an interval about 5 points wide, which is too loose to
-            steer anything. A paired bootstrap between two runs over the same 500 rows is far tighter, so
-            every development-slice comparison is run against the previous run rather than read as an
-            absolute. The 150-row far half resolves a large effect only, and a small far-half gap stays
-            unreadable until the headline slice is opened.</p>
+          <p style="margin-top:.5rem">The same rule decides the backbone bench, and there it matters
+            most. Nine candidates times three seeds is twenty-seven numbers, and the highest of nine noisy
+            draws is biased upward. So the bench reports the seed mean with its spread, it picks on the
+            paired difference against the incumbent leader rather than on the raw maximum, and when the
+            interval around that difference includes zero the cheaper checkpoint ships and the tie is
+            published as a tie.</p>
         </div>
       </section>
 
@@ -1542,7 +1531,7 @@ def routed(ex) -&gt; int | ABSTAIN:
             <h3>What gets measured, if it is measured</h3>
             <ul class="compact-list">
               <li>One pinned CPU shape, with the vCPU count and the thread count written into the config. A latency figure without a machine attached means nothing.</li>
-              <li>Batch 1 and batch 8, at every rung the candidate supports.</li>
+              <li>Batch 1 and batch 8, at the task's pinned cap.</li>
               <li>p50 and p95 milliseconds per passage, plus throughput.</li>
               <li>Plain PyTorch fp32 first, because it always works. ONNX Runtime and int8 quantisation only if they come easily.</li>
               <li><strong>Macro-F1 of the exact export</strong>, next to its latency. Quantisation moves scores, and an export that was never scored is not a shipped model.</li>
@@ -1551,10 +1540,10 @@ def routed(ex) -&gt; int | ABSTAIN:
           <div class="card">
             <h3>Why this is optional and not required</h3>
             <ul class="compact-list">
-              <li>ModernBERT and Ettin lose the flash-attention kernels on CPU and fall back to a plain path. Their alternating local and global attention still helps at the long rungs, and how much is exactly what this measures.</li>
+              <li>ModernBERT and Ettin lose the flash-attention kernels on CPU and fall back to a plain path. Their alternating local and global attention still helps at a long cap, and how much is exactly what this measures.</li>
               <li>DeBERTa-v3's disentangled attention is slower per token than its parameter count suggests. Small is not the same as fast, and the 44M checkpoint may not win this.</li>
               <li>NeoBERT ships custom modelling code, so the ONNX path may simply not work. That is a tooling problem, not a research result, and it is exactly the kind of thing that eats a week for nothing.</li>
-              <li>An 8,192-token passage on a CPU may turn out to be slow enough that nobody would run it that way anyway. Finding that out is nice. It is not worth blocking the ladder for.</li>
+              <li>An 8,192-token input on a CPU may turn out to be slow enough that nobody would run it that way anyway. Finding that out is nice. It is not worth blocking the bench for.</li>
               <li>Where a CPU number does get taken, it sits in the same table as the GPU and router numbers, so a reader can price the model on hardware they actually have.</li>
             </ul>
           </div>
@@ -1786,7 +1775,7 @@ t.scan(document=doc, tasks=["fls", "factop"])</code></pre>
               <tr>
                 <td><strong>Context</strong></td>
                 <td>A passage with a marked target span, up to 8,192 tokens</td>
-                <td>A 512-token window of neighbouring sentences. It was the earlier plan, and it hands the LLM baseline a permanent advantage in evidence. It survives as the internal control at the bottom of the length ladder.</td>
+                <td>Nothing is rejected here any more. The input is the unit the borrowed dataset's annotators labelled, and <code>max_length</code> is measured from its token distribution. Rebuilding a wider passage around each row is an optional ablation, never the default.</td>
               </tr>
               <tr>
                 <td><strong>Getting past 512</strong></td>
@@ -1806,7 +1795,7 @@ t.scan(document=doc, tasks=["fls", "factop"])</code></pre>
               <tr>
                 <td><strong>Backbone</strong></td>
                 <td>Four families benched at 512, then the winner climbs the ladder</td>
-                <td>Picking ModernBERT-base on reputation, which is what the earlier plan did. Also rejected: running the full length ladder on all nine candidates, which multiplies the most expensive experiment in the project by nine to answer a question the 512 rung already answers.</td>
+                <td>Picking ModernBERT-base on reputation, which is what the earlier plan did. Also rejected: benching candidates at different maximum lengths, which measures the ceiling rather than the model, and picking on the raw maximum of twenty-seven noisy numbers rather than on a paired difference against the incumbent leader.</td>
               </tr>
               <tr>
                 <td><strong>Model size</strong></td>
@@ -1826,7 +1815,7 @@ t.scan(document=doc, tasks=["fls", "factop"])</code></pre>
               <tr>
                 <td><strong>Training labels</strong></td>
                 <td>k routed models plus heuristics, combined by a label model</td>
-                <td>Hand-labelling tens of thousands of passages, which the schedule cannot absorb. Also rejected: one model sampled k times, because its votes are too correlated for the label model to learn anything from. Also rejected: labelling once at 512 and reusing those labels at every rung, which would make the length ladder meaningless.</td>
+                <td>Hand-labelling tens of thousands of rows, which the schedule cannot absorb. Also rejected: one model sampled k times, because its votes are too correlated for the label model to learn anything from. Also rejected: letting any weak label reach an evaluation split, which the harness now refuses rather than merely discourages.</td>
               </tr>
               <tr>
                 <td><strong>Compute</strong></td>
@@ -1845,8 +1834,8 @@ t.scan(document=doc, tasks=["fls", "factop"])</code></pre>
               </tr>
               <tr>
                 <td><strong>Test set</strong></td>
-                <td>Three frozen hashed splits, plus the probe output. A 4,500-row reference headline slice opened once, a 500-row reference development slice read on every run, and a borrowed human split as the referee</td>
-                <td>Reporting agreement with the reference as if it were accuracy. It is fidelity to one model's opinion. Also: claiming to beat the frontier model on labels that same model wrote, which is arithmetically impossible and would be caught by nobody but the author.</td>
+                <td>Two frozen hashed splits from one borrowed human-labelled source. A test split opened once, at the end, and a development split read throughout. No machine-written evaluation labels anywhere.</td>
+                <td>Letting any model this project runs write an evaluation label. That was tried in an interim design and it turned the headline into fidelity to one model's opinion, while making "we beat the frontier model" arithmetically impossible on the only set that mattered.</td>
               </tr>
               <tr>
                 <td><strong>Primary metric</strong></td>

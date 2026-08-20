@@ -1,5 +1,39 @@
 # Plan review: can this repo improve itself?
 
+> **SCOPE CHANGED 2026-08-20.** The project's aim is now narrower: build the best small encoder for
+> each of the three tasks, scored on a borrowed human-labelled benchmark. The length ladder, the
+> context-sensitivity probe, the 5,000-passage machine-written reference set and the
+> passage-reconstruction gate are all removed from the plans. The backbone bench is now the headline
+> experiment.
+>
+> What that does to the findings below:
+>
+> | Finding | Now |
+> |---|---|
+> | 1. Nothing to run | Open, and cheaper. Slice 1 reaches a first number in 16 steps with no frontier answer key to buy. |
+> | 2. Headline unreadable while you work | **Moot.** The headline is macro-F1 on borrowed human labels, and validation carries the same kind of label from the same annotators. |
+> | 3. Ladder measured against three keys | **Moot.** No ladder. |
+> | 4. Probe cannot tell context from noise | **Moot.** No probe. |
+> | 5. Gate 2 counts any EDGAR match | **Moot.** Reconstruction is no longer a gate. The 27% measurement is kept in `PROGRAM_DESIGN.html` as the reason. |
+> | 6. No quality gate can fail | **Fixed.** Gate 6 is macro-F1 against a bar set from measured baselines before the test split opens, and it blocks the claim rather than the weights. The 50x cost gate is replaced by break-even volume. |
+> | 7. Factual errors and leftovers | Mostly fixed. Model id, `human_ceiling`, `macro_f1` labelling, hashes, FLS dedup, FiQA group sizes all addressed. |
+> | 8. No cheap inner loop | **Open.** Still the main gap. |
+> | 9. Every judgement needs a human | **Fixed.** `PROGRAM_DESIGN.html` now lists what an agent may decide alone, with a rule for each. |
+> | 10. Backbone picked at 512 | **Reframed and open.** The bench is now the headline, and the DeBERTa-v3 versus shared-cap trade is written out as an open decision. |
+> | 11. Headline is plain accuracy, no class control | **Moot.** The headline is macro-F1 on a set someone else sampled. |
+> | 12. No target-selection rule for the reference set | **Moot.** No reference set. |
+> | 13. Two of three models have no headline | **Fixed.** All three score on their own borrowed human split. Fact-versus-opinion branch 1b now means shipping with no headline, so the rename is the recommendation. |
+> | 14. Shipped rung picked against three keys | **Moot.** No rungs. |
+> | 15. Far half does not exist on validation | **Moot.** No far half. |
+> | 16. Ladder and reconstruction on different sets | **Moot.** |
+> | 17. FLS still binary in the product spec | **Fixed.** Three classes in the model contract. |
+> | 18. Probe owner named twice | **Moot.** |
+> | 19. Report card leftovers | **Fixed.** |
+> | 20. Success bar movable, cost bar cannot fail | **Fixed.** See finding 6 above. |
+> | 21. Only one task can produce a ladder | **Moot.** |
+>
+> The text below is the record as written on 2026-08-18. It is not updated in place.
+
 Reviewed 2026-08-18 against `PRODUCT.html`, `PROGRAM_DESIGN.html`, `ARCHITECTURE.html`, `VERTICAL_SLICES.html`.
 
 The question asked was narrow. Is there a valid benchmark to hill climb towards?
