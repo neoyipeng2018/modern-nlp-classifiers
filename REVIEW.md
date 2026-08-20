@@ -1,5 +1,44 @@
 # Plan review: can this repo improve itself?
 
+> **SCOPE CHANGED 2026-08-20.** The project's aim is now narrower: build the best small encoder for
+> each of the three tasks, scored on a borrowed human-labelled benchmark. The length ladder, the
+> context-sensitivity probe, the 5,000-passage machine-written reference set and the
+> passage-reconstruction gate are all removed from the plans. The backbone bench is now the headline
+> experiment.
+>
+> What that does to the findings below:
+>
+> | Finding | Now |
+> |---|---|
+> | 1. Nothing to run | **Closed, by design.** The plans come before the code. A repository holding only documents is the expected state at this stage, and Slice 1 step 1 is the skeleton. Stated in `PROGRAM_DESIGN.html`. |
+> | 2. Headline unreadable while you work | **Moot.** The headline is macro-F1 on borrowed human labels, and validation carries the same kind of label from the same annotators. |
+> | 3. Ladder measured against three keys | **Moot.** No ladder. |
+> | 4. Probe cannot tell context from noise | **Moot.** No probe. |
+> | 5. Gate 2 counts any EDGAR match | **Moot.** Reconstruction is no longer a gate. The 27% measurement is kept in `PROGRAM_DESIGN.html` as the reason. |
+> | 6. No quality gate can fail | **Fixed.** Gate 6 is macro-F1 against a bar set from measured baselines before the test split opens, and it blocks the claim rather than the weights. The 50x cost gate is replaced by break-even volume. |
+> | 7. Factual errors and leftovers | Mostly fixed. Model id, `human_ceiling`, `macro_f1` labelling, hashes, FLS dedup, FiQA group sizes all addressed. |
+> | 8. No cheap inner loop | **Closed, accepted.** No fast local metric is planned. The development split is a few hundred human-labelled rows, so scoring it is one short forward pass on the GPU the bench already pays for. The bench is a batch decided once, not a tight edit-and-rerun cycle, and the stop rule forbids tuning the recipe against validation data anyway. Written up in `PROGRAM_DESIGN.html`. |
+> | 9. Every judgement needs a human | **Fixed.** `PROGRAM_DESIGN.html` now lists what an agent may decide alone, with a rule for each. |
+> | 10. Backbone picked at 512 | **Closed.** DeBERTa-v3 stays and the shared bench cap is 512 for all nine candidates. The models are small, so 512 is a working window rather than a handicap, and keeping DeBERTa-v3 keeps four architecture families in the comparison. The original objection was that a 512 winner might not win at 8,192, and that objection is void now that the project makes no context-length claim. Where a task's measured p95 pushes the shipped `max_length` above 512, the bench winner is retrained once at that cap. |
+> | 11. Headline is plain accuracy, no class control | **Moot.** The headline is macro-F1 on a set someone else sampled. |
+> | 12. No target-selection rule for the reference set | **Moot.** No reference set. |
+> | 13. Two of three models have no headline | **Fixed.** All three score on their own borrowed human split. Fact-versus-opinion branch 1b now means shipping with no headline, so the rename is the recommendation. |
+> | 14. Shipped rung picked against three keys | **Moot.** No rungs. |
+> | 15. Far half does not exist on validation | **Moot.** No far half. |
+> | 16. Ladder and reconstruction on different sets | **Moot.** |
+> | 17. FLS still binary in the product spec | **Fixed.** Three classes in the model contract. |
+> | 18. Probe owner named twice | **Moot.** |
+> | 19. Report card leftovers | **Fixed.** |
+> | 20. Success bar movable, cost bar cannot fail | **Fixed.** See finding 6 above. |
+> | 21. Only one task can produce a ladder | **Moot.** |
+>
+> **No finding in this file is open any more.** Twelve are moot because the thing they were about no
+> longer exists. Six were fixed by editing the plans. Three, findings 1, 8 and 10, were closed by a
+> decision rather than by a change, and each of those decisions is written into the plans with its
+> reason.
+>
+> The text below is the record as written on 2026-08-18. It is not updated in place.
+
 Reviewed 2026-08-18 against `PRODUCT.html`, `PROGRAM_DESIGN.html`, `ARCHITECTURE.html`, `VERTICAL_SLICES.html`.
 
 The question asked was narrow. Is there a valid benchmark to hill climb towards?
@@ -34,6 +73,12 @@ is spent. See finding 8.
 ---
 
 ## 2. The headline metric is unreadable while you work
+
+> **Fixed 2026-08-18.** The reference set is now split at build time into a 500 row development slice
+> and a 4,500 row headline slice. The development slice is read on every run and is never trained on.
+> Operating principle 4 carries the exception and the reason for it. See the reference set section and
+> principle 4 in `PROGRAM_DESIGN.html`, steps 6b, 7, 14, 17, 18 and 21 in `VERTICAL_SLICES.html`, and
+> the report card in `ARCHITECTURE.html`.
 
 The headline is agreement with cached `gpt-5.6-sol` labels on a frozen 5,000 passage set.
 
@@ -303,7 +348,8 @@ decision log marks the backbone as "Bench decides".
 Reviewed again against the same four documents after the first three fixes landed. The question
 is the same. Is there a valid benchmark to hill climb towards?
 
-Still no. Findings 1, 2, 5, 6, 8, 9 and 10 from the first pass are open. Eleven new findings
+Still no. Findings 1, 5, 6, 8, 9 and 10 from the first pass are open. Finding 2 was fixed on
+2026-08-18, together with finding 15. Eleven new findings
 follow. The first four are the ones that stop the benchmark existing at all.
 
 ---
@@ -389,6 +435,11 @@ the per-rung training labels. Score every rung on the one validation key.
 ---
 
 ## 15. The far half does not exist on validation
+
+> **Fixed 2026-08-18.** The probe is now bought inside step 6b, before the reference set is split, so
+> both slices carry the context-sensitive flag. The development slice is stratified on that flag, and
+> step 18 reads the near and far halves there instead of on validation. Step 13 became a report over
+> data already bought. The 150 row far half resolves a large effect only, and the plans say so.
 
 Step 18 says the ladder is "scored on the whole validation set and on the near and far halves".
 
@@ -521,7 +572,7 @@ Rewritten after the second pass. In order.
 7. Name the set the ladder is read on, once, and make Gate 2 agree with it. Finding 16.
 8. Build the skeleton, the registry, the CI data checks and a fast CPU dev harness. Finding 8.
    No money spent, and the repo gains a number it can print.
-9. Carve a readable 500 row dev slice out of the reference set. Findings 2 and 15.
+9. ~~Carve a readable 500 row dev slice out of the reference set.~~ Done 2026-08-18. Findings 2 and 15.
 10. Gate 2 counts unique matches, and the 60% bar is re-argued against the real figure.
     Finding 5. Only needed if item 7 says the ladder reads the referee set.
 11. Clean the stale text: binary FLS, the ensemble probe owner, the report card leftovers.
