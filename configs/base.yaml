@@ -1,0 +1,28 @@
+# Shared defaults. Every experiment file inherits from this one.
+# The resolved config is hashed, so an inherited default cannot change a run's
+# meaning without changing its identity.
+
+task: financial-sentiment
+labels: [negative, neutral, positive]
+seed: 20260821
+
+data:
+  primary: takala/financial_phrasebank
+  secondary: pauri32/fiqa-2018
+  out_dir: data/processed/fpb
+  n_test: 1000
+  n_dev: 500
+  dedup_threshold: 0.5
+
+# Warning. Financial PhraseBank is CC BY-NC-SA 3.0, which is non-commercial.
+# This project never redistributes its text. Only row identifiers and split
+# assignments are published. See DECISIONS_AIM.md entry J.
+licence:
+  primary_data: CC-BY-NC-SA-3.0
+  redistribute_text: false
+
+eval:
+  primary_metric: macro_f1
+  bootstrap: 10000
+  alpha: 0.05
+  correction: holm
