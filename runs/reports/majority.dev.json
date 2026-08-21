@@ -1,0 +1,93 @@
+{
+  "accuracy": 0.618,
+  "by_agreement_tier": {
+    "cumulative": {
+      "50agree": {
+        "macro_f1": 0.2546353522867738,
+        "n": 500
+      },
+      "66agree": {
+        "macro_f1": 0.25781625781625783,
+        "n": 425
+      },
+      "75agree": {
+        "macro_f1": 0.2630952380952381,
+        "n": 339
+      },
+      "allagree": {
+        "macro_f1": 0.25905797101449274,
+        "n": 225
+      }
+    },
+    "exact": {
+      "50": {
+        "macro_f1": 0.23563218390804597,
+        "n": 75
+      },
+      "66": {
+        "macro_f1": 0.23558897243107768,
+        "n": 86
+      },
+      "75": {
+        "macro_f1": 0.27083333333333337,
+        "n": 114
+      },
+      "all": {
+        "macro_f1": 0.25905797101449274,
+        "n": 225
+      }
+    }
+  },
+  "confusion": {
+    "negative": {
+      "negative": 0,
+      "neutral": 66,
+      "positive": 0
+    },
+    "neutral": {
+      "negative": 0,
+      "neutral": 309,
+      "positive": 0
+    },
+    "positive": {
+      "negative": 0,
+      "neutral": 125,
+      "positive": 0
+    }
+  },
+  "evidence_grade": "supported",
+  "macro_f1": {
+    "ci95": [
+      0.24311732316814907,
+      0.26506024096385544
+    ],
+    "method": "bootstrap-10000",
+    "value": 0.2546353522867738
+  },
+  "n": 500,
+  "notes": "",
+  "per_class": {
+    "negative": {
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "support": 66
+    },
+    "neutral": {
+      "f1": 0.7639060568603214,
+      "precision": 0.618,
+      "recall": 1.0,
+      "support": 309
+    },
+    "positive": {
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "support": 125
+    }
+  },
+  "split": "dev",
+  "split_hash": "sha256:3afa1675fe0e500fdd8333c15a602377d3d16b23584becde1f3d605276d21c3f",
+  "system": "majority",
+  "vs": {}
+}

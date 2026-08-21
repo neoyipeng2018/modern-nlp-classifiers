@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,lexicon]" nltk
+      - name: Tests
+        # No network and no GPU here. The data invariant checks run on synthetic
+        # rows, which is what makes them runnable at all. The dataset loaders are
+        # exercised by `finsent build-data`, not by CI.
+        run: python -m pytest tests -q
+      - name: Import check
+        run: python -c "import finsent, finsent.cli; print(finsent.__version__)"

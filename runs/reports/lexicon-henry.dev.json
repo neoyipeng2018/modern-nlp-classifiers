@@ -1,0 +1,93 @@
+{
+  "accuracy": 0.7,
+  "by_agreement_tier": {
+    "cumulative": {
+      "50agree": {
+        "macro_f1": 0.5896157981775749,
+        "n": 500
+      },
+      "66agree": {
+        "macro_f1": 0.6164730535923172,
+        "n": 425
+      },
+      "75agree": {
+        "macro_f1": 0.6320977165540952,
+        "n": 339
+      },
+      "allagree": {
+        "macro_f1": 0.659621127286301,
+        "n": 225
+      }
+    },
+    "exact": {
+      "50": {
+        "macro_f1": 0.3773148148148148,
+        "n": 75
+      },
+      "66": {
+        "macro_f1": 0.5556463202480901,
+        "n": 86
+      },
+      "75": {
+        "macro_f1": 0.5716065230827747,
+        "n": 114
+      },
+      "all": {
+        "macro_f1": 0.659621127286301,
+        "n": 225
+      }
+    }
+  },
+  "confusion": {
+    "negative": {
+      "negative": 23,
+      "neutral": 32,
+      "positive": 11
+    },
+    "neutral": {
+      "negative": 9,
+      "neutral": 270,
+      "positive": 30
+    },
+    "positive": {
+      "negative": 2,
+      "neutral": 66,
+      "positive": 57
+    }
+  },
+  "evidence_grade": "reported",
+  "macro_f1": {
+    "ci95": [
+      0.5331055559813608,
+      0.6437076680330447
+    ],
+    "method": "bootstrap-10000",
+    "value": 0.5896157981775749
+  },
+  "n": 500,
+  "notes": "",
+  "per_class": {
+    "negative": {
+      "f1": 0.4600000000000001,
+      "precision": 0.6764705882352942,
+      "recall": 0.3484848484848485,
+      "support": 66
+    },
+    "neutral": {
+      "f1": 0.7976366322008862,
+      "precision": 0.7336956521739131,
+      "recall": 0.8737864077669902,
+      "support": 309
+    },
+    "positive": {
+      "f1": 0.5112107623318386,
+      "precision": 0.5816326530612245,
+      "recall": 0.456,
+      "support": 125
+    }
+  },
+  "split": "dev",
+  "split_hash": "sha256:3afa1675fe0e500fdd8333c15a602377d3d16b23584becde1f3d605276d21c3f",
+  "system": "lexicon-henry",
+  "vs": {}
+}

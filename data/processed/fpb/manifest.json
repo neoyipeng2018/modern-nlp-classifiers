@@ -1,0 +1,60 @@
+{
+  "hashes": {
+    "dev": "sha256:3afa1675fe0e500fdd8333c15a602377d3d16b23584becde1f3d605276d21c3f",
+    "split_assignments": "sha256:b39a19b1f4fe6aac641dce06dafe78c3ad2b411aad900bdcb74c064357cc3a22",
+    "test": "sha256:e0fbbedd1bf690d9ec5e9f54d503fff14183250be987ab200171a01bff90ecda",
+    "train": "sha256:7b392b45ee8e26df9d6fc6f9627211165dceed01f93cea852d4fa273b5673b1c"
+  },
+  "redistribution": {
+    "labels_published": false,
+    "note": "Source is CC BY-NC-SA. Only row ids and split assignments are published.",
+    "text_published": false
+  },
+  "stats": {
+    "dev": {
+      "agreement_tiers": {
+        "50": 75,
+        "66": 86,
+        "75": 114,
+        "all": 225
+      },
+      "groups": 495,
+      "labels": {
+        "negative": 66,
+        "neutral": 309,
+        "positive": 125
+      },
+      "n": 500
+    },
+    "test": {
+      "agreement_tiers": {
+        "50": 107,
+        "66": 171,
+        "75": 272,
+        "all": 450
+      },
+      "groups": 989,
+      "labels": {
+        "negative": 136,
+        "neutral": 564,
+        "positive": 300
+      },
+      "n": 1000
+    },
+    "train": {
+      "agreement_tiers": {
+        "50": 445,
+        "66": 504,
+        "75": 803,
+        "all": 1584
+      },
+      "groups": 3293,
+      "labels": {
+        "negative": 402,
+        "neutral": 1998,
+        "positive": 936
+      },
+      "n": 3336
+    }
+  }
+}

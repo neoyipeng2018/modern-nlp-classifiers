@@ -1,0 +1,13 @@
+# The benchmark text is CC BY-NC-SA and is never redistributed by this project.
+# Only the manifest and the split assignments are committed. See DECISIONS_AIM.md
+# entry J. Rebuild everything else with: finsent build-data
+data/raw/
+data/interim/
+data/processed/**/*.jsonl
+
+__pycache__/
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+.venv/
