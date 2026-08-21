@@ -80,10 +80,14 @@ def _baselines(config: dict) -> int:
     train = load_split(out_dir / "train.jsonl")
     dev = load_split(out_dir / "dev.jsonl")
 
+    # Every baseline is fitted on train and scored on dev. The lexicon deadband
+    # is one tuned scalar, and tuning it on the rows it is then scored against
+    # would report a number nobody could reproduce on fresh data. Train carries
+    # human labels too, so fitting there costs nothing and keeps dev honest.
     systems = [
         MajorityBaseline().fit(train),
-        LexiconBaseline(load_loughran_mcdonald()).fit(dev),
-        LexiconBaseline(load_henry()).fit(dev),
+        LexiconBaseline(load_loughran_mcdonald()).fit(train),
+        LexiconBaseline(load_henry()).fit(train),
         TfidfBaseline(seed=config["seed"]).fit(train),
     ]
 

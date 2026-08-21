@@ -25,13 +25,14 @@ data invariants without credentials.
 
 ## Where the numbers stand
 
-Development split, 500 rows. The test split has not been opened.
+Development split, 500 rows. Every baseline is fitted on the 3,336-row train
+split and scored on dev. The test split has not been opened.
 
 | System | macro-F1 | 95% interval | accuracy | grade |
 |---|---:|---|---:|---|
 | majority class | 0.2546 | 0.2431 – 0.2651 | 0.6180 | supported |
-| Loughran-McDonald word list | 0.4465 | 0.3967 – 0.4950 | 0.5680 | supported |
-| Henry word list | 0.5896 | 0.5331 – 0.6437 | 0.7000 | reported |
+| Loughran-McDonald word list | 0.4426 | 0.3941 – 0.4907 | 0.5580 | supported |
+| Henry word list | 0.5896 | 0.5349 – 0.6416 | 0.6760 | reported |
 | TF-IDF + logistic regression | 0.7385 | 0.6885 – 0.7848 | 0.7980 | supported |
 
 Two things to read from that table.
@@ -45,6 +46,11 @@ plausible. It is also graded **reported**, not supported, because the Henry list
 in this repository is transcribed from published reproductions and has not been
 checked against the original paper. See the header of
 `src/finsent/lexicons/data/henry_2008.txt`.
+
+Nothing is fitted on the rows it is scored against. That includes the one tuned
+number in the lexicon baselines, the neutral deadband, which comes off the train
+split. Train carries human labels too, so this costs nothing and keeps the dev
+score reproducible on fresh data.
 
 ## What the data build found
 
