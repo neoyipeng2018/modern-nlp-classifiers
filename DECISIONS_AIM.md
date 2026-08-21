@@ -65,3 +65,45 @@ come with it so the failure does not repeat.
   metrics and their citations. Put them in the config, not in prose.
 - A re-run step for every downloadable comparator, starting with `yiyanghkust/finbert-fls`.
 - A row in the write-up naming which comparisons are paired and which are quoted.
+
+---
+
+## C. Data boost becomes Track D
+
+**Augmentation is a first-class data track.** It gets its own `label_source` value, its own
+split, its own provenance fields, and its own row in the data program. This reverses the
+non-goal in `PRODUCT.html` that reads "synthetic data is out of the default plan".
+
+**Three methods get built.**
+
+| Method | What it does | Tasks | Prior evidence |
+|---|---|---|---|
+| Error-targeted paraphrase | Paraphrase the rows the model gets wrong, keep the label | All three | +2.92 accuracy, +7.84 macro-F1 in `learnings.html` |
+| Verbalized Sampling | One call returns several distinct variants with stated probabilities | All three | None. Its gain over plain paraphrase is untested |
+| Counterfactual aspect pairs | One sentence, two aspects, opposite labels | ABSA only | None. It also feeds the Slice 2 multi-aspect diagnostic |
+
+Class-balanced generation is **not** built. It stays on the list of things considered and
+dropped.
+
+**Warning. The error set must not come from the split that picks the model.** `learnings.html`
+records the leak: both augmented sets came from validation errors, and reusing that validation
+set for selection made every validation estimate optimistic. Three rules stop it here.
+
+1. Errors are collected on a training-side fold, never on the development split and never on
+   the validation split used for checkpoint selection.
+2. A paraphrase and its original always land in the same split. The split key is the family,
+   not the row.
+3. A CI check fails the build when a family straddles two splits.
+
+**The experiment that settles it.** One grouped, multi-seed factorial per task, with equal
+sample counts in every arm:
+
+- Arm 1: no augmentation.
+- Arm 2: plain targeted paraphrase.
+- Arm 3: Verbalized Sampling.
+
+Three seeds each. One variable. This is the experiment `learnings.html` already names and
+never ran. Verbalized Sampling must beat plain paraphrase with a confidence interval, or the
+write-up keeps the simpler conclusion that targeted augmentation helps.
+
+**Every model is reported twice more.** With Track D and without it, on the same frozen rows.
