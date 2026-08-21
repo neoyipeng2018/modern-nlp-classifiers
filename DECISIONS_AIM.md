@@ -107,3 +107,19 @@ never ran. Verbalized Sampling must beat plain paraphrase with a confidence inte
 write-up keeps the simpler conclusion that targeted augmentation helps.
 
 **Every model is reported twice more.** With Track D and without it, on the same frozen rows.
+
+---
+
+## D. Domain pretraining
+
+**No domain pretrain run. The gap stays open on purpose.** EDGAR remains a sample pool for the
+labelling run and nothing else. No masked language modelling step enters the plans.
+
+**What this costs, stated plainly.** The bench answers "which general encoder wins on this
+task". It does not answer "which is the best encoder for financial text". Those are different
+questions, and the write-up must say which one it answered. The card cannot claim a finance
+speciality that no step trained for.
+
+**If this is reopened, the scope is already set.** One run, on the bench winner only, against
+the same fine-tune from the public checkpoint. One variable, three seeds. That is the cheapest
+honest test, and it needs a decision-log entry to start.
