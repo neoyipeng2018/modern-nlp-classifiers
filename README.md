@@ -33,6 +33,12 @@ split and scored on dev. The test split has not been opened.
 | majority class | 0.2546 | 0.2431 – 0.2651 | 0.6180 | supported |
 | Loughran-McDonald word list | 0.4426 | 0.3941 – 0.4907 | 0.5580 | supported |
 | Henry word list | 0.5896 | 0.5349 – 0.6416 | 0.6760 | reported |
+
+The two word lists fit nothing. The rule is the sign of positive hits minus
+negative hits, and a tie is neutral. Read them beside their abstention rate:
+Loughran-McDonald is silent on 65% of dev rows and Henry on 66%. Every silent
+row is called neutral, so most of their "neutral" is the absence of a decision
+rather than a decision.
 | TF-IDF + logistic regression | 0.7385 | 0.6885 – 0.7848 | 0.7980 | supported |
 
 Two things to read from that table.
@@ -47,10 +53,14 @@ in this repository is transcribed from published reproductions and has not been
 checked against the original paper. See the header of
 `src/finsent/lexicons/data/henry_2008.txt`.
 
-Nothing is fitted on the rows it is scored against. That includes the one tuned
-number in the lexicon baselines, the neutral deadband, which comes off the train
-split. Train carries human labels too, so this costs nothing and keeps the dev
-score reproducible on fresh data.
+Nothing is fitted on the rows it is scored against. Majority class and TF-IDF
+learn from train; the word lists learn nothing anywhere.
+
+Henry beats Loughran-McDonald by fourteen points, and the word counts explain
+most of it. Loughran-McDonald carries 140 positive stems against 893 negative
+ones, because it was built to catch risk language in 10-K filings. On news it
+over-calls negative and under-calls positive. Henry is balanced at 83 and 72,
+and its predicted class rates track the gold rates closely.
 
 ## What the data build found
 

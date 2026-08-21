@@ -80,14 +80,13 @@ def _baselines(config: dict) -> int:
     train = load_split(out_dir / "train.jsonl")
     dev = load_split(out_dir / "dev.jsonl")
 
-    # Every baseline is fitted on train and scored on dev. The lexicon deadband
-    # is one tuned scalar, and tuning it on the rows it is then scored against
-    # would report a number nobody could reproduce on fresh data. Train carries
-    # human labels too, so fitting there costs nothing and keeps dev honest.
+    # The fitted baselines learn from train and are scored on dev. The lexicon
+    # baselines fit nothing at all: the word lists are published and the rule is
+    # the sign of positive hits minus negative hits.
     systems = [
         MajorityBaseline().fit(train),
-        LexiconBaseline(load_loughran_mcdonald()).fit(train),
-        LexiconBaseline(load_henry()).fit(train),
+        LexiconBaseline(load_loughran_mcdonald()),
+        LexiconBaseline(load_henry()),
         TfidfBaseline(seed=config["seed"]).fit(train),
     ]
 
@@ -109,6 +108,8 @@ def _baselines(config: dict) -> int:
             f"[{block['ci95'][0]:.4f}, {block['ci95'][1]:.4f}]  "
             f"{report.accuracy:6.4f}  {report.evidence_grade}"
         )
+        if isinstance(system, LexiconBaseline):
+            print(f"{'':26s} {'':9s} {'':18s}  silent on {system.abstention_rate(dev):.0%} of rows")
         rows_out.append((system.name, report))
 
         row = registry.start(
