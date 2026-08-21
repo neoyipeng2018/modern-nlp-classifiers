@@ -123,3 +123,59 @@ speciality that no step trained for.
 **If this is reopened, the scope is already set.** One run, on the bench winner only, against
 the same fine-tune from the public checkpoint. One variable, three seeds. That is the cheapest
 honest test, and it needs a decision-log entry to start.
+
+---
+
+## E. Weak supervision widens to five methods
+
+The routed-model pipeline stays exactly as planned. Four methods join it.
+
+| Method | What it buys | Runs on |
+|---|---|---|
+| Distillation from the large model | The small model learns the large model's judgement | Every task |
+| Self-training on EDGAR | Extra training rows for no API money | Every task |
+| Intermediate task fine-tune | Public data the plans list and never use | Every task |
+| Label noise cleaning | The borrowed labels are known to be imperfect | Every task |
+
+**Distillation is now load-bearing, not optional.** Gap A ships a small model and a large model
+for each task. Without distillation the two train the same way from the same rows, and the
+small tier gets nothing from the large tier at all. The order is fixed by that: train large,
+then distil.
+
+**Intermediate task sources.** Financial PhraseBank for ABSA. NumClaim for forward-looking and
+for fact versus opinion. Both are public and both already appear in the plans as candidates
+that nothing uses.
+
+**Warning. The ablation count now exceeds the bench.** One variable per experiment is the rule,
+and there are now nine things to vary over two shipped tiers and three tasks. Run them in this
+order, and stop when the curve flattens.
+
+1. The Track D factorial. Three arms, the largest expected gain.
+2. Distillation. Required by the two-tier release, so it runs whatever the result.
+3. Intermediate fine-tune. Cheapest of the four, no new data to buy.
+4. Self-training. Costs GPU time only.
+5. Label noise cleaning. Smallest expected effect, and it changes the training set for
+   everything above it, so it runs last or first, never in the middle.
+
+Point 5 matters. Cleaning the labels after the other ablations invalidates them. Either clean
+first and run everything on the cleaned set, or clean last and report it as a separate result.
+Pick one before the first ablation starts.
+
+---
+
+## F. Finance lexicon baselines
+
+**Add all of them.** One lexicon runner, the same interface as every other baseline.
+
+- Loughran-McDonald word lists, for the sentiment task.
+- The Henry word list, beside it. The two disagree often enough to be worth both.
+- Forward-looking keyword rules from the accounting literature, for the FLS task.
+- The heuristic labelling functions, scored on the test split as baselines in their own right.
+  They already exist in the design and nothing scores them. That measurement is free.
+
+**Why this matters more than its cost.** It runs on a laptop, and it sets the floor a finance
+reader looks for first. An encoder result with no word-list number beside it invites the
+question the whole release is meant to answer.
+
+**It is also the first number this repository can print.** It needs no GPU, no labelling spend
+and no open decision. See gap K.
