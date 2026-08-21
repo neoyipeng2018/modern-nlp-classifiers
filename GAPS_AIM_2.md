@@ -22,6 +22,20 @@ The four HTML plan documents are older than those decisions. They still describe
 three tasks, an aspect input and a passage builder. `DECISIONS_AIM.md` entry L
 orders one new document. Nobody wrote it.
 
+## What the 21 August plan rewrite closed
+
+The owner answered gaps 1, 2 and 5 on 21 August 2026, and the four HTML plan
+documents were rewritten to match. Gap 10 closed with them.
+
+| # | Gap | What was decided |
+|---|---|---|
+| 1 | Aspect based sentiment | Put back. It is the whole task now. Plain sentence sentiment is the null-target case, so vanilla comes free. |
+| 2 | The medium model | Two tiers ship, small and large. The medium tier stays in the bench as points on the size curve and leaves the corrected test family, which buys statistical power. |
+| 5 | The frontier baseline | `gpt-5.6-sol` at medium reasoning effort. It was already pinned in the plans. It is now in `configs/base.yaml` as well, so it is a value and not prose. The cost table is specified. |
+| 10 | The stale plan documents | All four rewritten. `assets/src` and `assets/build.py` were deleted, because the fragments were older than the root files and the build would have overwritten the newer text. |
+
+The other thirteen gaps stay open and the text below is unchanged.
+
 ## Summary
 
 Seventeen gaps. Gap 1 to gap 5 change the shape of the project. Gap 6 to gap 12

@@ -1,6 +1,8 @@
-/* Shared design system for the ModernFin Triad planning documents.
-   Inlined into each generated HTML file by assets/build.py so every
-   document stays a single self-contained file. Derived from learnings.html. */
+/* Shared design system for the finsent planning documents.
+   Each HTML document at the repository root inlines a copy of this file, so
+   every document stays a single self-contained file. This file is the reference
+   copy: change it here, then paste the change into the four documents. There is
+   no build step any more. Derived from learnings.html. */
 
 :root {
   color-scheme: light;

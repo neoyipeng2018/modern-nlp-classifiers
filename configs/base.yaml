@@ -26,3 +26,21 @@ eval:
   bootstrap: 10000
   alpha: 0.05
   correction: holm
+
+# The task is aspect-conditioned. Every row is a text and a target. A row with no
+# target carries the literal below, so plain sentence sentiment is the null-target
+# case of the same task and not a second code path. See PRODUCT.html#input.
+task_input:
+  format: pair          # segment A is the text, segment B is the target
+  null_target: overall  # never an empty string: it would change the input shape
+
+# The frontier baseline. One model, one version, one effort setting. The effort
+# is part of the pin, not a tuning knob, because it changes the answers and the
+# bill. It writes no labels: it is scored against the human key like any other
+# system. Reasoning tokens are billed and are counted in the cost table.
+baselines:
+  frontier:
+    model: gpt-5.6-sol
+    effort: medium
+    prompts: [zero_shot, few_shot]   # few-shot examples come from train only
+    cache_dir: runs/cache/gpt-5.6-sol
