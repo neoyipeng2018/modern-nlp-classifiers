@@ -312,3 +312,77 @@ Two things follow, and they are not optional.
 2. The write-up leads with the tie if there is one. "The backbone did not matter at this data
    scale, so pick on cost" is a useful result for a reader, and it is the honest reading of a
    corrected flat bench.
+
+---
+
+## J. Licences
+
+**Weights and code go out permissively. The card names the non-commercial source.** Financial
+PhraseBank is CC-BY-NC-SA-3.0. The position taken here is that trained weights are not a
+derivative work of the training text, so the share-alike term does not reach them.
+
+**This is a position, not a settled question, and it is your call rather than an agent's.** The
+plans already reserve licence calls for a person, and this entry records the choice rather than
+resolving the law. Three things reduce the exposure and all three are required.
+
+1. **Redistribute no Financial PhraseBank text.** Publish row identifiers and split assignments,
+   and link to `takala/financial_phrasebank`. Never mirror the sentences.
+2. **Name the source and its licence in the model card**, in the card itself and not behind a
+   link, with a plain sentence saying the training data included a non-commercial set.
+3. **Take advice before the first upload if any downstream commercial use is expected.** Nothing
+   before the upload step is blocked by this.
+
+**The other two open items.** The fact-versus-opinion fork is closed by deletion; the task no
+longer exists. The `FinanceMTEB/FLS` licence question is moot for the same reason. The labelling
+budget stays open and still gates the first router spend.
+
+---
+
+## K. What gets built first
+
+**Three steps, in order. None needs money and none needs an open decision.**
+
+1. **Skeleton.** Package layout, YAML config loading with inheritance, config hashing, the
+   append-only run registry, and CI running the data invariant checks.
+2. **Data.** Load Financial PhraseBank and FiQA. Deduplicate on full text. Cut one test split
+   from the 50%-agreement superset, record each row's agreement tier, and freeze and hash it.
+   Cut the development split. Count the FiQA rows whose aspects disagree.
+3. **Lexicon baselines.** Loughran-McDonald and Henry runners, plus TF-IDF with logistic
+   regression, all through one harness interface.
+
+**This ends with a real published number and nothing spent.** The lexicon score is the floor
+every later result is read against.
+
+---
+
+## L. The plan documents get rewritten as one
+
+**One task needs one document.** The four exist because the project had three tasks, four
+slices and a length ladder. All three of those reasons are gone.
+
+The new document keeps what still applies: the operating principles, the evidence grades, the
+registry discipline, the gates that can still fail, the risk register entries that survive, and
+the decision log. It drops the three-task structure, the slice structure, the length ladder, the
+passage machinery and the aspect work.
+
+`learnings.html` is not touched. It is the record of the previous project and it stays as
+written. `REVIEW.md` and `REVIEW_AIM.md` stay as the review record. This file stays as the
+decision record.
+
+---
+
+## M. Small items, all four adopted
+
+| Item | Why | Cost |
+|---|---|---|
+| Seed ensemble | Average the three seeds already trained per configuration | Nothing. The runs exist |
+| Temperature scaling | One scalar on the development split. The report card has an `ece` field and nothing fills it | One scalar |
+| Head and pooling comparison | CLS against mean pooling. Encoders differ, so decide before the bench recipe locks | One config line, one run per candidate |
+| Error analysis step | Reads the confusion matrix and pulls the worst rows for a person to look at | An afternoon, and it feeds Track D |
+
+**The error analysis step is not a small item any more.** Track D's first method is
+error-targeted paraphrase, so the step that finds the errors is upstream of the project's
+largest expected gain. Build it with the harness, not after it.
+
+**Dropped.** The FiQA regression head. FiQA carries a continuous score, but it is the secondary
+out-of-domain set now, so a separate head for it is not worth the second code path.
