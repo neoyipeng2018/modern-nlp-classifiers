@@ -235,3 +235,80 @@ release exists to answer.
 
 **It is also the first number this repository can print.** No GPU, no labelling spend, no open
 decision. See entry K.
+
+---
+
+## G. Benchmarks, and the Financial PhraseBank subsets
+
+**Primary: `takala/financial_phrasebank`. Secondary: `pauri32/fiqa-2018`.** A model that wins on
+both is the one this project calls best. FiQA is news and social text against FPB's news
+sentences, so it doubles as the out-of-domain read the release checklist promises.
+
+**All four agreement subsets are reported.** 50%, 66%, 75% and all-agree. One table, four rows.
+It shows how the score tracks annotator agreement, which is the closest thing this task has to a
+human ceiling.
+
+**Warning. The four subsets are nested, so they cannot each have their own test split.** Every
+all-agree row is also a 50%-agree row. Cutting four independent test splits is impossible, and
+cutting four overlapping ones leaks. One rule fixes it:
+
+1. Cut **one** test split from the 50%-agree superset, and freeze it.
+2. Record the agreement tier of every row in that split.
+3. Report macro-F1 on the whole split, then as a breakdown by tier.
+
+That gives four comparable numbers from one frozen set, with no leakage and no re-splitting.
+The all-agree number stays comparable to MTEB, which benchmarks on that subset at 2,264 rows.
+
+**Warning. FiQA labels are aspect-conditioned.** A sentence-level model cannot be scored
+honestly on a row whose two aspects carry opposite polarity. Count those rows before adopting
+the set. Drop them and say how many, or report them on a separate line. Do not average them
+away.
+
+---
+
+## H. The bench pick reads human labels, through grouped k-fold
+
+**Five-fold grouped cross-validation over the human rows that are not in the test split.** Every
+human row is used for training and for picking, at different times. The frozen test split is
+never opened for the bench.
+
+This removes the fault outright. The old plan picked the backbone on validation rows carrying
+router labels, which is the same machine-written-key problem the project removed from its
+headline.
+
+**Warning. Financial PhraseBank ships no document identifier, so "grouped" has no natural key.**
+The sentences come from news articles and the article is not recorded. Without a key, grouped
+k-fold is plain k-fold wearing a different name. Two keys are available and both are used:
+
+1. **Paraphrase family.** Required by Track D. An original and every variant of it share one
+   fold. This is the key that matters most, because it is the leak `learnings.html` recorded.
+2. **Near-duplicate cluster.** Computed on full text before folding. FPB repeats boilerplate
+   phrasings across sentences, so this catches what the missing article id would have caught.
+
+The model card must state that article-level grouping was not possible, rather than implying a
+grouped split that never happened.
+
+**Cost.** Eleven checkpoints, three seeds, five folds. 165 short runs, against 33 for the plain
+version. Price it at the smoke check before committing.
+
+---
+
+## I. Holm correction across the bench
+
+**Every candidate is tested against the incumbent leader, and the family of eleven tests is
+Holm-adjusted.** The rule goes into the config before the bench runs, not after the table is
+read.
+
+**Warning. This makes a declared tie the likely outcome, and that is accepted.** Holm plus
+eleven candidates plus modern encoders of similar size on one classification task points one
+way: no separation. The plans already treat a flat bench as a finding rather than a failure, and
+the tie-break rule already exists — the cheaper checkpoint ships and the card says the pick was
+made on cost.
+
+Two things follow, and they are not optional.
+
+1. Do not add seeds hunting for a separation the correction removed. The plans forbid it
+   already. With 165 runs the temptation is larger, because the marginal run looks cheap.
+2. The write-up leads with the tie if there is one. "The backbone did not matter at this data
+   scale, so pick on cost" is a useful result for a reader, and it is the honest reading of a
+   corrected flat bench.
