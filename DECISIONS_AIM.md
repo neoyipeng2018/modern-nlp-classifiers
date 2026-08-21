@@ -34,3 +34,34 @@ accuracy-against-size curve.
 2. The decision-log row "Model size" is replaced by the table above.
 3. The bench roster goes to eleven checkpoints in `ARCHITECTURE.html` and `VERTICAL_SLICES.html`.
 4. Every task needs two released models, so the release checklist runs twice per task.
+
+---
+
+## B. State of the art
+
+**State of the art means the best published number on the same benchmark.** The target is to
+beat the highest score anyone published on FLS, on FiQA 2018 Task 1, and on the fact-versus-
+opinion set. This replaces the rule in `PRODUCT.html` that makes beating published work "not a
+gate", and the rule in `PROGRAM_DESIGN.html` that bans the words from the write-up.
+
+**Published numbers go in the tables, with a protocol note beside each one.** Every results
+table gains two columns: the published score, and a plain statement of how that protocol
+differed from this one.
+
+**Warning. This is the exact comparison that forced the last retraction.** The previous project
+compared across protocols and had to withdraw the numbers. The decision stands, and three rules
+come with it so the failure does not repeat.
+
+1. Every quoted number carries its protocol difference in the same row. A number with no note
+   is not publishable.
+2. Where the other system is downloadable, re-run it on this project's split instead of quoting
+   it. A re-run is a paired comparison. A quote is not.
+3. A quoted number is graded **Reported**, never **Supported**. Only a number this project
+   measured on its own frozen split can carry the headline.
+
+**New work this creates.**
+
+- A survey step per task, before the bench: collect the published scores, their splits, their
+  metrics and their citations. Put them in the config, not in prose.
+- A re-run step for every downloadable comparator, starting with `yiyanghkust/finbert-fls`.
+- A row in the write-up naming which comparisons are paired and which are quoted.
