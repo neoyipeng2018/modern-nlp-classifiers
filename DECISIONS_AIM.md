@@ -1,17 +1,70 @@
 # Decisions taken against the aim review
 
-One entry per gap in `REVIEW_AIM.md`. Written as the decisions were made, 21 August 2026.
-Each entry gives the choice and the reason. An entry here is the authority. When a plan
-document disagrees with an entry here, the plan document is wrong and gets edited.
+One entry per gap in `REVIEW_AIM.md`, plus the scope change that came out of the walk-through.
+Written 21 August 2026.
+
+An entry here is the authority. When a plan document disagrees with an entry here, the plan
+document is wrong and gets edited.
+
+---
+
+## SCOPE CHANGE — one task, not three
+
+**The project drops forward-looking detection and fact versus opinion. It builds a financial
+sentiment classifier and nothing else.**
+
+Why the change happened. The walk-through reached the fact-versus-opinion fork and looked at
+real rows from the candidate benchmark. `gtfintechlab/Numclaim` splits on **time**, not on
+**checkability**, so it is a second forward-looking set and not a fact-versus-opinion set at
+all. One row settles it:
+
+> "reasons to buy: dte energy's share price gained 17.7% in the last one year, outperforming
+> the zacks categorized utility-electric power industry's 0.8% gain, **backed by its focus on
+> improving its cost structure**" → labelled `OUTOFCLAIM`
+
+That is a causal, evaluative analyst judgement. The codebook in `PRODUCT.html` calls it opinion
+outright. NumClaim calls it out-of-claim because it describes the past. With NumClaim adopted,
+tasks 1 and 3 would both split on time, and the thesis of three independent labels would not
+survive its own overlap analysis.
+
+Rather than resolve the fork, the scope narrowed. Simpler is the point.
+
+### What the project is now
+
+| | |
+|---|---|
+| **Task** | Sentence-level financial sentiment. Three classes: positive, negative, neutral. |
+| **Input** | One sentence. No aspect. No target span. No passage. |
+| **Primary benchmark** | `takala/financial_phrasebank`. 4,840 sentences, agreement tiers, financial news. |
+| **Secondary benchmark** | `pauri32/fiqa-2018`. 1,213 rows, tweets and headlines. The out-of-domain read. |
+| **Models shipped** | Two. One small, one large. See entry A. |
+| **Best means** | Wins on both benchmarks, not one. |
+
+### What this deletes from the plans
+
+- Forward-looking detection, its codebook, its three classes and its whole slice.
+- Fact versus opinion, its codebook, the fork, FinArg and NumClaim.
+- `FinanceMTEB/FLS` entirely.
+- The aspect input, the FiQA aspect taxonomy, the score mapping decision and the multi-aspect
+  diagnostic.
+- The target span, the marker tokens, the passage builder and the trimming rules.
+- Slices 1, 3 and most of 2. Four slices become one.
+- The name. "ModernFin Triad" describes a thing that no longer exists.
+
+### Warning, and it needs a decision before Slice 1
+
+FiQA's labels are **aspect-conditioned**. A sentence-level model cannot be scored honestly on a
+row whose two aspects carry opposite polarity, because there is no single right answer for the
+sentence. Before adopting FiQA as the secondary set, count those rows. Drop them and say how
+many, or report them as a separate line. Do not average them away.
 
 ---
 
 ## A. Size tiers and the bench roster
 
-**Ship six models, not nine and not three.** Small and large, for each of the three tasks.
-The medium tier still runs in the bench, and its numbers are published, but no medium model
-ships. Most callers want the cheapest model or the best one. The middle tier rarely wins on
-either count.
+**Ship two models: one small, one large.** Originally six, over three tasks. With one task it is
+two. The medium tier still runs in the bench and its numbers are published, but nothing ships
+from it. Most callers want the cheapest model or the best one.
 
 **Tier limits, by parameter count.**
 
@@ -23,71 +76,71 @@ either count.
 
 The limits follow the real gaps in the roster. No boundary sits on top of a checkpoint.
 
-**Add both missing Ettin sizes.** `jhu-clsp/ettin-encoder-17m` and `jhu-clsp/ettin-encoder-1b`
-join the bench. The roster goes from nine checkpoints to eleven. At three seeds that is six
-more short runs. Ettin then gives six sizes on one recipe, so the bench prints one clean
-accuracy-against-size curve.
+**Eleven checkpoints in the bench.** `jhu-clsp/ettin-encoder-17m` and `jhu-clsp/ettin-encoder-1b`
+join the nine already planned. At three seeds that is 33 runs. Ettin then gives six sizes on one
+recipe, so the bench prints one clean accuracy-against-size curve.
 
-**What this changes in the plans.**
-
-1. `PRODUCT.html` "three small encoders" becomes six models over two tiers.
-2. The decision-log row "Model size" is replaced by the table above.
-3. The bench roster goes to eleven checkpoints in `ARCHITECTURE.html` and `VERTICAL_SLICES.html`.
-4. Every task needs two released models, so the release checklist runs twice per task.
+**One thing the narrowing makes easier.** The bench ran on one task before and the other two
+inherited the winner. There is only one task now, so that inheritance rule and its re-open
+condition both disappear.
 
 ---
 
 ## B. State of the art
 
-**State of the art means the best published number on the same benchmark.** The target is to
-beat the highest score anyone published on FLS, on FiQA 2018 Task 1, and on the fact-versus-
-opinion set. This replaces the rule in `PRODUCT.html` that makes beating published work "not a
-gate", and the rule in `PROGRAM_DESIGN.html` that bans the words from the write-up.
+**State of the art means the best published number on the same benchmark.** Financial
+PhraseBank is heavily published, so this is a real and checkable target. It replaces the rule in
+`PRODUCT.html` that makes beating published work "not a gate", and the rule in
+`PROGRAM_DESIGN.html` that bans the words from the write-up.
 
-**Published numbers go in the tables, with a protocol note beside each one.** Every results
-table gains two columns: the published score, and a plain statement of how that protocol
-differed from this one.
+**Published numbers go in the tables, with a protocol note beside each one.**
 
-**Warning. This is the exact comparison that forced the last retraction.** The previous project
-compared across protocols and had to withdraw the numbers. The decision stands, and three rules
-come with it so the failure does not repeat.
+**Warning. This is the exact comparison that forced the last retraction.** Three rules come with
+the decision.
 
 1. Every quoted number carries its protocol difference in the same row. A number with no note
    is not publishable.
 2. Where the other system is downloadable, re-run it on this project's split instead of quoting
-   it. A re-run is a paired comparison. A quote is not.
-3. A quoted number is graded **Reported**, never **Supported**. Only a number this project
-   measured on its own frozen split can carry the headline.
+   it. A re-run is paired. A quote is not.
+3. A quoted number is graded **Reported**, never **Supported**.
+
+**Financial PhraseBank makes rule 2 easy and rule 1 essential.** `ProsusAI/finbert` and
+`yiyanghkust/finbert-tone` are both downloadable and both were built for this exact task, so
+they get re-run rather than quoted. But published FPB numbers come from several different
+agreement subsets — 50%, 66%, 75% and all-agree — and from different splits. A score on the
+all-agree subset is not comparable to a score on the 50% subset. Record the subset in every row.
 
 **New work this creates.**
 
-- A survey step per task, before the bench: collect the published scores, their splits, their
-  metrics and their citations. Put them in the config, not in prose.
-- A re-run step for every downloadable comparator, starting with `yiyanghkust/finbert-fls`.
-- A row in the write-up naming which comparisons are paired and which are quoted.
+- A survey step before the bench: collect published FPB and FiQA scores, their subsets, their
+  splits, their metrics and their citations. Put them in the config, not in prose.
+- A re-run step for `ProsusAI/finbert` and `yiyanghkust/finbert-tone` on this project's split.
 
 ---
 
 ## C. Data boost becomes Track D
 
-**Augmentation is a first-class data track.** It gets its own `label_source` value, its own
-split, its own provenance fields, and its own row in the data program. This reverses the
-non-goal in `PRODUCT.html` that reads "synthetic data is out of the default plan".
+**Augmentation is a first-class data track**, with its own `label_source` value, its own split
+and its own provenance. This reverses the non-goal in `PRODUCT.html`.
 
-**Three methods get built.**
+**Two methods get built.** The third, counterfactual aspect pairs, is dropped with the aspect
+input.
 
-| Method | What it does | Tasks | Prior evidence |
-|---|---|---|---|
-| Error-targeted paraphrase | Paraphrase the rows the model gets wrong, keep the label | All three | +2.92 accuracy, +7.84 macro-F1 in `learnings.html` |
-| Verbalized Sampling | One call returns several distinct variants with stated probabilities | All three | None. Its gain over plain paraphrase is untested |
-| Counterfactual aspect pairs | One sentence, two aspects, opposite labels | ABSA only | None. It also feeds the Slice 2 multi-aspect diagnostic |
+| Method | What it does | Prior evidence |
+|---|---|---|
+| Error-targeted paraphrase | Paraphrase the rows the model gets wrong, keep the label | +2.92 accuracy, +7.84 macro-F1 in `learnings.html` |
+| Verbalized Sampling | One call returns several distinct variants with stated probabilities | None. Its gain over plain paraphrase is untested |
 
-Class-balanced generation is **not** built. It stays on the list of things considered and
-dropped.
+Class-balanced generation was considered and dropped.
+
+**Track D is now the largest single lever in the project.** Domain pretraining is out, the
+aspect work is out, and two of three tasks are out. What remains is a bench, a set of weak
+labels, and this. The prior numbers came from this exact task on this exact dataset, so they
+transfer directly rather than by analogy.
 
 **Warning. The error set must not come from the split that picks the model.** `learnings.html`
 records the leak: both augmented sets came from validation errors, and reusing that validation
-set for selection made every validation estimate optimistic. Three rules stop it here.
+set for selection made every validation estimate optimistic. Three rules stop it.
 
 1. Errors are collected on a training-side fold, never on the development split and never on
    the validation split used for checkpoint selection.
@@ -95,71 +148,72 @@ set for selection made every validation estimate optimistic. Three rules stop it
    not the row.
 3. A CI check fails the build when a family straddles two splits.
 
-**The experiment that settles it.** One grouped, multi-seed factorial per task, with equal
-sample counts in every arm:
+**The experiment that settles it.** One grouped, multi-seed factorial with equal sample counts:
 
 - Arm 1: no augmentation.
 - Arm 2: plain targeted paraphrase.
 - Arm 3: Verbalized Sampling.
 
-Three seeds each. One variable. This is the experiment `learnings.html` already names and
-never ran. Verbalized Sampling must beat plain paraphrase with a confidence interval, or the
-write-up keeps the simpler conclusion that targeted augmentation helps.
+Three seeds each. One variable. `learnings.html` already names this experiment and never ran it.
+Verbalized Sampling must beat plain paraphrase with a confidence interval, or the write-up keeps
+the simpler conclusion that targeted augmentation helps.
 
-**Every model is reported twice more.** With Track D and without it, on the same frozen rows.
+**Every model is reported twice.** With Track D and without it, on the same frozen rows.
 
 ---
 
 ## D. Domain pretraining
 
-**No domain pretrain run. The gap stays open on purpose.** EDGAR remains a sample pool for the
-labelling run and nothing else. No masked language modelling step enters the plans.
+**No domain pretrain run. The gap stays open on purpose.** No masked language modelling step
+enters the plans.
 
 **What this costs, stated plainly.** The bench answers "which general encoder wins on this
-task". It does not answer "which is the best encoder for financial text". Those are different
-questions, and the write-up must say which one it answered. The card cannot claim a finance
-speciality that no step trained for.
+task". It does not answer "which is the best encoder for financial text". The write-up must say
+which one it answered, and the card cannot claim a finance speciality that no step trained for.
 
-**If this is reopened, the scope is already set.** One run, on the bench winner only, against
-the same fine-tune from the public checkpoint. One variable, three seeds. That is the cheapest
-honest test, and it needs a decision-log entry to start.
+**The narrowing sharpens this.** `ProsusAI/finbert` and `yiyanghkust/finbert-tone` are both
+domain-pretrained models on this exact task. They are now baselines under entry B. If a
+domain-pretrained BERT beats every general encoder in the bench, that is the answer to the
+question this entry declined to ask, and it arrives for free.
+
+**If reopened, the scope is set.** One run, on the bench winner only, against the same
+fine-tune from the public checkpoint. One variable, three seeds. It needs a decision-log entry.
 
 ---
 
 ## E. Weak supervision widens to five methods
 
-The routed-model pipeline stays exactly as planned. Four methods join it.
+The routed-model pipeline stays as planned. Four methods join it.
 
-| Method | What it buys | Runs on |
-|---|---|---|
-| Distillation from the large model | The small model learns the large model's judgement | Every task |
-| Self-training on EDGAR | Extra training rows for no API money | Every task |
-| Intermediate task fine-tune | Public data the plans list and never use | Every task |
-| Label noise cleaning | The borrowed labels are known to be imperfect | Every task |
+| Method | What it buys |
+|---|---|
+| Distillation from the large model | The small model learns the large model's judgement |
+| Self-training on unlabelled financial news | Extra training rows for no API money |
+| Intermediate task fine-tune | Public data the plans list and never use |
+| Label noise cleaning | The borrowed labels are known to be imperfect |
 
-**Distillation is now load-bearing, not optional.** Gap A ships a small model and a large model
-for each task. Without distillation the two train the same way from the same rows, and the
-small tier gets nothing from the large tier at all. The order is fixed by that: train large,
-then distil.
+**Distillation is load-bearing, not optional.** Entry A ships a small model and a large model.
+Without distillation the two train the same way from the same rows, and the small tier gets
+nothing from the large tier. The order is fixed by that: train large, then distil.
 
-**Intermediate task sources.** Financial PhraseBank for ABSA. NumClaim for forward-looking and
-for fact versus opinion. Both are public and both already appear in the plans as candidates
-that nothing uses.
+**Intermediate task source.** FiQA, SemEval-2017 Task 5, or the FPB 50%-agreement subset used to
+warm up a model that then trains on the all-agree subset. The last of these is free and is the
+obvious first try.
 
-**Warning. The ablation count now exceeds the bench.** One variable per experiment is the rule,
-and there are now nine things to vary over two shipped tiers and three tasks. Run them in this
-order, and stop when the curve flattens.
+**Self-training corpus.** Financial news sentences, not EDGAR. EDGAR is filing prose and this
+task is news sentiment. The corpus has to match the task, and the narrowing changed which
+corpus that is.
+
+**Warning. The ablation count exceeds the bench.** One variable per experiment is the rule.
+Run them in this order and stop when the curve flattens.
 
 1. The Track D factorial. Three arms, the largest expected gain.
 2. Distillation. Required by the two-tier release, so it runs whatever the result.
-3. Intermediate fine-tune. Cheapest of the four, no new data to buy.
-4. Self-training. Costs GPU time only.
-5. Label noise cleaning. Smallest expected effect, and it changes the training set for
-   everything above it, so it runs last or first, never in the middle.
-
-Point 5 matters. Cleaning the labels after the other ablations invalidates them. Either clean
-first and run everything on the cleaned set, or clean last and report it as a separate result.
-Pick one before the first ablation starts.
+3. Intermediate fine-tune. Cheapest, no new data to buy.
+4. Self-training. GPU time only.
+5. Label noise cleaning. **Fix its position before the first ablation starts.** It changes the
+   training set under everything above it, so it runs first or last, never in the middle.
+   Cleaning after the other ablations invalidates them.
 
 ---
 
@@ -167,15 +221,17 @@ Pick one before the first ablation starts.
 
 **Add all of them.** One lexicon runner, the same interface as every other baseline.
 
-- Loughran-McDonald word lists, for the sentiment task.
-- The Henry word list, beside it. The two disagree often enough to be worth both.
-- Forward-looking keyword rules from the accounting literature, for the FLS task.
+- Loughran-McDonald word lists. The standard finance sentiment dictionary.
+- The Henry word list. The two disagree often enough to be worth both.
 - The heuristic labelling functions, scored on the test split as baselines in their own right.
   They already exist in the design and nothing scores them. That measurement is free.
 
-**Why this matters more than its cost.** It runs on a laptop, and it sets the floor a finance
-reader looks for first. An encoder result with no word-list number beside it invites the
-question the whole release is meant to answer.
+Forward-looking keyword rules are dropped with the forward-looking task.
 
-**It is also the first number this repository can print.** It needs no GPU, no labelling spend
-and no open decision. See gap K.
+**The narrowing raises the stakes here.** Loughran-McDonald is *the* baseline for financial
+sentiment. It is not an optional extra on this task, it is the number every reader checks
+first. An encoder result with no word-list score beside it invites exactly the question the
+release exists to answer.
+
+**It is also the first number this repository can print.** No GPU, no labelling spend, no open
+decision. See entry K.
