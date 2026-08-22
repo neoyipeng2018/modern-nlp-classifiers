@@ -748,7 +748,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <div class="slice-head"><div><h3 style="margin:0">Phase 2 &middot; The aspect task</h3></div><span class="status compromised">Next</span></div>
             <p>Load the aspect sources, write the mapping into the three classes, build the pair input,
               cut the aspect splits on the sentence key, and add the aspect baselines. It ends with the
-              multi-target count, which is the size of the effect this project claims.</p>
+              multi-target count and the correctness-based metric suite that the aspect claim needs.</p>
           </article>
           <article class="card">
             <div class="slice-head"><div><h3 style="margin:0">Phase 3 &middot; The small pipeline</h3></div><span class="status notrun">Priced, not run</span></div>
@@ -1105,9 +1105,16 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             cells. Mean macro-F1 and then inference cost only break ties between eligible candidates.</li>
           <li><strong>Reported by task variant:</strong> null-target rows and target-conditioned rows.
             These summaries do not replace the three selection cells.</li>
-          <li><strong>Multi-target discrimination.</strong> On sentences with two or more targets carrying
-            different gold labels, the share where the model predicts different labels for those targets.
-            This is the number that tests the thesis.</li>
+          <li><strong>Contrast-pair accuracy.</strong> For each target pair whose gold labels differ,
+            score one only when both predicted labels are correct. This is the correctness measure for
+            the aspect claim.</li>
+          <li><strong>Target-hidden gain.</strong> Score the same checkpoint after segment B is replaced
+            with <code>overall</code>. The paired 95% interval for the contrast-pair gain must stay above
+            zero.</li>
+          <li><strong>Target sensitivity.</strong> Report the share of unequal-gold pairs that receive
+            different predictions. This is diagnostic only because wrong predictions can differ.</li>
+          <li><strong>Document exact match.</strong> Report the share of multi-target documents where
+            every annotated target label is correct. This is the strict secondary metric.</li>
           <li><strong>By agreement tier.</strong> Macro-F1 on the whole Financial PhraseBank split, then
             broken down by 50%, 66%, 75% and all-agree. It shows how the score tracks annotator
             agreement, which is the closest thing this task has to a human ceiling.</li>
@@ -1157,10 +1164,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <tbody>
               <tr><td>1</td><td><strong>Benchmark admissible</strong></td><td>A source's licence forbids the use, or its labels cannot be mapped into the codebook at an acceptable disagreement rate</td><td>Drop the source and say so. Do not quietly re-map it</td></tr>
               <tr><td>2</td><td><strong>Splits sound</strong></td><td>A sentence, a near-duplicate cluster or a paraphrase family straddles two splits</td><td>CI fails the build. Fix the key, re-cut, re-hash</td></tr>
-              <tr><td>3</td><td><strong>Aspect worth having</strong></td><td>The multi-target count is too small to measure, or the model gives one answer per sentence anyway</td><td>The aspect input is not earning its cost. Report it and reconsider the scope</td></tr>
+              <tr><td>3</td><td><strong>Aspect worth having</strong></td><td>The proof set is too small, or the paired 95% interval for contrast-pair accuracy against the target-hidden control crosses zero</td><td>The aspect input is not earning its cost. Report target sensitivity as diagnostic and reconsider the input</td></tr>
               <tr><td>4</td><td><strong>Bench powered</strong></td><td>The minimum detectable effect is larger than the gaps in the published literature</td><td>Grow the split, or cut the family, or state up front that the bench measures a tie</td></tr>
               <tr><td>5</td><td><strong>Unified winner exists</strong></td><td>No candidate ranks first or ties for first on all three cells, or the eligible candidate does not clear the lexical hybrid and TF-IDF</td><td>Record no winner for that tier. Continue development and do not force a release</td></tr>
-              <tr><td>6</td><td><strong>Success bar met</strong></td><td>Any of the six conditions in the definition of done is false on the frozen split</td><td>Publish the failure. Do not re-open the split to look for a better cut</td></tr>
+              <tr><td>6</td><td><strong>Success bar met</strong></td><td>Any of the seven conditions in the definition of done is false on the frozen split</td><td>Publish the failure. Do not re-open the split to look for a better cut</td></tr>
               <tr><td>7</td><td><strong>Release clean</strong></td><td>A licence question is open, or an artefact on the release checklist is missing</td><td>Hold the upload. Licence calls are the owner's, not an agent's</td></tr>
             </tbody>
           </table>
@@ -1210,7 +1217,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 
         <ol class="compact-list">
           <li><strong>The claim.</strong> Aspect-based sentiment with a target input, where plain
-            sentence sentiment is the null-target case, and the multi-target number that tests it.</li>
+            sentence sentiment is the null-target case. Contrast-pair accuracy and its gain over the
+            target-hidden control test whether the target improves correct predictions.</li>
           <li><strong>The floor.</strong> Word lists, their abstention rates, the hybrid and TF-IDF.
             Every reader checks Loughran-McDonald first.</li>
           <li><strong>The bench.</strong> Accuracy against size across six Ettin sizes on one recipe,

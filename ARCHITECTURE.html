@@ -824,8 +824,10 @@ runs/
             <code>selection.cells</code> is <code>fpb, fiqa, finentity</code>.
             <code>selection.rule</code> is <code>first_or_tied_in_every_cell</code>.
             <code>selection.tie_break</code> is <code>mean_macro_f1, inference_cost</code>.
-            <code>pipeline.first_tier</code> is <code>small</code>. These values are decisions, so the
-            settings hash must cover them.</p>
+            <code>pipeline.first_tier</code> is <code>small</code>.
+            <code>eval.aspect_correctness</code> is <code>contrast_pair_accuracy</code>.
+            <code>eval.aspect_control</code> is <code>target_hidden</code>. These values are decisions,
+            so the settings hash must cover them.</p>
         </div>
 
         <p><strong>One override flag, and it is hashed.</strong> <code>--set a.b=value</code> folds a
@@ -1045,15 +1047,19 @@ runs/
     reads_target: bool                       # new. Recorded in the report
     def predict(self, rows: list[Row]) -&gt; list[str]: ...</code></pre>
         <p class="small muted">
-          <code>reads_target = False</code> is allowed and it is informative. A sentence-level baseline
-          that ignores segment B scores zero on multi-target discrimination by construction, and that
-          zero is the comparison the thesis rests on.
+          <code>reads_target = False</code> is allowed and it is informative. The matched target-hidden
+          control uses the same trained checkpoint and the same texts. It replaces segment B with
+          <code>overall</code>. The report compares its contrast-pair accuracy with the normal prediction
+          through a paired interval.
         </p>
+
+        <pre><code>def hide_target(row: Row) -&gt; Row:
+    return replace(row, target="overall", target_start=None, target_end=None)</code></pre>
 
         <h3 style="margin:1.6rem 0 .7rem">What the report card holds</h3>
         <div class="table-wrap">
           <table>
-            <caption class="table-caption">Report fields. The three marked <em>new</em> come with the aspect task.</caption>
+            <caption class="table-caption">Report fields. The marked fields come with the aspect task and the winner rule.</caption>
             <thead><tr><th>Field</th><th>What it holds</th></tr></thead>
             <tbody>
               <tr><td class="mono">macro_f1</td><td>The primary metric, with its 95% bootstrap interval.</td></tr>
@@ -1063,7 +1069,10 @@ runs/
               <tr><td class="mono">by_agreement_tier</td><td>Macro-F1 broken down by 50, 66, 75 and all-agree.</td></tr>
               <tr><td class="mono">by_benchmark</td><td><strong>New.</strong> Macro-F1 and paired intervals for Financial PhraseBank, FiQA and FinEntity. These three cells select the winner.</td></tr>
               <tr><td class="mono">by_target_kind</td><td><strong>New.</strong> Macro-F1 on null-target rows and on aspect rows, separately.</td></tr>
-              <tr><td class="mono">multi_target</td><td><strong>New.</strong> On sentences with two or more targets carrying different gold labels, the share where the model predicts different labels. The number that tests the thesis.</td></tr>
+              <tr><td class="mono">contrast_pair_accuracy</td><td><strong>New.</strong> On each target pair whose gold labels differ, one only when both predicted labels are correct. The correctness measure for the aspect claim.</td></tr>
+              <tr><td class="mono">target_hidden_delta</td><td><strong>New.</strong> The paired contrast-pair accuracy gain over the same checkpoint with segment B replaced by <code>overall</code>, with its 95% interval.</td></tr>
+              <tr><td class="mono">target_sensitivity</td><td><strong>New.</strong> The share of unequal-gold pairs that receive different predictions. Diagnostic only.</td></tr>
+              <tr><td class="mono">document_exact_match</td><td><strong>New.</strong> The share of multi-target documents where every annotated target label is correct.</td></tr>
               <tr><td class="mono">cost</td><td><strong>New.</strong> Latency at batch size 1, throughput at batch size 32, peak memory, parameter count, on one stated machine.</td></tr>
               <tr><td class="mono">ece</td><td>Expected calibration error after temperature scaling.</td></tr>
               <tr><td class="mono">abstained</td><td>The share of rows a word list had no opinion on, and the macro-F1 on the rows it answered.</td></tr>

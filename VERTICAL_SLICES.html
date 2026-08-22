@@ -772,8 +772,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         </div>
         <p class="section-intro">
           Turn the project from sentence sentiment into aspect sentiment, with sentence sentiment as the
-          null-target case. Still no GPU and still no spend. It ends with the number that decides whether
-          the aspect input is worth its cost.
+          null-target case. Still no GPU and still no spend. It ends with the proof set and the
+          correctness measures that decide whether the aspect input is worth its cost.
         </p>
 
         <div class="table-wrap">
@@ -786,10 +786,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>3</td><td>Write the FiQA mapping: snippet to target string, continuous score to three classes by two thresholds fitted on train only. Publish the thresholds and the class counts</td><td class="subtle-cell">Aspect rows</td></tr>
               <tr><td>4</td><td><s>Build the FinEntity loader. Each annotated entity span becomes one row, with offsets kept</s> <strong>Done.</strong> <code>src/finsent/data/finentity.py</code>, with the offset repair and the duplicate and self-conflict rules under test</td><td class="subtle-cell">Multi-target rows, and the one permissive source</td></tr>
               <tr><td>5</td><td>Check the mapping on 100 rows per source, by hand. Publish the disagreement rate</td><td class="subtle-cell">Gate 1</td></tr>
-              <tr><td>6</td><td>Build the pair input builder. Widen <code>System.predict</code> to take rows. Add <code>reads_target</code> to the report</td><td class="subtle-cell">Every baseline and every model</td></tr>
-              <tr><td>7</td><td><s>Count the multi-target sentences: how many carry two or more targets with different gold labels, per source</s> <strong>Done. The gate passed.</strong> <code>finsent aspect-audit</code></td><td class="subtle-cell"><strong>Gate 3, passed</strong></td></tr>
-              <tr><td>8</td><td>Re-run all four existing baselines through the widened interface, on the pooled rows. Add <code>lexicon-window</code> and <code>lexicon-lr</code></td><td class="subtle-cell">The aspect floor</td></tr>
-              <tr><td>9</td><td>Add <code>gpt-5.6-sol</code> as a system. Verify the identifier on a live call. Cache every response with its token counts. Zero-shot and few-shot, both prompts published</td><td class="subtle-cell">The comparison the release exists to print</td></tr>
+              <tr><td>6</td><td>Build the pair input builder. Widen <code>System.predict</code> to take rows. Add <code>reads_target</code> and the target-hidden wrapper that replaces segment B with <code>overall</code></td><td class="subtle-cell">Every baseline and every model</td></tr>
+              <tr><td>7</td><td><s>Count the multi-target sentences: how many carry two or more targets with different gold labels, per source</s> <strong>Done. The proof set exists.</strong> <code>finsent aspect-audit</code></td><td class="subtle-cell">Metric construction</td></tr>
+              <tr><td>8</td><td>Build fixtures for contrast-pair accuracy, target-hidden gain, target sensitivity and document exact match. Make random different predictions fail the correctness fixture</td><td class="subtle-cell"><strong>Gate 3</strong></td></tr>
+              <tr><td>9</td><td>Re-run all four existing baselines through the widened interface, on the pooled rows. Add <code>lexicon-window</code> and <code>lexicon-lr</code></td><td class="subtle-cell">The aspect floor</td></tr>
+              <tr><td>10</td><td>Add <code>gpt-5.6-sol</code> as a system. Verify the identifier on a live call. Cache every response with its token counts. Zero-shot and few-shot, both prompts published</td><td class="subtle-cell">The comparison the release exists to print</td></tr>
             </tbody>
           </table>
         </div>
@@ -820,16 +821,15 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         </div>
 
         <div class="callout warning" style="margin-top:1rem">
-          <p><strong>Warning. 323 rows measure the claim. They do not fill a split.</strong> A test split
-            cut from those rows alone would be too small to separate anything. Pool the aspect rows with
-            the null-target rows for training and for the headline macro-F1, and report the multi-target
-            number as its own line over the whole frozen split. Do not cut a third split for it.</p>
+          <p><strong>Warning. 323 rows across 119 documents measure the claim. They do not fill a split.</strong>
+            Pool the aspect rows with the null-target rows for training. On the frozen FinEntity split,
+            report contrast-pair accuracy, the paired target-hidden gain, target sensitivity and document
+            exact match. Do not treat the 323 rows as independent evidence.</p>
         </div>
 
-        <p><strong>What is left in this slice:</strong> steps 1, 2, 3, 5, 6, 8 and 9. The row schema
-          fields, the sentence split key, the FiQA mapping, the hand check of the mapping, the pair input
-          builder and the widened harness interface, the re-scored baselines, and
-          <code>gpt-5.6-sol</code> with its cost on the same table.</p>
+        <p><strong>What is left in this slice:</strong> steps 1, 2, 3, 5, 6, 8, 9 and 10. The row schema,
+          sentence split key, FiQA mapping, mapping audit, pair input, target-hidden wrapper, correctness
+          metrics, widened harness, re-scored baselines and <code>gpt-5.6-sol</code> comparison.</p>
       </section>
 
       <section id="slice3">
@@ -855,7 +855,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>2</td><td>Compute the minimum detectable effect for each required evaluation cell after the correction</td><td class="subtle-cell"><strong>Gate 4</strong></td></tr>
               <tr><td>3</td><td>Smoke check one small candidate, one fold and one seed. Measure wall time and cost. Set the small-tier budget</td><td class="subtle-cell">The first compute cap</td></tr>
               <tr><td>4</td><td>Head and pooling: CLS against mean. Pair against span markers on sources with offsets. Lock the small-tier recipe</td><td class="subtle-cell">The bench recipe</td></tr>
-              <tr><td>5</td><td>Run the four small candidates with three seeds and five grouped folds. Score Financial PhraseBank, FiQA and FinEntity separately</td><td class="subtle-cell">The provisional small winner</td></tr>
+              <tr><td>5</td><td>Run the four small candidates with three seeds and five grouped folds. Score all three selection cells. On FinEntity, also score contrast-pair accuracy, target-hidden gain, target sensitivity and document exact match</td><td class="subtle-cell">The provisional small winner</td></tr>
               <tr><td>6</td><td>Apply the winner rule. A candidate must rank first or tie for first in all three cells. If none qualifies, record no winner and stop the tier</td><td class="subtle-cell"><strong>Gate 5</strong></td></tr>
               <tr><td>7</td><td>Take the provisional small winner through calibration, inference measurement, registry, report card, model-card draft and package installation. Use development-side evidence only</td><td class="subtle-cell">The full pipeline dry run</td></tr>
               <tr><td>8</td><td>Run the provisional small winner on 10, 25, 50 and 100 percent of train, three seeds</td><td class="subtle-cell">Whether later data lifts are useful</td></tr>
@@ -911,7 +911,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>10</td><td>Temperature scaling, one scalar on dev. The seed ensemble, from runs that already exist</td><td class="subtle-cell">Near zero cost</td></tr>
               <tr><td>11</td><td>Build the 200 robustness probe pairs by hand: negation, number size, entity swap, direction words. Publish them</td><td class="subtle-cell">One afternoon, and it is a real contribution</td></tr>
               <tr><td>12</td><td>Re-check 200 test rows by hand and publish the label error rate</td><td class="subtle-cell">Sets the ceiling for every claim</td></tr>
-              <tr><td>13</td><td><strong>Open the frozen test split. Once.</strong> Two chosen models, three seeds, every baseline beside them on the same rows, paired bootstrap, the cost table</td><td class="subtle-cell"><strong>Gate 6</strong></td></tr>
+              <tr><td>13</td><td><strong>Open the frozen test split. Once.</strong> Score both final candidates and every baseline. Include all three selection cells, contrast-pair accuracy, target-hidden gain, target sensitivity, document exact match and cost</td><td class="subtle-cell"><strong>Gate 6</strong></td></tr>
               <tr><td>14</td><td>Model cards, dataset card, the reproduction script, the response cache, the registry. Then upload</td><td class="subtle-cell"><strong>Gate 7</strong></td></tr>
             </tbody>
           </table>
@@ -942,9 +942,9 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         <ul class="compact-list">
           <li><strong>Slice 1 before everything</strong>, because a word-list floor costs nothing and it
             is the number every reader checks first.</li>
-          <li><strong>Slice 2 before the GPU</strong>, because the multi-target count decides whether the
-            central claim of the project can be measured at all. Finding that out after the bench would
-            waste the bench.</li>
+          <li><strong>Slice 2 before the GPU</strong>, because the proof-set count and correctness
+            fixtures decide whether the aspect claim can be measured. Finding that out after the bench
+            would waste the bench.</li>
           <li><strong>The power calculation before the bench</strong>, because runs that cannot detect
             the required gap are wasted runs.</li>
           <li><strong>The small tier before the large tier</strong>, because the cheaper family validates

@@ -726,12 +726,15 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         </div>
 
         <div class="callout warning" style="margin-top:1rem">
-          <p><strong>The thesis is a claim, and there is one number that tests it.</strong> Take the
-            sentences that carry two or more targets with different gold labels. Measure how often the
-            model gives those targets different predictions. A sentence-level model scores zero by
-            construction, because it has one output per sentence. If the aspect model also scores near
-            zero, the aspect input bought nothing and the write-up says so. See
-            <a href="#done">definition of done</a>.</p>
+          <p><strong>The thesis needs a correctness measure.</strong> Aspect macro-F1 remains the primary
+            score. On each pair of targets whose gold labels differ, contrast-pair accuracy counts one
+            only when both predictions are correct. The current share of different predictions stays as
+            target sensitivity, which is diagnostic only. A random change can raise sensitivity and
+            cannot raise contrast-pair accuracy reliably.</p>
+          <p class="small"><strong>The matched control hides the target.</strong> Score the same checkpoint
+            on the same rows after segment B is replaced with <code>overall</code>. The paired 95%
+            interval for the contrast-pair gain must stay above zero. Document exact match, where every
+            annotated target is correct, is the strict secondary result.</p>
         </div>
       </section>
 
@@ -1012,12 +1015,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         </div>
 
         <div class="callout info" style="margin-top:1rem">
-          <p><strong>The multi-aspect rows stop being a problem and become the headline.</strong>
+          <p><strong>The multi-aspect rows stop being a problem and become the proof set.</strong>
             <code>DECISIONS_AIM.md</code> warns that a sentence carrying two aspects with opposite
-            polarity cannot be scored by a sentence-level model, and tells the build to count those rows
-            and drop them. Under this scope they are kept. They are the rows that separate an aspect
-            model from a sentence model. The build still counts them, because the count is the size of
-            the effect the project is claiming.</p>
+            polarity cannot be scored by a sentence-level model. Under this scope those rows stay.
+            Contrast-pair accuracy checks whether both target labels are correct. Target sensitivity
+            only checks whether the predictions differ, so it stays diagnostic.</p>
         </div>
 
         <div class="callout" style="margin-top:1rem">
@@ -1035,11 +1037,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         </div>
 
         <div class="callout warning" style="margin-top:1rem">
-          <p><strong>Warning. 323 rows is enough to measure the claim and not enough to split three
-            ways.</strong> A test split cut from them alone would be too small to separate anything. Pool
-            the aspect rows with the null-target rows for training and for the headline macro-F1, and
-            report the multi-target number as its own line over the whole frozen split. Do not cut a
-            third split for it.</p>
+          <p><strong>Warning. 323 rows across 119 documents measure the claim and do not fill a split.</strong>
+            A test split cut from them alone would be too small. Pool the aspect rows with the null-target
+            rows for training and report the proof-set measures over the frozen FinEntity split:
+            contrast-pair accuracy, target sensitivity, document exact match and the paired gain over
+            the target-hidden control.</p>
           <p class="small">Two smaller notes from the same audit. 65 of 2,104 spans carry offsets that
             miss their own value by one to five characters, always forward; every one is repaired by a
             search for the value nearest the recorded offset, and the repair count is printed rather than
@@ -1234,10 +1236,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <li><strong>Both models beat the lexical floor with an interval.</strong> Macro-F1 above the
               best of the word lists, the hybrid and TF-IDF, with a paired bootstrap interval that does
               not cross zero.</li>
-            <li><strong>The aspect input earns its place.</strong> On sentences with two or more targets
-              carrying different gold labels, the model gives those targets different predictions on a
-              stated share of rows. The threshold is written into <code>settings.py</code> before the test split is
-              opened. A sentence-level model scores zero here by construction.</li>
+            <li><strong>The aspect input earns its place.</strong> On target pairs with different gold
+              labels, both predictions must be correct. The paired 95% interval for contrast-pair
+              accuracy against the same checkpoint with segment B replaced by <code>overall</code> stays
+              above zero. Target sensitivity is diagnostic only. Document exact match is reported.</li>
             <li><strong>The null-target case does not regress.</strong> The aspect model scores at least
               as well on Financial PhraseBank as a model trained on those rows alone. One variable, three
               seeds. If the aspect rows hurt the vanilla case, the write-up says so and the release ships
@@ -1364,9 +1366,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         <div class="quarantine-grid">
           <div class="card quarantine">
             <h3>The aspect input buys nothing</h3>
-            <p>If the multi-target rows are few and the model ignores segment B, the aspect model is a
-              sentence model with extra cost. <strong>Detect it</strong> with the multi-target number in
-              the definition of done, measured on dev long before the test split opens.</p>
+            <p>If the model ignores segment B, it is a sentence model with extra cost.
+              <strong>Detect it</strong> with contrast-pair accuracy and its paired gain over the
+              target-hidden control. Keep target sensitivity as a diagnostic, because different wrong
+              answers do not prove that the target helped.</p>
           </div>
           <div class="card quarantine">
             <h3>The three sources disagree about what a label means</h3>
@@ -1429,7 +1432,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>Which tier runs first</td><td>Small. A provisional supervised small winner validates the development-side pipeline. Large runs next. Distillation then produces the final small candidate. The frozen test split stays closed until both final candidates are locked.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>What the input looks like</td><td>A pair. Segment A is the text, segment B is the target string, or the literal <code>overall</code> when there is no target. Span markers are one ablation where offsets exist.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Which frontier baseline</td><td><code>gpt-5.6-sol</code> at medium reasoning effort, zero-shot and few-shot, cached and published. It is scored against human labels and it can lose.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>What happens to multi-aspect rows</td><td>They are kept and they carry the headline. The earlier instruction to count and drop them applied to a sentence-level model and no longer applies.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>What happens to multi-aspect rows</td><td>They are kept. Contrast-pair accuracy is the correctness measure. Target sensitivity is diagnostic. Document exact match is secondary. The matched control uses the same checkpoint with segment B replaced by <code>overall</code>.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Which benchmarks</td><td>Financial PhraseBank for the null-target rows. FiQA 2018 and FinEntity for the aspect rows.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Can the aspect claim be measured</td><td>Yes. FinEntity gives 119 documents whose targets carry different labels, over 323 target rows. FiQA gives none. Audited 22 August 2026 by <code>finsent aspect-audit</code>.</td><td><span class="status supported">Measured</span></td></tr>
               <tr><td>Licence of the released weights</td><td>Permissive, with the non-commercial source named in the card. A position, not a settled question, and it is the owner's call.</td><td><span class="status notrun">Position taken</span></td></tr>
