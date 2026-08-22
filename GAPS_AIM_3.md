@@ -1,7 +1,7 @@
 # Gap review, third pass, against the full aim
 
 Written 22 August 2026. This review reads the four plan documents, the decision
-record, `GAPS_AIM_2.md`, the config and every source file in `src/finsent/`.
+record, `GAPS_AIM_2.md`, the settings and every source file in `src/finsent/`.
 
 `GAPS_AIM_2.md` holds seventeen gaps. This file holds only the gaps that are
 **not** in that list. A gap that the second pass already names does not appear
@@ -127,7 +127,7 @@ audit. Price that before it enters the family.
 
 **Do this.**
 
-- Add a `licence` field for each candidate in the roster config.
+- Add a `licence` field for each candidate in the roster settings.
 - Check every licence before the smoke check, not after the bench.
 - Record which checkpoints need remote code.
 
@@ -200,7 +200,7 @@ are not spread evenly across the three classes. The effective weight of one
 original row moves, because ten variants of one row make that row ten times
 louder.
 
-**Do this.** Set a cap of variants per original row in the config. State whether
+**Do this.** Set a cap of variants per original row in `settings.py`. State whether
 the generated pool is balanced across the three classes or matched to the train
 prior. Hash both numbers with the config.
 
@@ -304,7 +304,7 @@ the second pass, and it should run beside it.
 
 **What the plans say.** Entry B defines the state of the art as the best
 published number on the same benchmark and the same agreement subset. Slice 3
-step 1 writes the survey into `configs/published.yaml`.
+step 1 fills the survey table in `PROGRAM_DESIGN.html`.
 
 **The survey will not join to this project's numbers.** This project cuts one
 test split of 1,000 rows from the 50%-agreement superset. The published papers
@@ -322,7 +322,7 @@ common published protocol, joined to the survey table.
 **Do this.**
 
 - Record the exact protocol of each published number in
-  `configs/published.yaml`, including the fold count.
+  the survey table in `PROGRAM_DESIGN.html`, including the fold count.
 - Add one run of each shipped model on the most common published protocol.
 - Grade that run supported, and mark the protocol difference in the same row.
 - Or drop the phrase "state of the art" from the release and say the project
@@ -331,7 +331,7 @@ common published protocol, joined to the survey table.
 
 ### 14. No aspect test split exists, and two plan statements disagree
 
-**What the plans say.** `configs/base.yaml` sets `n_test: 1000`, and that split
+**What the plans say.** `settings.py` sets `data.n_test` to 1,000, and that split
 comes from Financial PhraseBank alone. `VERTICAL_SLICES.html` says to pool the
 aspect rows with the null-target rows for the headline macro-F1. It also says not
 to cut a third split for the aspect rows.
@@ -370,7 +370,7 @@ README makes.
 
 **Do this.**
 
-- Pin a Hub revision for every source data set in `configs/base.yaml`.
+- Pin a Hub revision for every source data set in `settings.py`.
 - Pass the revision to every loader.
 - Fill `data_revision` on every registry row.
 - Add a CI check that fails an empty `data_revision` on a run of kind `bench`.
@@ -389,7 +389,7 @@ by accident.
 
 **Do this.**
 
-- State the serving format in the config: framework, precision and device.
+- State the serving format in `settings.py`: framework, precision and device.
 - Report the small model twice, in the plain format and in the served format.
 - Publish the served artefact, so a reader reproduces the cost as well as the
   score.
@@ -417,7 +417,7 @@ null-target rows and aspect rows. The definition of done holds six conditions.
 **No rule covers the likely case.** One candidate wins on the aspect rows and
 loses on the null-target rows. Nothing says which one ships.
 
-**Do this.** Write the tie-break into the config before the bench runs. State the
+**Do this.** Write the tie-break into `settings.py` before the bench runs. State the
 order: the pooled macro-F1 first, then the aspect macro-F1, then cost. A rule
 written after the table is read is not a rule.
 
@@ -444,7 +444,7 @@ quality gate, gap 6. Write how each weak method produces a target, gap 11.
 ## Method
 
 I read `README.md`, `DECISIONS_AIM.md`, `GAPS_AIM_2.md`, `REVIEW_AIM.md`, the
-four HTML plan documents, `configs/base.yaml`, `runs/registry.jsonl`,
+four HTML plan documents, the settings, `runs/registry.jsonl`,
 `data/processed/fpb/manifest.json` and every file under `src/finsent/`. I checked
 the licence and the parameter count of the named checkpoints on the Hugging Face
 Hub. I searched the Hub for permissive financial sentiment data sets. I dropped

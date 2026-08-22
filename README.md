@@ -12,6 +12,10 @@ Every number is measured on a frozen human-labelled split, through one harness,
 against a floor set by finance word lists, with `gpt-5.6-sol` scored on the same
 rows and its cost on the same table.
 
+There is no config directory. The four HTML documents at the root are the plan
+of record, and `src/finsent/settings.py` is the machine-readable copy of every
+value the code reads. See `ARCHITECTURE.html`, the settings section.
+
 The plans are the four HTML documents at the root: [`PRODUCT.html`](PRODUCT.html),
 [`PROGRAM_DESIGN.html`](PROGRAM_DESIGN.html), [`ARCHITECTURE.html`](ARCHITECTURE.html)
 and [`VERTICAL_SLICES.html`](VERTICAL_SLICES.html). Edit them directly; they are
@@ -120,19 +124,19 @@ entry J. It is a position, not a settled question.
 
 ```
 src/finsent/
-  config.py        YAML inheritance, resolution, hashing
+  settings.py      every default the code reads. No YAML file
+  config.py        resolution, overrides, hashing
   registry.py      append-only run rows. No row, no number
   data/            loaders, near-duplicate clustering, splitting, freezing
   lexicons/        Loughran-McDonald and Henry, and the tone scorer
   baselines/       majority, word lists, TF-IDF. One interface each
   eval/            metrics, paired bootstrap, Holm, the harness
-configs/base.yaml  the shared defaults every experiment inherits
 tests/             the data invariant checks and the metric fixtures
 ```
 
 ## Rules the code enforces rather than asks for
 
-- The harness refuses a split whose hash does not match the config.
+- The harness refuses a split whose hash does not match the settings.
 - The harness refuses any evaluation split holding a non-human label.
 - The harness refuses a system that returns fewer predictions than rows.
 - A near-duplicate group never straddles two splits.

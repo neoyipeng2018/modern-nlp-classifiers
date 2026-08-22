@@ -668,6 +668,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         <a href="#weak">Weak supervision</a>
         <a href="#boost">Data boost</a>
         <a href="#bench">Picking the encoder</a>
+        <a href="#soa">The published-number survey</a>
         <a href="#protocol">Evaluation protocol</a>
         <a href="#gates">Gates</a>
         <a href="#risks">Risk register</a>
@@ -702,7 +703,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <li><strong>Nothing is fitted on the rows it is scored against.</strong> The harness refuses a
             split whose hash does not match the config, and it refuses an evaluation split holding a
             non-human label.</li>
-          <li><strong>The bar is written before the numbers.</strong> Thresholds go into the config and
+          <li><strong>The bar is written before the numbers.</strong> Thresholds go into <code>settings.py</code> and
             get hashed. A bar set after the table is read is not a bar.</li>
           <li><strong>Stop when the curve flattens.</strong> Run the largest expected gain first. A
             method that does not move the number is a finding, and the next one starts.</li>
@@ -971,7 +972,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <p><strong>Warning. Choose the generator model and read its terms before the first run.</strong>
             Nothing in the plans says which model writes the paraphrases. That choice decides whether the
             generated rows and the weights trained on them can be released at all. Prefer an open-weight
-            generator. Record its name and its terms in the config.</p>
+            generator. Record its name and its terms in <code>settings.py</code>.</p>
         </div>
         <div class="callout warning" style="margin-top:1rem">
           <p><strong>Warning. Check every generated row against the test split.</strong> A paraphrase
@@ -1031,6 +1032,51 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         </div>
       </section>
 
+      <section id="soa">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">What the project aims at</p>
+            <h2>The published-number survey</h2>
+          </div>
+          <span class="status compromised">Empty</span>
+        </div>
+
+        <p>State of the art means the best published number on the same benchmark and the same
+          agreement subset. This table is where those numbers go. It used to be specified as
+          <code>configs/published.yaml</code>. There is no config directory any more, so the survey
+          lives here, in the plan of record, and it is filled by hand before the first GPU run.</p>
+
+        <table>
+          <caption>Ten to twenty rows, filled before the bench. Every row carries its subset.</caption>
+          <thead><tr><th>System</th><th>Score</th><th>Metric</th><th>Subset</th><th>Split and folds</th><th>Citation</th><th>Downloadable?</th></tr></thead>
+          <tbody>
+            <tr><td colspan="7" class="subtle">Empty. Nobody has run the survey. Until it is filled the project has no target to aim at.</td></tr>
+          </tbody>
+        </table>
+
+        <p><strong>Three rules come with every row, and none is optional.</strong></p>
+        <ul>
+          <li>Record the agreement subset. 50%, 66%, 75% and all-agree are four different sets, and
+            all-agree is the easy one. A score on one is not comparable to a score on another.</li>
+          <li>Record the protocol difference in the same row. A number with no note is not
+            publishable.</li>
+          <li>Grade a quoted number <em>Reported</em>, never <em>Supported</em>. Where the other
+            system is downloadable, re-run it on this project's split instead of quoting it. A
+            re-run is paired. A quote is not.</li>
+        </ul>
+
+        <div class="callout warning" style="margin-top:1rem">
+          <p><strong>Warning. This project cuts its own split, so nothing in this table joins to
+            this project's numbers.</strong> The published papers use their own splits, and many use
+            ten-fold cross-validation over a subset. Two numbers on two different splits are not
+            comparable. Re-runs fix half of it, and the plans already schedule them. The other half
+            needs one run of each shipped model on the protocol the papers use, joined to this
+            table. Do that, or drop the phrase "state of the art" from the release and say the
+            project publishes a new benchmark instead. Both are honest. Only one of them is
+            free.</p>
+        </div>
+      </section>
+
       <section id="protocol">
         <div class="section-head">
           <div>
@@ -1063,7 +1109,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         <ul class="compact-list">
           <li>Paired bootstrap on the same rows, 10,000 resamples, alpha 0.05.</li>
           <li>Every candidate is tested against the incumbent leader. The family is Holm-adjusted, and the
-            rule goes into the config before the bench runs, not after the table is read.</li>
+            rule goes into <code>settings.py</code> before the bench runs, not after the table is read.</li>
           <li>Three seeds per configuration, and the seed ensemble is reported too. The runs already exist,
             so the ensemble costs nothing.</li>
         </ul>
