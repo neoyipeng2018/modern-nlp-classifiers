@@ -366,8 +366,7 @@ the decision log. It drops the three-task structure, the slice structure, the le
 passage machinery and the aspect work.
 
 `learnings.html` is not touched. It is the record of the previous project and it stays as
-written. `REVIEW.md` and `REVIEW_AIM.md` stay as the review record. This file stays as the
-decision record.
+written. This file stays as the decision record.
 
 ---
 
