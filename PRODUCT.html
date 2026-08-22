@@ -3,12 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Scope, label contracts, non-goals and definition of done for three long-context finance NLP classifiers: aspect sentiment, forward-looking, and fact vs opinion.">
-  <title>ModernFin Triad — Product Spec</title>
+  <meta name="description" content="Scope, input format, label codebook, baselines and definition of done for finsent: aspect-based financial sentiment, where plain sentence sentiment is the null-target case.">
+  <title>finsent — Product Spec</title>
   <style>
-/* Shared design system for the ModernFin Triad planning documents.
-   Inlined into each generated HTML file by assets/build.py so every
-   document stays a single self-contained file. Derived from learnings.html. */
+/* Shared design system for the finsent planning documents.
+   Each HTML document at the repository root inlines a copy of this file, so
+   every document stays a single self-contained file. This file is the reference
+   copy: change it here, then paste the change into the four documents. There is
+   no build step any more. Derived from learnings.html. */
 
 :root {
   color-scheme: light;
@@ -632,18 +634,19 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
   <header class="hero" id="top">
     <div class="hero-inner">
       <p class="eyebrow">Document 1 of 4 &middot; Product spec</p>
-      <h1>Three finance classifiers, and a fair bench to pick the encoder</h1>
+      <h1>One task: aspect-based financial sentiment</h1>
       <p class="lede">
-        Aspect sentiment, forward-looking detection, and fact versus opinion. Three small encoders,
-        one per task, each one the best backbone we can find for that task. One domain, one shared
-        evaluation protocol, one borrowed human-labelled benchmark per task. This document fixes what
-        gets built, what the labels mean, and what counts as done. It is the build spec, not a pitch.
+        Every row is a piece of financial text and a target inside it. The model says whether the
+        text is positive, negative or neutral <em>about that target</em>. When the caller has no
+        target, the target is the whole text and the task is plain sentence sentiment. One model, one
+        input format, one head. Two encoders ship: one small, one large. This document fixes what
+        gets built, what the labels mean, and what counts as done.
       </p>
       <div class="audit-strip">
-        <div class="audit-stat"><strong>3 models</strong><span>Separate encoder per task. No multi-task trunk.</span></div>
-        <div class="audit-stat"><strong>9 backbones benched</strong><span>Four families, three seeds each, one shared label set. The bench picks the encoder.</span></div>
-        <div class="audit-stat"><strong>Finance only</strong><span>Filings, transcripts, analyst notes, financial news.</span></div>
-        <div class="audit-stat"><strong>Human-labelled test</strong><span>Macro-F1 on a borrowed published benchmark. Frontier LLMs are scored beside the encoder on the same rows.</span></div>
+        <div class="audit-stat"><strong>2 models</strong><span>Small and large. Same task, same input format, same head.</span></div>
+        <div class="audit-stat"><strong>Aspect includes vanilla</strong><span>Sentence sentiment is the null-target case, not a second task.</span></div>
+        <div class="audit-stat"><strong>Finance text</strong><span>News sentences, headlines, microblogs. Human-labelled test split.</span></div>
+        <div class="audit-stat"><strong>gpt-5.6-sol beside it</strong><span>The frontier baseline is scored on the same rows, with cost on the same table.</span></div>
       </div>
       <nav class="doc-nav" aria-label="Document set">
         <a href="PRODUCT.html" aria-current="page">Product</a>
@@ -661,8 +664,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
       <nav class="toc">
         <a href="#thesis">The thesis</a>
         <a href="#contracts">Model contracts</a>
-        <a href="#longcontext">Input length</a>
-        <a href="#codebook">Label codebooks</a>
+        <a href="#input">The input format</a>
+        <a href="#codebook">Label codebook</a>
+        <a href="#benchmarks">Benchmarks</a>
+        <a href="#baselines">Baselines</a>
         <a href="#nongoals">Non-goals</a>
         <a href="#users">Users and jobs</a>
         <a href="#done">Definition of done</a>
@@ -685,56 +690,48 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
       <section id="thesis">
         <div class="section-head">
           <div>
-            <p class="section-kicker">Why these three</p>
+            <p class="section-kicker">Why one task, and why this one</p>
             <h2>The thesis</h2>
           </div>
           <span class="pill teal">Claim under test</span>
         </div>
         <p class="section-intro">
-          Most useful questions about a piece of financial text reduce to three smaller questions.
-          Who or what is this about, and is it good or bad for them. Is this about the past or the
-          future. Is this something checkable, or is it somebody's view. Answer all three and you
-          can filter, route, score and summarise almost any financial document.
+          Sentiment without a target is guesswork. "Nokia beat Ericsson on margin" is good news for
+          one company and bad news for the other. A sentence-level model has to pick one answer and
+          is wrong about the other. That is not a hard example. In financial text it is the normal
+          case, because a sentence about a market names the parties in it.
         </p>
 
-        <div class="grid-3">
+        <div class="grid-2">
           <div class="card number-card" data-number="1">
-            <h3>Aspect sentiment</h3>
-            <p>Sentiment is useless without a target. A sentence can be good for the supplier and bad
-              for the buyer. Tying polarity to a named aspect is what makes the signal usable.</p>
+            <h3>The target is part of the question</h3>
+            <p>Ask "is this positive?" and the honest answer is "about what?". Bind the polarity to a
+              named target and the answer becomes a fact you can check, store and join to other data.</p>
           </div>
           <div class="card number-card" data-number="2">
-            <h3>Forward-looking</h3>
-            <p>Guidance moves prices. Reported history is already in the tape. Separating the two is
-              the single cheapest way to raise the value of any downstream sentiment score.</p>
-          </div>
-          <div class="card number-card" data-number="3">
-            <h3>Fact vs opinion</h3>
-            <p>A number in a filing and an analyst's judgement are not the same evidence. Anything
-              that summarises or ranks financial text needs to know which one it is holding.</p>
+            <h3>Vanilla is the easy case of the same question</h3>
+            <p>When the caller supplies no target, the target is the whole text. That is one code
+              path, one head and one metric, not a second model. Plain sentence sentiment falls out
+              of the aspect model for free.</p>
           </div>
         </div>
 
         <div class="callout info" style="margin-top:1rem">
-          <p><strong>The three combine.</strong> Run all three over the same sentence and you get a
-            structured record: target, polarity, time direction, evidence type. That record is the real
-            product. The models are just the way to get it cheaply.</p>
-        </div>
-
-        <div class="callout" style="margin-top:1rem">
-          <p><strong>The job is the encoder, not a length claim.</strong> An earlier version of this plan
-            put the input length on an experiment ladder and made "long context helps" the headline. That
-            is gone. The question here is narrower and more useful: for each of these three tasks, which
-            small encoder, trained how, gives the best macro-F1 on a benchmark people labelled. Input
-            length is a configuration number chosen from the real token distribution, the same way batch
-            size is. See <a href="#longcontext">input length</a>.</p>
+          <p><strong>This is what the earlier plan got wrong, then got wrong again.</strong> The first
+            plan carried an aspect input and two other tasks. The scope change in
+            <code>DECISIONS_AIM.md</code> deleted all three, because one of the three had a broken
+            benchmark. The aspect work went out with it and it did not have that problem. This
+            document puts the aspect back and keeps the narrowing, so the project has one task
+            instead of three, and that one task is the useful one.</p>
         </div>
 
         <div class="callout warning" style="margin-top:1rem">
-          <p><strong>The thesis is a claim, not a given.</strong> It is not proven by building the models.
-            It gets tested in the write-up by taking real finance NLP tasks and showing what the three
-            outputs do and do not cover. Coverage gaps get listed honestly. See the
-            <a href="PROGRAM_DESIGN.html#writeup">write-up plan</a>.</p>
+          <p><strong>The thesis is a claim, and there is one number that tests it.</strong> Take the
+            sentences that carry two or more targets with different gold labels. Measure how often the
+            model gives those targets different predictions. A sentence-level model scores zero by
+            construction, because it has one output per sentence. If the aspect model also scores near
+            zero, the aspect input bought nothing and the write-up says so. See
+            <a href="#done">definition of done</a>.</p>
         </div>
       </section>
 
@@ -747,925 +744,688 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <span class="status supported">Decided</span>
         </div>
         <p class="section-intro">
-          Three separate fine-tuned encoders. Same base model, same input format, same evaluation
-          harness. Each is released on its own and versioned on its own. All three take a passage and
-          a target span inside it, and all three read up to 8,192 tokens.
+          Two fine-tuned encoders. Same task, same input format, same head, same evaluation harness.
+          They differ in one thing: parameter count. Each is released on its own and versioned on its
+          own. The medium tier is benched for the size curve and nothing ships from it.
         </p>
 
         <div class="stack">
           <article class="card decision recommended">
             <div class="slice-head">
               <div>
-                <h3>Aspect-based sentiment</h3>
-                <p class="model-name">modernfin-absa</p>
+                <h3>Small</h3>
+                <p class="model-name">finsent-small</p>
               </div>
-              <span class="pill teal">3-class</span>
+              <span class="pill teal">&le; 70M parameters</span>
             </div>
             <dl class="dl-spec">
               <dt>Input</dt>
-              <dd><code>(target_sentence, passage, aspect)</code>. The aspect is supplied by the caller. The model does not find it.</dd>
+              <dd><code>(text, target)</code>. The caller supplies the target. The model does not find it.</dd>
               <dt>Output</dt>
               <dd><code>positive</code> | <code>negative</code> | <code>neutral</code>, with a probability for each.</dd>
               <dt>Question it answers</dt>
-              <dd>Given this text, is the sentiment expressed toward this specific aspect good, bad, or neither?</dd>
-              <dt>Aspect can be</dt>
-              <dd>A company, a ticker, a business segment, a product, or a financial metric such as <code>gross margin</code>.</dd>
-              <dt>Primary metric</dt>
-              <dd>Macro-F1 across the three classes.</dd>
+              <dd>In this text, is the sentiment expressed toward this target good, bad, or neither?</dd>
+              <dt>Job</dt>
+              <dd>Bulk scoring. Millions of rows, CPU or one small GPU, cost per million rows is the
+                number that matters.</dd>
+              <dt>Trained by</dt>
+              <dd>Distillation from <code>finsent-large</code>, then fine-tuning on the human rows.
+                The order is fixed. Without distillation the small tier gets nothing from the large one.</dd>
             </dl>
-            <div class="callout warning" style="margin-top:.9rem">
-              <p class="small"><strong>Aspect extraction is out of scope.</strong> If nobody hands you an aspect,
-                this model has nothing to do. A separate extractor can be built later, and it is not
-                part of this project.</p>
-            </div>
           </article>
 
           <article class="card decision recommended">
             <div class="slice-head">
               <div>
-                <h3>Forward-looking statement detection</h3>
-                <p class="model-name">modernfin-fls</p>
+                <h3>Large</h3>
+                <p class="model-name">finsent-large</p>
               </div>
-              <span class="pill blue">3 classes</span>
+              <span class="pill blue">&ge; 350M parameters</span>
             </div>
             <dl class="dl-spec">
               <dt>Input</dt>
-              <dd><code>(target_sentence)</code>, with surrounding text where the source provides it. No aspect.</dd>
+              <dd>Identical to the small model. The two are interchangeable at the call site.</dd>
               <dt>Output</dt>
-              <dd><code>specific_fls</code> | <code>non_specific_fls</code> | <code>not_fls</code>, with probabilities.</dd>
-              <dt>Question it answers</dt>
-              <dd>Does this sentence make a claim about a future state of the world, and is that claim specific enough to check later?</dd>
-              <dt>Primary metric</dt>
-              <dd>Macro-F1. Per-class F1 reported alongside, because <code>non_specific_fls</code> is the hard boundary and <code>not_fls</code> dominates the sample.</dd>
+              <dd>Identical to the small model.</dd>
+              <dt>Job</dt>
+              <dd>Accuracy. The number the release is judged on, and the teacher for the small model.</dd>
+              <dt>Trained by</dt>
+              <dd>Fine-tuning on the human rows, plus whichever data tracks earn their place in the
+                ablations.</dd>
             </dl>
-            <div class="callout info" style="margin-top:.9rem">
-              <p class="small"><strong>Three classes, not two.</strong> This follows
-                <code>FinanceMTEB/FLS</code>, the borrowed benchmark, which separates specific from
-                non-specific forward-looking statements. An earlier version of this spec said binary. That
-                was stale text from before the benchmark was adopted.</p>
-            </div>
-          </article>
-
-          <article class="card decision recommended">
-            <div class="slice-head">
-              <div>
-                <h3>Fact versus opinion</h3>
-                <p class="model-name">modernfin-factop</p>
-              </div>
-              <span class="pill blue">Binary</span>
-            </div>
-            <dl class="dl-spec">
-              <dt>Input</dt>
-              <dd><code>(target_sentence)</code>, with surrounding text where the source provides it. No aspect.</dd>
-              <dt>Output</dt>
-              <dd><code>fact</code> | <code>opinion</code>, with a probability.</dd>
-              <dt>Question it answers</dt>
-              <dd>Could a reader check this against a source, or is it somebody's judgement?</dd>
-              <dt>Primary metric</dt>
-              <dd>Macro-F1.</dd>
-            </dl>
-            <div class="callout info" style="margin-top:.9rem">
-              <p class="small"><strong>No "mixed" class, on purpose.</strong> Sentences that state a number and
-                then judge it are common. The codebook forces them into one bucket by a written rule.
-                A third class was rejected because annotator agreement drops and the label stops
-                being useful downstream. Note that the nearest public benchmark, FinArg, draws its own two
-                classes differently, which is the open decision on this task.</p>
-            </div>
           </article>
         </div>
 
-        <h3 style="margin:1.6rem 0 .6rem">Shared input format</h3>
-        <div class="card">
-          <p class="small">All three models take a passage and a character span inside it. The caller
-            hands over as much of the document as it has. The model decides how much of it to read.</p>
-          <pre><code>{
-  "passage":      "... Margins compressed 180bps year over year. We expect gross margin
-                   to improve modestly in the second half. Pricing actions take effect in Q3 ...",
-  "target_span":  [46, 118],       // character offsets of the sentence being classified
-  "aspect":       "gross margin"   // modernfin-absa only
-}</code></pre>
-          <p class="small muted" style="margin-top:.6rem">The passage may be a paragraph, an MD&amp;A
-            section, a full answer in a question-and-answer exchange, or a short filing item. The
-            target span is never truncated. Everything else is trimmed to fit the length budget by the
-            rules in <a href="ARCHITECTURE.html#input">Architecture &rarr; Input construction</a>. A
-            convenience wrapper still accepts the old <code>(target, context_before, context_after)</code>
-            form and builds the passage for you.</p>
+        <div class="callout" style="margin-top:1rem">
+          <p><strong>Two tiers, not three.</strong> <code>DECISIONS_AIM.md</code> entry A set the tier
+            limits from the real gaps in the checkpoint roster: small is 70M or less, medium is 71M to
+            260M, large is 350M or more. No boundary sits on top of a checkpoint. Only small and large
+            ship. The medium checkpoints still run, once each, so the size curve has points in the
+            middle, but they are not candidates and they are not in the corrected test family. See
+            <a href="PROGRAM_DESIGN.html#protocol">the evaluation protocol</a>.</p>
+        </div>
+
+        <div class="callout info" style="margin-top:1rem">
+          <p><strong>Aspect extraction is out of scope.</strong> If nobody hands you a target, you get
+            the null-target case, which is plain sentence sentiment. A separate extractor that finds
+            the targets is a different model and a different project. Say this in the model card, in
+            plain words, so nobody wires the model into a pipeline it cannot serve.</p>
         </div>
       </section>
 
-      <section id="longcontext">
+      <section id="input">
         <div class="section-head">
           <div>
-            <p class="section-kicker">The change that makes this competitive</p>
-            <h2>Input length</h2>
+            <p class="section-kicker">One format, both cases</p>
+            <h2>The input format</h2>
           </div>
           <span class="status supported">Decided</span>
         </div>
         <p class="section-intro">
-          Input length is a configuration number, not a claim. Each task picks one maximum length,
-          chosen from the measured token distribution of its own inputs, and that number is published
-          with the truncation rate beside it. There is no length ladder and no long-context headline.
-          The rule below exists because a long-context attempt failed once already, and the failure was
-          about broken data rather than about length.
+          The model reads a pair. Segment A is the text. Segment B is the target string. This is the
+          standard strong format for aspect sentiment with an encoder, it needs no character offsets,
+          and it works on every data source in the plan.
         </p>
 
-        <div class="grid-2">
-          <div class="card">
-            <h4>How the number gets picked</h4>
-            <ul class="compact-list">
-              <li><strong>Measure first.</strong> Tokenise every row with the chosen backbone's tokeniser and record the p50, p95 and p99 lengths per task.</li>
-              <li><strong>Pick the smallest length that clears the gate.</strong> Take the shortest supported setting where under 5% of rows lose target-adjacent content. Shorter is cheaper at train time and at serve time, so shorter wins ties.</li>
-              <li><strong>Publish it.</strong> The chosen length, the truncation rate at that length, and the length distribution all go in the model card.</li>
-              <li><strong>It is per task, not global.</strong> FiQA is tweets and headlines. FLS is single filing sentences. FinArg is transcript turns. There is no reason these three share one number.</li>
-              <li><strong>Re-pick it if the inputs change.</strong> A new corpus means a new distribution and a new measurement, never an inherited constant.</li>
-            </ul>
-          </div>
-          <div class="card">
-            <h4>What went wrong last time</h4>
-            <ul class="compact-list">
-              <li>The long run trained on rows that were <strong>still 52.8% truncated at 6,144 tokens</strong>. The examples were malformed before length was ever the issue.</li>
-              <li>A later attempt measured <strong>78.2% truncation at 4,096</strong> and an assertion correctly stopped the run.</li>
-              <li>Provenance on the long data could not be reconstructed afterwards.</li>
-              <li>So the finding was <strong>"the long data was broken"</strong>, not "length does not help". Those are different results and only the first one was actually measured.</li>
-            </ul>
-            <p class="small muted" style="margin-top:.6rem">Full record in <a href="learnings.html">prior learnings</a>.</p>
-          </div>
-        </div>
-
-        <div class="callout danger" style="margin-top:1.1rem">
-          <h3>The truncation gate</h3>
-          <p>No long-context training run starts until the truncation rate at the configured length is
-            measured and recorded. Above 5% of rows losing any target-adjacent content, the run is
-            blocked and the data builder is fixed first. This is the direct countermeasure for the
-            previous failure, and it is enforced by an assertion, not by care.</p>
-        </div>
-
-        <h3 style="margin:1.6rem 0 .6rem">What the ceiling is, and why</h3>
         <div class="table-wrap">
           <table>
+            <caption class="table-caption">The two cases, in one format</caption>
             <thead>
-              <tr><th style="width:150px">Setting</th><th>What it is</th><th style="width:230px">Status</th></tr>
+              <tr><th>Case</th><th>Segment A</th><th>Segment B</th><th>Where it comes from</th></tr>
             </thead>
             <tbody>
               <tr>
-                <td><code>max_length</code></td>
-                <td>Per task, picked from the measured token distribution, smallest setting that keeps truncation under 5%.</td>
-                <td class="subtle-cell">A config value in the pinned recipe.</td>
+                <td><strong>Aspect</strong></td>
+                <td>The sentence or headline</td>
+                <td>The literal target string, copied from the text</td>
+                <td>FiQA 2018, FinEntity</td>
               </tr>
               <tr>
-                <td><code>8,192</code></td>
-                <td>The hard ceiling, because that is what the long-context candidates were pretrained for. Nothing in this project asks for more.</td>
-                <td class="subtle-cell">Upper bound, not a target.</td>
-              </tr>
-              <tr>
-                <td>Anything longer</td>
-                <td>Whole 10-Ks, multi-document reasoning, chunk aggregation, retrieval.</td>
-                <td class="subtle-cell">Out of scope. The caller cuts the document.</td>
+                <td><strong>Null target</strong></td>
+                <td>The sentence or headline</td>
+                <td>The fixed token <code>overall</code></td>
+                <td>Financial PhraseBank, and any caller with no target</td>
               </tr>
             </tbody>
           </table>
-          <p class="table-caption">The bench compares all nine backbones at a shared 512-token cap, so
-            the comparison is about the architecture and the recipe rather than about who was allowed to
-            read more. Where a task's measured distribution puts its shipped <code>max_length</code>
-            above 512, the bench winner is retrained once at that cap. No report card ever carries a
-            delta between two different maximum lengths, because that delta would confound length with
-            everything else.</p>
         </div>
 
-        <div class="callout warning" style="margin-top:1.1rem">
-          <p><strong>What was dropped, and why it is worth saying out loud.</strong> An earlier version
-            of this plan trained every task at 512, 2,048 and 8,192, bought training labels separately at
-            each length, and published the gap as the project's central result. That experiment is
-            removed. It roughly tripled the labelling bill, it required rebuilding every benchmark
-            sentence back into its source filing, and it needed a model-derived tag on every test row to
-            be readable at all. None of that work makes the shipped classifier better. If the
-            long-context question is worth answering later, it is a separate project with its own
-            benchmark.</p>
+        <div class="callout info" style="margin-top:1rem">
+          <p><strong>Why <code>overall</code> and not an empty string.</strong> An empty segment B makes
+            the two cases different shapes, and the model learns to read the shape instead of the
+            target. A fixed literal keeps one shape. It also gives the null case a real embedding that
+            training can move, which an empty segment does not.</p>
         </div>
+
+        <h3 style="margin:1.6rem 0 .6rem">Span markers, as one ablation</h3>
+        <p>
+          Where the source gives character offsets, the target span can be marked in the text instead,
+          for example <code>&hellip; shares in [T] Nokia [/T] rose &hellip;</code>. FinEntity has
+          offsets. FiQA has a snippet that usually matches a span. Financial PhraseBank has neither.
+        </p>
+        <p>
+          Markers are run once, as a head-to-head against the pair format, on the same rows and the
+          same seeds. One variable. If markers win by a clear margin, the recipe changes and the rows
+          without offsets fall back to the pair. If they do not, the pair format stands and the second
+          code path never gets built.
+        </p>
+
+        <div class="callout warning" style="margin-top:1rem">
+          <p><strong>Warning. Marker tokens change the tokenizer.</strong> New special tokens mean a
+            resized embedding matrix, and that is not free on a small checkpoint. Price it in the smoke
+            check before the head-to-head, not after.</p>
+        </div>
+
+        <h3 style="margin:1.6rem 0 .6rem">Input length</h3>
+        <p>
+          Every source in this plan is sentence length or headline length. The token distribution is
+          measured at the data build, and the maximum length is set from the 99th percentile of it,
+          rounded up. It is a configuration number chosen from the data, the same way batch size is.
+          It is not a claim and it is not on an experiment ladder.
+        </p>
+        <p>
+          If a later source brings paragraphs or filings, the number is re-measured and recorded as a
+          new config with a new hash. That is a data change, not a research question.
+        </p>
       </section>
 
       <section id="codebook">
         <div class="section-head">
           <div>
-            <p class="section-kicker">What the labels actually mean</p>
-            <h2>Label codebooks</h2>
+            <p class="section-kicker">What the three labels mean</p>
+            <h2>Label codebook</h2>
           </div>
           <span class="status supported">Decided</span>
         </div>
         <p class="section-intro">
-          These rules are the product. Weights are replaceable, a clear label definition is not.
-          They are no longer written from scratch. The benchmark is borrowed from published datasets
-          that other people annotated, so each codebook is transcribed from what those annotators
-          actually did. Where our old rule and theirs disagree, theirs wins and the difference is
-          recorded. A codebook that quietly differs from the labels it is scored against produces a
-          headline that means something other than what it says.
+          Three classes. The label is the sentiment that the text expresses <em>toward the target</em>,
+          from the point of view of an investor holding that target. It is not the mood of the writer
+          and it is not whether the reader will enjoy the news.
         </p>
 
-        <h3>Aspect sentiment</h3>
+        <div class="stack">
+          <article class="card">
+            <h3><span class="pill teal">positive</span></h3>
+            <p>The text says something that is good for the target. Higher revenue, a won contract, a
+              raised rating, a beaten estimate, a cut cost. The judgement is about the target, not
+              about the sentence as a whole.</p>
+          </article>
+          <article class="card">
+            <h3><span class="pill red">negative</span></h3>
+            <p>The text says something that is bad for the target. Lower revenue, a lost contract, a
+              cut rating, a missed estimate, a rise in a cost the target pays.</p>
+          </article>
+          <article class="card">
+            <h3><span class="pill">neutral</span></h3>
+            <p>The text mentions the target and says nothing good or bad about it. Plain description,
+              a factual count, a schedule, a name in a list. Neutral is a decision, not a shrug.</p>
+          </article>
+        </div>
+
+        <h3 style="margin-top:1.8rem">Rules that settle the hard rows</h3>
+        <ul class="compact-list">
+          <li><strong>Same sentence, two targets, two labels.</strong> This is allowed and it is the
+            point. Label each target on its own. Never average them into one sentence label.</li>
+          <li><strong>The target is mentioned but the good news is somebody else's.</strong> Label the
+            target neutral unless the text says the effect reaches it.</li>
+          <li><strong>Costs cut both ways.</strong> A rise in the price of a thing is positive for the
+            seller and negative for the buyer. Decide by which side the target is on.</li>
+          <li><strong>Guidance counts.</strong> A statement about the future is labelled the same way
+            as one about the past. Time direction is not part of this task any more.</li>
+          <li><strong>No mixed class.</strong> A sentence that reports a number and then judges it goes
+            in one bucket by the rules above. A fourth class lowers agreement and the label stops
+            meaning one thing.</li>
+        </ul>
+
+        <div class="callout warning" style="margin-top:1rem">
+          <p><strong>Warning. The borrowed labels were written to other codebooks.</strong> Financial
+            PhraseBank asks its annotators for the view of an investor. FiQA gives a continuous score
+            per aspect. FinEntity marks entity spans. None of them was written to the codebook above.
+            The mapping from each source into these three classes is written down, published, and
+            checked on a sample by a person. See <a href="#benchmarks">benchmarks</a>.</p>
+        </div>
+      </section>
+
+      <section id="benchmarks">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">What the numbers are measured on</p>
+            <h2>Benchmarks</h2>
+          </div>
+          <span class="status compromised">Two of three open</span>
+        </div>
+        <p class="section-intro">
+          Three human-labelled sources. One carries no target and supplies the null-target rows. Two
+          carry targets and supply the aspect rows. A model that wins on all three is the one this
+          project calls best.
+        </p>
+
         <div class="table-wrap">
           <table>
+            <caption class="table-caption">The sources, and what each one is for</caption>
             <thead>
-              <tr><th style="width:120px">Label</th><th>Rule</th><th>Example</th></tr>
+              <tr><th>Source</th><th>Rows</th><th>Target?</th><th>Licence</th><th>Job in this project</th><th>Status</th></tr>
             </thead>
             <tbody>
               <tr>
-                <td><span class="status supported">positive</span></td>
-                <td>The text implies the aspect is doing better, or is expected to do better, than the stated or implied reference point.</td>
-                <td class="subtle-cell">"Margins expanded 200bps" &rarr; aspect <code>margins</code></td>
+                <td><code>takala/financial_phrasebank</code></td>
+                <td>4,836 usable sentences</td>
+                <td>No</td>
+                <td>CC BY-NC-SA 3.0</td>
+                <td>The null-target rows. Agreement tiers give the closest thing to a human ceiling.</td>
+                <td><span class="status supported">Built</span></td>
               </tr>
               <tr>
-                <td><span class="status compromised">negative</span></td>
-                <td>The text implies the aspect is doing worse, or is expected to do worse, than the stated or implied reference point.</td>
-                <td class="subtle-cell">"Cloud revenue missed consensus" &rarr; aspect <code>cloud revenue</code></td>
+                <td><code>pauri32/fiqa-2018</code></td>
+                <td>1,111 sentences after the build</td>
+                <td>Yes, per aspect</td>
+                <td>Check before adoption</td>
+                <td>Aspect rows from news and microblogs. The out-of-domain read.</td>
+                <td><span class="status notrun">Loaded, not adopted</span></td>
               </tr>
               <tr>
-                <td><span class="status notrun">neutral</span></td>
-                <td>The aspect is mentioned with no evaluative direction, or the text is purely descriptive, or the direction is genuinely ambiguous.</td>
-                <td class="subtle-cell">"Revenue was $4.1bn" &rarr; aspect <code>revenue</code></td>
+                <td><code>yixuantt/FinEntity</code></td>
+                <td>968 documents, 1,974 target rows</td>
+                <td>Yes, with offsets</td>
+                <td>ODC-BY</td>
+                <td>Multi-target rows, and the one permissive human set in the plan.</td>
+                <td><span class="status supported">Audited, gate passed</span></td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div class="grid-2" style="margin-top:1rem">
-          <div class="card">
-            <h4>Hard rules</h4>
-            <ul class="compact-list">
-              <li><strong>Sentiment is for the aspect, not the sentence.</strong> "Costs fell sharply" is positive for the company and, with aspect <code>costs</code>, still positive, because lower costs are good. Judge the effect on the aspect's owner.</li>
-              <li><strong>A bare number is neutral.</strong> Magnitude alone is not direction. Direction needs a comparison, stated or obvious.</li>
-              <li><strong>If the aspect is absent from the text, the example is invalid.</strong> Drop it. Do not label it neutral.</li>
-              <li><strong>Do not import outside knowledge.</strong> If you need to know last quarter's number and the context does not give it, the answer is neutral.</li>
-            </ul>
-          </div>
-          <div class="card">
-            <h4>Known hard cases</h4>
-            <ul class="compact-list">
-              <li><strong>Two aspects, opposite polarity.</strong> "We gained share while pricing weakened" is two separate examples with two labels. That is the point of the task.</li>
-              <li><strong>Quoted opinion.</strong> "Analysts called the guidance disappointing" is negative for the guidance. Report the sentiment in the text, not your view of it.</li>
-              <li><strong>Risk-factor boilerplate.</strong> Filing risk language mentions bad things that have not happened. Neutral unless the text says the risk has materialised.</li>
-              <li><strong>Beat but guided down.</strong> Label per aspect. The quarter is positive, the guidance is negative. Never average them.</li>
-            </ul>
-          </div>
+
+        <div class="callout info" style="margin-top:1rem">
+          <p><strong>The multi-aspect rows stop being a problem and become the headline.</strong>
+            <code>DECISIONS_AIM.md</code> warns that a sentence carrying two aspects with opposite
+            polarity cannot be scored by a sentence-level model, and tells the build to count those rows
+            and drop them. Under this scope they are kept. They are the rows that separate an aspect
+            model from a sentence model. The build still counts them, because the count is the size of
+            the effect the project is claiming.</p>
         </div>
 
-        <h3 style="margin-top:1.8rem">Forward-looking</h3>
-        <div class="card">
-          <p class="small"><strong>Test:</strong> does the sentence assert something about a state of the
-            world that has not happened yet, at the time the text was written?</p>
-          <div class="split">
-            <div class="subcard">
-              <h4>specific_fls</h4>
-              <ul class="compact-list">
-                <li>Guidance and outlooks that name a figure, a range, a date or a named action.</li>
-                <li>Targets and plans concrete enough that a reader could later check whether they happened.</li>
-                <li>Announced-but-not-completed actions with a stated timeline. "The acquisition is expected to close in Q4."</li>
-              </ul>
-            </div>
-            <div class="subcard">
-              <h4>non_specific_fls</h4>
-              <ul class="compact-list">
-                <li>Forward-looking in form, but with nothing checkable attached.</li>
-                <li>Hedged predictions with no figure. "We expect conditions to improve."</li>
-                <li>Conditional futures. "If demand holds, we will expand capacity."</li>
-                <li>Legal safe-harbour boilerplate, which is dull, frequent, and lands here.</li>
-              </ul>
-            </div>
-            <div class="subcard">
-              <h4>not_fls</h4>
-              <ul class="compact-list">
-                <li>Reported results, historic comparisons, completed events.</li>
-                <li>Present-tense description of current state. "Inventory stands at 42 days."</li>
-                <li>Timeless statements of policy or definition.</li>
-                <li>References to somebody else's past forecast. "Consensus had expected 4%." That is a reported fact about the past.</li>
-              </ul>
-            </div>
+        <div class="callout" style="margin-top:1rem">
+          <p><strong>FinEntity was audited on 22 August 2026, and the gate passed.</strong> Run it again
+            with <code>finsent aspect-audit</code>. The source publishes 979 documents. Eleven are exact
+            repeats and eight label one target two ways, so 968 remain, and they carry 1,974 target rows.
+            <strong>542 documents name two or more distinct targets, and 119 of those give their targets
+            different labels.</strong> Thirty hold a positive target and a negative one at the same time.
+            Those 119 documents contribute 323 target rows, and they are the whole evidence for the
+            aspect input.</p>
+          <p class="small"><strong>Why this mattered.</strong> FiQA holds zero such sentences out of
+            1,111, so on FiQA alone the claim could not be measured at any model quality. FinEntity is
+            what makes the headline number real. It is also ODC-BY, so it is the one human source here
+            that the release may redistribute.</p>
+        </div>
+
+        <div class="callout warning" style="margin-top:1rem">
+          <p><strong>Warning. 323 rows is enough to measure the claim and not enough to split three
+            ways.</strong> A test split cut from them alone would be too small to separate anything. Pool
+            the aspect rows with the null-target rows for training and for the headline macro-F1, and
+            report the multi-target number as its own line over the whole frozen split. Do not cut a
+            third split for it.</p>
+          <p class="small">Two smaller notes from the same audit. 65 of 2,104 spans carry offsets that
+            miss their own value by one to five characters, always forward; every one is repaired by a
+            search for the value nearest the recorded offset, and the repair count is printed rather than
+            hidden. And the documents are short: a median of 34 words, and 623 of 979 are a single
+            sentence. They are headlines and news snippets, not passages.</p>
+        </div>
+
+        <div class="callout warning" style="margin-top:1rem">
+          <p><strong>Warning. Financial PhraseBank is non-commercial and it cannot be redistributed.</strong>
+            The repository publishes row identifiers and split assignments, never the text. That is
+            settled in <code>DECISIONS_AIM.md</code> entry J and the code enforces it. It leaves the
+            release with no evaluation set of its own. FinEntity is ODC-BY and closes part of that gap.
+            A test set labelled for this codebook closes the rest. See
+            <a href="GAPS_AIM_2.md">the gap review</a>, gap 3.</p>
+        </div>
+
+        <h3 style="margin-top:1.8rem">The splits</h3>
+        <ul class="compact-list">
+          <li>One test split, cut from the Financial PhraseBank 50%-agreement superset and frozen. Every
+            row keeps the strongest agreement tier it reached, and the four published subsets are read
+            back as breakdowns of that one split. The four subsets are nested, so four separate test
+            splits are impossible and four overlapping ones leak.</li>
+          <li>The aspect sources are cut the same way, and the split key is the sentence, not the row.
+            All targets of one sentence land in the same split. A sentence split across two splits leaks
+            the sentence.</li>
+          <li>A near-duplicate group never straddles two splits. A paraphrase and its original never
+            straddle two splits. The harness fails the build when either rule breaks.</li>
+        </ul>
+      </section>
+
+      <section id="baselines">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">What the encoder has to beat</p>
+            <h2>Baselines</h2>
           </div>
+          <span class="status supported">Decided</span>
+        </div>
+        <p class="section-intro">
+          Seven systems, scored on the same rows through the same harness. Four of them already have
+          numbers. The floor is a finance word list. The ceiling is a frontier model called through an
+          API, and the gap between its score and its price is the argument for shipping an encoder.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <caption class="table-caption">The baseline set. Development split, 500 rows, null-target only so far.</caption>
+            <thead>
+              <tr><th>System</th><th>What it is</th><th>macro-F1</th><th>Grade</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Majority class</td><td>Always the most common label in train</td><td>0.2546</td><td><span class="status supported">Supported</span></td></tr>
+              <tr><td>Loughran-McDonald</td><td>The standard finance word list. Sign of positive hits minus negative hits</td><td>0.4426</td><td><span class="status supported">Supported</span></td></tr>
+              <tr><td>Henry</td><td>The second finance word list, balanced where Loughran-McDonald is not</td><td>0.5896</td><td><span class="status notrun">Reported</span></td></tr>
+              <tr><td>TF-IDF + logistic regression</td><td>The bag-of-words floor an encoder must clear</td><td>0.7385</td><td><span class="status supported">Supported</span></td></tr>
+              <tr><td><code>ProsusAI/finbert</code></td><td>Domain-pretrained BERT, re-run on this split rather than quoted</td><td>&mdash;</td><td><span class="status compromised">Not run</span></td></tr>
+              <tr><td><code>yiyanghkust/finbert-tone</code></td><td>The same, second checkpoint</td><td>&mdash;</td><td><span class="status compromised">Not run</span></td></tr>
+              <tr><td><code>gpt-5.6-sol</code></td><td>The frontier baseline. Medium reasoning effort, zero-shot and few-shot</td><td>&mdash;</td><td><span class="status compromised">Not run</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <article class="card decision recommended" style="margin-top:1.2rem">
+          <div class="slice-head">
+            <div>
+              <h3>The frontier baseline, pinned</h3>
+              <p class="model-name">gpt-5.6-sol, reasoning effort medium</p>
+            </div>
+            <span class="status supported">Decided</span>
+          </div>
+          <dl class="dl-spec">
+            <dt>Why it is here</dt>
+            <dd>It is what a practitioner calls instead of shipping an encoder. It is therefore the
+              number that decides whether this project is worth building.</dd>
+            <dt>The pin, in full</dt>
+            <dd>One model, one version, one effort setting. Not a router. Not a fallback chain. Not
+              "whatever was current". The effort setting is part of the pin, because it changes both
+              the answers and the bill.</dd>
+            <dt>Prompts</dt>
+            <dd>Two, both published: zero-shot and few-shot. The few-shot examples come from the train
+              split only, never from dev and never from test.</dd>
+            <dt>Cached</dt>
+            <dd>Every response is cached with its token counts and its date, and the cache is published.
+              The benchmark then survives the model being retired.</dd>
+            <dt>How it is compared</dt>
+            <dd>Paired bootstrap on the same rows, with the cost per thousand rows on the same table.</dd>
+          </dl>
           <div class="callout warning" style="margin-top:.9rem">
-            <p><strong>This label used to be binary and is not any more.</strong> The borrowed benchmark
-              separates specific from non-specific forward-looking statements, so the model does too. The
-              split above is our reading of their scheme and it is provisional. Before Phase 1 training,
-              read a sample of their labelled rows and rewrite these three definitions to match what the
-              annotators plainly did. Their rows are the authority, not this table.</p>
+            <p class="small"><strong>Warning. It writes no labels.</strong> In the earlier plan a frontier
+              model wrote the test key, and the headline was agreement with it. That is gone. Here it is
+              a system scored against human labels like every other system, and it can lose.</p>
           </div>
-          <ul class="compact-list" style="margin-top:.9rem">
-            <li><strong>Tense is a hint, not the rule.</strong> "Capacity comes online next quarter" is present tense and forward-looking.</li>
-            <li><strong>Legal safe-harbour boilerplate is forward-looking.</strong> It is dull, it is frequent, and excluding it would be a judgement call the model cannot learn. Include it, and report how much of the non-specific class it is.</li>
-            <li><strong>Split-nature sentences are forward-looking.</strong> If any clause makes a claim about the future, the sentence is one of the two forward-looking classes. Whether it is specific depends on whether that clause carries something checkable.</li>
-            <li><strong>Specific against non-specific is the hard boundary,</strong> not forward-looking against not. Expect most confusion there, and report the three-way matrix rather than collapsing to binary.</li>
-          </ul>
-        </div>
+        </article>
 
-        <h3 style="margin-top:1.8rem">Fact versus opinion</h3>
-        <div class="card">
-          <p class="small"><strong>Test:</strong> could a careful reader, with access to the right source,
-            establish that this is true or false? If yes it is a fact, even if it turns out to be wrong.</p>
-          <div class="split">
-            <div class="subcard">
-              <h4>fact</h4>
-              <ul class="compact-list">
-                <li>Reported numbers, dates, named events, filed figures.</li>
-                <li>Attributed statements. "The CFO said margins would improve" is a checkable fact about what was said.</li>
-                <li>False or disputed claims that are still checkable.</li>
-                <li>Definitions and stated methodology.</li>
-              </ul>
-            </div>
-            <div class="subcard">
-              <h4>opinion</h4>
-              <ul class="compact-list">
-                <li>Evaluations. "Strong quarter", "disappointing execution".</li>
-                <li>Recommendations and ratings.</li>
-                <li>Unattributed predictions and estimates of value.</li>
-                <li>Causal claims presented without evidence. "Weakness was driven by macro softness."</li>
-              </ul>
-            </div>
-          </div>
-          <ul class="compact-list" style="margin-top:.9rem">
-            <li><strong>Truth is not the test. Checkability is.</strong> A wrong number is still a fact.</li>
-            <li><strong>The mixed-sentence rule.</strong> If a sentence states a checkable thing and then judges it, label it <code>opinion</code>. The judgement is the part a downstream consumer must not treat as evidence.</li>
-            <li><strong>Attribution flips it.</strong> "Margins will improve" is opinion. "Management said margins will improve" is fact.</li>
-            <li><strong>Overlap with forward-looking is expected.</strong> The two labels are not independent, and the write-up must report the confusion between them rather than pretend they are separate.</li>
-          </ul>
-          <div class="callout warning" style="margin-top:.9rem">
-            <p><strong>This codebook has no matching benchmark, and that is an open decision.</strong> The
-              nearest public human-labelled set is FinArg, which labels earnings-call sentences
-              <code>premise</code> or <code>claim</code>. That is a related question, not this one. Its own
-              rows make the gap plain: a sentence opening "I think a lot is happening" is a premise there,
-              and is squarely <code>opinion</code> here. Either this task is renamed to premise versus claim
-              and adopts their definitions, or it keeps the rules above and ships without an accuracy claim.
-              The recommendation is the rename. See the benchmark program in
-              <a href="PROGRAM_DESIGN.html#annotation">Program design</a>.</p>
-          </div>
-        </div>
-
-        <div class="callout" style="margin-top:1.2rem">
-          <p><strong>The codebook is versioned.</strong> It lives at <code>docs/codebook/</code> in the repo,
-            one Markdown file per task, with a version number. Every labelled example records the
-            codebook version it was labelled under. A codebook change without a version bump is a bug.
-            Each file also carries a differences section, listing every place our wording departs from the
-            borrowed annotators' apparent rule, so a reader can see exactly what the score is measuring.</p>
+        <div class="callout" style="margin-top:1rem">
+          <p><strong>Two lexicon numbers are missing and both are cheap.</strong> Read the word lists
+            beside their abstention rate: Loughran-McDonald is silent on 65% of development rows and
+            Henry on 66%, and every silent row is called neutral. Report the macro-F1 on the answered
+            rows beside the full score. Then add one hybrid: feed the word-list counts into logistic
+            regression. The sign rule throws the counts away, and the hybrid is the fair lexical
+            baseline an encoder must beat.</p>
         </div>
       </section>
 
       <section id="nongoals">
         <div class="section-head">
           <div>
-            <p class="section-kicker">What this is not</p>
+            <p class="section-kicker">What this project will not do</p>
             <h2>Non-goals</h2>
           </div>
-          <span class="pill red">Enforced</span>
+          <span class="status supported">Decided</span>
         </div>
         <p class="section-intro">
-          Each of these was considered and dropped. They are listed so that nobody, human or agent,
-          quietly adds them back. Adding one back needs a decision-log entry.
+          Each one of these was considered and dropped. A non-goal can be re-opened, and re-opening it
+          needs a decision-log entry that says what changed.
         </p>
-        <div class="quarantine-grid">
-          <div class="quarantine">
-            <h3>Aspect extraction</h3>
-            <p>The ABSA model takes an aspect as input. Finding aspects in raw text is a separate problem with separate data and separate metrics.</p>
-            <p class="do-not">Not in this project</p>
-          </div>
-          <div class="quarantine">
-            <h3>Entity reasoning claims</h3>
-            <p>The previous project conditioned on entities and then claimed the model reasoned about them. It did not. Feeding an aspect string in is conditioning, and the write-up must say only that.</p>
-            <p class="do-not">Do not claim</p>
-          </div>
-          <div class="quarantine">
-            <h3>Anything past 8,192 tokens</h3>
-            <p>8,192 is the ceiling, because it is what the base encoder was pretrained for. Whole 10-Ks, multi-document reasoning, hierarchical chunk aggregation and retrieval all sit outside it. The caller cuts the document into passages.</p>
-            <p class="do-not">Hard limit</p>
-          </div>
-          <div class="quarantine">
-            <h3>Any claim about context length</h3>
-            <p>The length ladder is removed. This project does not test whether reading more of the document helps, so it never says that it does. <code>max_length</code> is picked from the measured token distribution and published with its truncation rate, and that is the whole statement.</p>
-            <p class="do-not">Not tested, never claimed</p>
-          </div>
-          <div class="quarantine">
-            <h3>A machine-written answer key</h3>
-            <p>An earlier version bought 5,000 frontier-model labels per task and made agreement with them the headline. Removed. Every published metric here is against labels people wrote. A frontier model is a baseline on those same rows, never the author of them.</p>
-            <p class="do-not">Removed</p>
-          </div>
-          <div class="quarantine">
-            <h3>A multi-task model</h3>
-            <p>Three separate models. A shared trunk makes gains impossible to attribute and every release couples to the other two.</p>
-            <p class="do-not">Rejected</p>
-          </div>
-          <div class="quarantine">
-            <h3>General-domain coverage</h3>
-            <p>Finance only. Out-of-domain behaviour may be measured and reported, and it is never a claim.</p>
-            <p class="do-not">Out of scope</p>
-          </div>
-          <div class="quarantine">
-            <h3>Numeric sentiment scores</h3>
-            <p>Discrete labels with probabilities. Continuous sentiment scores from FiQA and SemEval get thresholded into classes, and that mapping gets documented.</p>
-            <p class="do-not">Not an output</p>
-          </div>
-          <div class="quarantine">
-            <h3>Calibration claims</h3>
-            <p>Calibration numbers get reported. "The model is well calibrated" was quarantined last time and stays quarantined until a reliability curve on the frozen test set says otherwise.</p>
-            <p class="do-not">Report, never claim</p>
-          </div>
-          <div class="quarantine">
-            <h3>Machine-labelled test data</h3>
-            <p>Training labels come from an ensemble of routed models. Test labels never do. A model scored against labels its own teachers produced cannot tell you anything about whether it beat them. Since nobody here annotates, the test labels are borrowed from published datasets that people labelled. The one place this rule bends is the fact-versus-opinion fork, where keeping the original label definition would mean shipping with no human test set at all, and therefore with no accuracy claim.</p>
-            <p class="do-not">Human-labelled test sets only</p>
-          </div>
-          <div class="quarantine">
-            <h3>A production service</h3>
-            <p>This is a research release. A demo Space and a clean inference example, and no SLA, no hosted API, no uptime promise.</p>
-            <p class="do-not">Not shipped</p>
-          </div>
+
+        <div class="grid-2">
+          <div class="card"><h3>Aspect extraction</h3><p>The caller supplies the target. Finding the
+            targets in free text is a different model, a different metric and a different project.</p></div>
+          <div class="card"><h3>Forward-looking detection</h3><p>Dropped in the scope change. Time
+            direction is not a label here. Guidance is scored like any other statement.</p></div>
+          <div class="card"><h3>Fact versus opinion</h3><p>Dropped in the scope change, because the
+            candidate benchmark split on time rather than on checkability.</p></div>
+          <div class="card"><h3>Domain pretraining</h3><p>No masked language modelling step. The bench
+            answers which general encoder wins on this task. It does not answer which encoder is best
+            for financial text, and the card must not claim it does.</p></div>
+          <div class="card"><h3>A continuous score head</h3><p>FiQA carries a real-valued score. It is
+            mapped into the three classes and the mapping is published. A second head is a second code
+            path for one source.</p></div>
+          <div class="card"><h3>Multilingual coverage</h3><p>English only. Every source in the plan is
+            English. A multilingual claim needs multilingual test data that this project does not have.</p></div>
+          <div class="card"><h3>Passage and filing input</h3><p>Sentence and headline length only, set
+            from the measured token distribution. Long input returns as a data change if a source
+            brings it, not as a research claim.</p></div>
+          <div class="card"><h3>A leaderboard</h3><p>The release publishes numbers, splits and the code
+            to reproduce them. Running a submission queue for other people is a service, not a model.</p></div>
         </div>
       </section>
 
       <section id="users">
         <div class="section-head">
           <div>
-            <p class="section-kicker">Who uses the output</p>
+            <p class="section-kicker">Who calls this, and why</p>
             <h2>Users and jobs</h2>
           </div>
           <span class="status notrun">Assumed</span>
         </div>
-        <p class="section-intro">
-          The primary reader of this document is whoever builds the project next, including future
-          you and coding agents. These are the downstream users the models are shaped for.
-        </p>
-        <div class="grid-3">
-          <div class="card">
-            <h3>Research and quant teams</h3>
-            <p class="small muted">Score thousands of transcript sentences per company per quarter.
-              Needs cheap batch inference and a stable label meaning across versions. Cares about
-              recall on forward-looking above everything.</p>
-          </div>
-          <div class="card">
-            <h3>Anyone building finance RAG</h3>
-            <p class="small muted">Wants to tag retrieved chunks so a generator can separate reported
-              fact from analyst view, and history from guidance. Needs low latency per sentence.</p>
-          </div>
-          <div class="card">
-            <h3>NLP practitioners and reviewers</h3>
-            <p class="small muted">Wants to reproduce the numbers, check the protocol, and reuse the
-              frozen splits and the reconstruction recipe as a benchmark. Cares more about the evidence trail than the headline score.</p>
-          </div>
-        </div>
-        <div class="callout info" style="margin-top:1rem">
-          <p class="small"><strong>Not a target user:</strong> retail investors, anything giving financial
-            advice, and any use where a wrong label carries direct money risk without a human in the
-            loop. This gets stated in every model card.</p>
+
+        <div class="stack">
+          <article class="card">
+            <h3>The analyst with a news feed</h3>
+            <p>Has a list of tickers and a stream of headlines. Wants one row per ticker per headline,
+              not one row per headline. Calls the small model, in bulk, on CPU or one cheap GPU. Cares
+              about cost per million rows and about the multi-target case, because a headline that names
+              two companies is the one they cannot handle today.</p>
+          </article>
+          <article class="card">
+            <h3>The researcher with a panel</h3>
+            <p>Needs a sentiment column that they can defend in a footnote. Wants the frozen split, the
+              published numbers, the confidence intervals and the word-list floor beside them. Cares
+              that the method is citable and that the numbers reproduce.</p>
+          </article>
+          <article class="card">
+            <h3>The engineer replacing an API call</h3>
+            <p>Already calls a frontier model and is paying for it. Wants to know what accuracy they
+              lose and what money they save. The macro-F1 against cost table is written for this
+              person.</p>
+          </article>
         </div>
       </section>
 
       <section id="done">
         <div class="section-head">
           <div>
-            <p class="section-kicker">The bar</p>
+            <p class="section-kicker">The bar, written before the runs</p>
             <h2>Definition of done</h2>
           </div>
-          <span class="status supported">Decided</span>
+          <span class="status compromised">Numbers open</span>
         </div>
         <p class="section-intro">
-          Success is an accuracy claim on labels people wrote. For each task, the shipped encoder is the
-          best of nine benched backbones, and its macro-F1 on the borrowed frozen test split is the
-          headline. The same split scores every baseline, including a pinned frontier model, so the
-          comparison is like for like. Each of the three models clears its bar on its own. A model that
-          misses still ships, with the miss stated in the card.
+          Six conditions. All six must hold. Each one is measured on the frozen test split, opened
+          once, at the end. The thresholds go into the config from the measured baselines before the
+          test split is opened, never after the table is read.
         </p>
 
-        <div class="callout warning">
-          <h3>Two roles for a model, and they must never be confused</h3>
-          <p>Models appear here in two different roles. Every number in every document says which role it
-            is talking about, because collapsing them produces a claim that sounds stronger than it is.</p>
-          <div class="table-wrap" style="margin-top:.7rem; box-shadow:none">
-            <table>
-              <thead><tr><th style="width:130px">Role</th><th style="width:200px">Who</th><th>What it does, and what it can never do</th></tr></thead>
-              <tbody>
-                <tr>
-                  <td><strong>The teachers</strong></td>
-                  <td>k cheap models behind the omni router, voted through the label model</td>
-                  <td>They write extra <em>training</em> labels and nothing else. They never touch a test row, a development row, or a metric. If a teacher's label reaches an evaluation set the run is void.</td>
-                </tr>
-                <tr>
-                  <td><strong>The baselines</strong></td>
-                  <td>Majority class, TF-IDF, each routed model, the teacher ensemble, an off-the-shelf finance encoder, and <code>gpt-5.6-sol</code> at medium reasoning effort</td>
-                  <td>They are scored on the same frozen human-labelled rows as the encoder, and they set the number the encoder has to beat. None of them writes an answer key.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p style="margin-top:.7rem">There is no third tier any more. An earlier version of this plan
-            added a pinned frontier model as the author of a 5,000-passage machine-written answer key,
-            and made agreement with that key the headline. That set is removed. It cost low thousands of
-            dollars, it made the headline a fidelity number rather than an accuracy number, and it made
-            "we beat the frontier model" unsayable on the only set that mattered.</p>
+        <div class="checklist">
+          <ol>
+            <li><strong>Both models beat the lexical floor with an interval.</strong> Macro-F1 above the
+              best of the word lists, the hybrid and TF-IDF, with a paired bootstrap interval that does
+              not cross zero.</li>
+            <li><strong>The aspect input earns its place.</strong> On sentences with two or more targets
+              carrying different gold labels, the model gives those targets different predictions on a
+              stated share of rows. The threshold is written into the config before the test split is
+              opened. A sentence-level model scores zero here by construction.</li>
+            <li><strong>The null-target case does not regress.</strong> The aspect model scores at least
+              as well on Financial PhraseBank as a model trained on those rows alone. One variable, three
+              seeds. If the aspect rows hurt the vanilla case, the write-up says so and the release ships
+              the number.</li>
+            <li><strong>The small model is worth its size.</strong> Its macro-F1 is within a stated
+              distance of the large model, and its cost per thousand rows is at least an order of
+              magnitude lower than <code>gpt-5.6-sol</code> at medium effort, counted on real token
+              usage at recorded prices.</li>
+            <li><strong>Every headline number has a registry row.</strong> No row, no number. The row
+              carries the hypothesis, the config hash, the split hash, the seed and the evidence grade.</li>
+            <li><strong>The card is honest about what was not done.</strong> No domain pretraining. No
+              article-level grouping, because Financial PhraseBank ships no document identifier. A
+              non-commercial source in the training data, named in the card itself.</li>
+          </ol>
         </div>
 
-        <div class="callout info">
-          <h3>Beating the frontier model is now a plain question</h3>
-          <p>Score the encoder and <code>gpt-5.6-sol</code> on the same frozen rows, against the same
-            human labels, with a paired bootstrap over the per-row difference. If the encoder wins, that
-            is a result and the benchmark is named beside it. If it loses, the gap is published with the
-            cost ratio next to it, because a model that is two points behind at a thousandth of the price
-            is still the right choice for most callers.</p>
-          <p style="margin-top:.5rem">Cost is measured, not asserted. Real token usage at recorded
-            prices, over identical rows, with reasoning tokens counted.</p>
-        </div>
-
-        <div class="callout info">
-          <h3>The weak-to-strong result survives, and it is still free</h3>
-          <p>The encoder trains partly on labels the cheap teacher ensemble wrote. Both are scored on the
-            same frozen human-labelled split. If the encoder beats the ensemble that taught it, that is
-            the weak-to-strong result, and it is exactly what combining k noisy voters through a label
-            model is supposed to buy. If it loses, the gap is the honest cost of cheap labels. Either way
-            the pair of numbers goes in the card.</p>
-        </div>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th style="width:190px">Gate</th>
-                <th>Requirement</th>
-                <th style="width:130px">Applies to</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>Quality</strong></td>
-                <td>The headline. Macro-F1 on the frozen borrowed test split, against the labels people wrote, with a bootstrap interval. The bar is set once, after the baselines run, and written into the config: the shipped encoder must beat the best non-LLM baseline outside the noise band, and it must be within the noise band of <code>gpt-5.6-sol</code> or better. Reported with the per-class breakdown and the confusion matrix, so a reader can see <em>where</em> the model fails rather than only how often. If it lands short, the model still ships and the card states the gap.</td>
-                <td>Each model</td>
-              </tr>
-              <tr>
-                <td><strong>Backbone bench</strong></td>
-                <td>All nine candidate checkpoints are trained and reported, three seeds each, one shared label set, one shared maximum length, nothing else moving. The winner on validation macro-F1 is the shipped encoder for that task. Every loser stays in the published table with its interval, because the table is the deliverable. A bench that cannot separate its top two says so and the cheaper checkpoint ships.</td>
-                <td>Each task</td>
-              </tr>
-              <tr>
-                <td><strong>Truncation</strong></td>
-                <td>Measured truncation rate at the shipped length is recorded and under 5%. Above that, the run is blocked before it starts. This is the gate the previous project did not have.</td>
-                <td>Each dataset</td>
-              </tr>
-              <tr>
-                <td><strong>Cost</strong></td>
-                <td>Not a threshold, because a 150M encoder beats a frontier reasoning model on price by about three orders of magnitude and a gate that cannot fail measures nothing. What is required instead is the <strong>break-even volume</strong>: the number of passages per month at which the encoder, including its one-off labelling and training bill, becomes cheaper than calling <code>gpt-5.6-sol</code>. That is the number a reader can act on. Real token usage at recorded prices, over identical rows, with reasoning tokens counted.</td>
-                <td>Each model</td>
-              </tr>
-              <tr>
-                <td><strong>Latency</strong></td>
-                <td>Median latency per passage is measured and published at the shipped maximum length, on the reported GPU hardware, with batch throughput at the largest batch that fits. The gate is under one second per passage. CPU latency is optional and never part of this gate.</td>
-                <td>Each model</td>
-              </tr>
-              <tr>
-                <td><strong>Label quality</strong></td>
-                <td>The weak-supervision label model beats both plain majority vote and the best single labelling function, measured on the development set held out from the borrowed human-labelled data and separate from the test split. This is what makes weak-to-strong possible: if combining the cheap teachers does not beat the best one of them, the student has nothing extra to learn and the ceiling is just that teacher. If it fails here, the task trains on the borrowed labels alone and the card says the weak labels were not worth buying.</td>
-                <td>Each task</td>
-              </tr>
-              <tr>
-                <td><strong>Human ceiling</strong></td>
-                <td>The source dataset's published inter-annotator agreement is quoted with its citation, and where the source published none, the card says "not published by the source" rather than inventing a figure. Scores are read against that ceiling where it exists, never against 100%. A label-noise probe gives a floor: rows where the whole ensemble agrees with itself and disagrees with the borrowed label are sampled and read by hand.</td>
-                <td>Each task</td>
-              </tr>
-              <tr>
-                <td><strong>Reproducible</strong></td>
-                <td>A clean checkout plus one documented command reproduces the reported test numbers within noise, from the released checkpoint.</td>
-                <td>Each model</td>
-              </tr>
-              <tr>
-                <td><strong>Traceable</strong></td>
-                <td>Every training example carries its source, licence, and how it was labelled, including which labelling functions voted and what the label model returned. No example with unknown provenance is in any training set.</td>
-                <td>Each dataset</td>
-              </tr>
-              <tr>
-                <td><strong>Published</strong></td>
-                <td>Weights, datasets, code, model cards, and the write-up are public, with matching numbers in all four.</td>
-                <td>The project</td>
-              </tr>
-            </tbody>
-          </table>
-          <p class="table-caption">Every gate is measured on the frozen borrowed test set, never on validation
-            data. The set is adopted, re-split, reconstructed and hashed before any model is trained, and is
-            not looked at during development.</p>
-        </div>
-
-        <div class="grid-2" style="margin-top:1.2rem">
-          <div class="card">
-            <h3>Baselines every model is measured against</h3>
-            <ul class="compact-list">
-              <li><strong>Majority class.</strong> The floor. Catches a broken metric.</li>
-              <li><strong>TF-IDF plus logistic regression.</strong> The cheap classical baseline. If a fine-tuned encoder cannot clearly beat it, the task is trivial or the data is broken.</li>
-              <li><strong>A pinned frontier model.</strong> <code>gpt-5.6-sol</code> at medium reasoning effort, scored on the same frozen rows against the same human labels. This is the number a practitioner would otherwise get by calling an API, so it is the one that decides whether the encoder is worth shipping at all.</li>
-              <li><strong>The routed teacher ensemble.</strong> All k cheap models voted through the label model, over the same rows. Beating it is the weak-to-strong result.</li>
-              <li><strong>Each single model in the ensemble.</strong> Few-shot, one row per model, prompt tuned on the development set only. Shows which teachers carried the vote.</li>
-              <li><strong>Zero-shot single model.</strong> Reported to show what prompt work is worth.</li>
-              <li><strong>Off-the-shelf finance encoder.</strong> Existing public models on the same task where one exists, to show the delta from doing this properly.</li>
-            </ul>
-          </div>
-          <div class="card">
-            <h3>What is deliberately not a gate</h3>
-            <ul class="compact-list">
-              <li><strong>Beating published state of the art.</strong> Prior benchmark protocols are not comparable to this one, and forcing the comparison is how the last project produced numbers it had to retract.</li>
-              <li><strong>A round number like 90%.</strong> The borrowed set defines the ceiling, and where its annotators' agreement was never published, the ceiling is simply unknown and gets reported as unknown.</li>
-              <li><strong>Any particular backbone winning.</strong> The bench is run and published either way. A task where the 32M checkpoint wins is a real finding, and it ships as the small model with the full table in the card.</li>
-              <li><strong>Beating the frontier model.</strong> Losing to <code>gpt-5.6-sol</code> by a small margin at a thousandth of the cost is a shippable result. The gap is published, not hidden, and the break-even volume is published beside it.</li>
-              <li><strong>Calibration quality.</strong> Reported, not gated.</li>
-              <li><strong>Out-of-domain robustness.</strong> Measured and published as a limitation, not a pass condition.</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="callout info" style="margin-top:1.2rem">
-          <h3>Every comparison is paired</h3>
-          <p>The borrowed test splits run from 500 to 1,000 examples. At those sizes a single model's own
-            confidence interval spans several points, and two overlapping intervals say almost nothing
-            about which model is better. FiQA is the smallest of the three and the least forgiving. The
-            backbone bench makes this sharper still, because it asks which of nine close numbers is
-            highest.</p>
-          <p style="margin-top:.5rem"><strong>So nothing is compared that way.</strong> Two systems are
-            scored on the same examples, and the bootstrap runs over the per-example difference. That
-            cancels the shared difficulty of the examples and resolves gaps far smaller than the
-            individual intervals suggest. It matters most exactly where this project needs it: each bench
-            candidate against the current leader, the shipped encoder against the frontier model, and the
-            shipped encoder against the teacher ensemble.</p>
-          <p style="margin-top:.5rem"><strong>The bench needs one more rule.</strong> Nine candidates
-            times three seeds is twenty-seven numbers, and the highest of nine noisy draws is biased
-            upward. So the bench reports the seed mean with its spread, it picks on the paired difference
-            against the incumbent leader rather than on the raw maximum, and when the top two cannot be
-            separated the cheaper checkpoint ships.</p>
+        <div class="callout danger" style="margin-top:1rem">
+          <p><strong>The bar cannot move after the split is opened.</strong> Write the thresholds into
+            the config, commit them, and hash the config. A bar that gets set after the numbers arrive
+            is not a bar. This is the failure the previous project recorded, and it is the one that is
+            easiest to repeat.</p>
         </div>
       </section>
 
       <section id="evidence">
         <div class="section-head">
           <div>
-            <p class="section-kicker">Carried over from the last project</p>
+            <p class="section-kicker">How a claim earns its grade</p>
             <h2>Evidence rules</h2>
           </div>
-          <span class="pill teal">Non-negotiable</span>
+          <span class="status supported">Decided</span>
         </div>
         <p class="section-intro">
-          Every number in this project carries a grade. The grade travels with the number into the
-          model card, the write-up and the README. An ungraded number is not publishable.
+          Every number in the write-up carries a grade. The grade is a property of how the number was
+          produced, not of how much anyone likes it. The registry refuses an unknown grade.
         </p>
+
         <div class="evidence-ladder">
           <div class="card">
-            <h3>Supported</h3>
-            <p class="small muted">A saved run with a config, a seed, a logged artifact, and an
-              evaluation on the frozen hashed test split against human labels. Safe to put in a headline.
-              Any comparison against an LLM baseline drops to <em>Reported</em> on a task where the
-              contamination check flagged a shift, because the benchmark has been public for years.</p>
+            <h3><span class="status supported">Supported</span></h3>
+            <p>Measured in this repository, on a frozen split, through the harness, with a registry row
+              and a confidence interval. Reproducible from the config hash.</p>
           </div>
           <div class="card">
-            <h3>Reported</h3>
-            <p class="small muted">A number that exists in a log or a notebook but has no reproducible
-              artifact behind it. Usable in the text with the caveat attached.</p>
+            <h3><span class="status notrun">Reported</span></h3>
+            <p>Taken from somewhere else. A published paper, a model card, a transcribed word list. It
+              carries its source and its protocol difference in the same row. It never becomes
+              Supported by being repeated.</p>
           </div>
           <div class="card">
-            <h3>Compromised</h3>
-            <p class="small muted">A run with a known protocol problem such as leakage, a changed test
-              set, or an unrecorded preprocessing step. Kept for the record, never quoted.</p>
-          </div>
-          <div class="card">
-            <h3>Not run</h3>
-            <p class="small muted">Planned and not executed. Named explicitly so an unrun experiment
-              never quietly becomes a claim.</p>
+            <h3><span class="status compromised">Compromised</span></h3>
+            <p>Measured, but on a split that was fitted against, or with a rule that changed after the
+              number was seen. Kept in the record and never used in a comparison.</p>
           </div>
         </div>
-        <div class="callout danger" style="margin-top:1.1rem">
-          <p><strong>The single rule that matters.</strong> If the protocol changed, the number is not
-            comparable, no matter how much better it looks. The last project learned this expensively.
-            Protocol first, headline second.</p>
+
+        <h3 style="margin-top:1.8rem">State of the art</h3>
+        <p>
+          State of the art means the best published number on the same benchmark, on the same
+          agreement subset. Financial PhraseBank is heavily published, so this is a real and checkable
+          target. Three rules come with it and none is optional.
+        </p>
+        <ol class="compact-list">
+          <li>Every quoted number carries its protocol difference in the same row. A number with no note
+            is not publishable.</li>
+          <li>Where the other system is downloadable, re-run it on this project's split instead of
+            quoting it. A re-run is paired. A quote is not.</li>
+          <li>A quoted number is graded Reported, never Supported.</li>
+        </ol>
+        <div class="callout warning" style="margin-top:1rem">
+          <p><strong>Warning. Published Financial PhraseBank scores come from different subsets.</strong>
+            50%, 66%, 75% and all-agree are four different sets, and the all-agree subset is the easy
+            one. A score on one is not comparable to a score on another. Record the subset in every row.
+            This is the exact comparison that forced the last retraction.</p>
+        </div>
+        <div class="callout danger" style="margin-top:1rem">
+          <p><strong>The survey does not exist yet.</strong> No file holds the published scores, their
+            subsets, their splits, their metrics or their citations. Until it does, the project has no
+            target to aim at. Build it into <code>configs/published.yaml</code> before the first GPU run.</p>
         </div>
       </section>
 
       <section id="release">
         <div class="section-head">
           <div>
-            <p class="section-kicker">What ships</p>
+            <p class="section-kicker">What goes out, and in what state</p>
             <h2>Release checklist</h2>
           </div>
-          <span class="status supported">Decided</span>
+          <span class="status compromised">Artefacts not built</span>
         </div>
-        <p class="section-intro">
-          Everything is open sourced. Each model release repeats this checklist. The suite release
-          adds the cross-model comparison and the demo.
-        </p>
-        <div class="grid-2">
-          <div class="card">
-            <h3>Per model</h3>
-            <ul class="checklist">
-              <li>Weights on Hugging Face under <code>neoyipeng/&lt;model&gt;</code>.</li>
-              <li>Model card with the label definitions copied in full, not linked.</li>
-              <li>Test set results with confidence intervals, plus the source's published human agreement ceiling or a plain statement that the source never published one.</li>
-              <li>The benchmark's provenance: which public dataset, what licence, what re-split, and the passage reconstruction match rate.</li>
-              <li>Every baseline number from the table above, in one comparison table.</li>
-              <li>The full backbone bench table, all nine candidates, three seeds each, with intervals, including the ones that lost.</li>
-              <li>The chosen <code>max_length</code>, the token length distribution it came from, and the measured truncation rate at that setting.</li>
-              <li>The break-even volume against <code>gpt-5.6-sol</code>, with the prices and the date they were read.</li>
-              <li>CPU latency where it was measured, with the machine, the thread count and the macro-F1 of that exact export. Where it was not measured, the card says so and claims nothing.</li>
-              <li>The measured truncation rate at the shipped length.</li>
-              <li>Cost and latency measurements per length, with the hardware and prices stated.</li>
-              <li>Named limitations, including the out-of-domain results.</li>
-              <li>Intended use and out-of-scope use.</li>
-              <li>Training config, seed, and the exact dataset revision hash.</li>
-            </ul>
-          </div>
-          <div class="card">
-            <h3>Per dataset</h3>
-            <ul class="checklist">
-              <li>A link to the borrowed source dataset, never a mirror of it, plus our re-split as row identifiers so anyone can rebuild the exact splits.</li>
-              <li>The reconstruction artifact: for every recovered row, the source document identifier and character offsets, so anyone can rebuild the same passages without us redistributing text we do not own.</li>
-              <li>Token length distribution per split, so readers can see what the chosen <code>max_length</code> was actually covering.</li>
-              <li>Dataset card with source, licence, and collection method for every row.</li>
-              <li>The codebook version used, published alongside.</li>
-              <li>Human and LLM-labelled rows in separate splits, never merged.</li>
-              <li>The source's agreement statistics where it published any, quoted with a citation, and a plain "not published by the source" where it did not.</li>
-              <li>The label-noise probe result, so a reader knows roughly how clean the borrowed labels are.</li>
-              <li>Redistribution check done per source, with anything unclear excluded.</li>
-            </ul>
-          </div>
-          <div class="card">
-            <h3>Repository</h3>
-            <ul class="checklist">
-              <li>Data prep, training, and evaluation scripts, all config-driven.</li>
-              <li>The run registry with one row per experiment.</li>
-              <li>Seeds and configs for every reported number.</li>
-              <li>Tests, including the data invariant checks.</li>
-              <li>A README that reproduces the headline table in one command.</li>
-              <li>Licence, chosen once the source data licences are known.</li>
-            </ul>
-          </div>
-          <div class="card">
-            <h3>Suite</h3>
-            <ul class="checklist">
-              <li>Public write-up with the full protocol and every caveat.</li>
-              <li>A Hugging Face Space where you paste a sentence and see all three outputs.</li>
-              <li>The thesis section, with an honest list of what the three labels do not cover.</li>
-              <li>A quarantine section listing claims that were tested and dropped.</li>
-            </ul>
-          </div>
+
+        <div class="checklist">
+          <ol>
+            <li>Two model repositories, weights and configs, permissively licensed, each with a version.</li>
+            <li>A model card per model that names Financial PhraseBank and its non-commercial licence in
+              the card itself, not behind a link.</li>
+            <li>A dataset card for the split assignments, the manifest of hashes and the codebook.</li>
+            <li>The aspect mapping from each source, published as data, with the sample a person checked.</li>
+            <li>The <code>gpt-5.6-sol</code> response cache, with token counts, prices and dates.</li>
+            <li>The augmentation prompts, the generator model name and its terms.</li>
+            <li>One script a third party runs to reproduce a headline number end to end.</li>
+            <li>The registry, complete, including the runs that failed.</li>
+            <li>A limitations section that says the model is not investment advice, states the English-only
+              scope, and states that no article-level grouping was possible.</li>
+          </ol>
+        </div>
+
+        <div class="callout warning" style="margin-top:1rem">
+          <p><strong>Write the card template now, and fill it as the numbers arrive.</strong> An empty
+            card with the right sections stops a rushed card at the end. None of these artefacts exists
+            today.</p>
         </div>
       </section>
 
       <section id="risks">
         <div class="section-head">
           <div>
-            <p class="section-kicker">Learned the hard way</p>
+            <p class="section-kicker">The ways this goes wrong</p>
             <h2>Known traps</h2>
           </div>
-          <span class="pill amber">From learnings.html</span>
+          <span class="pill amber">Live</span>
         </div>
-        <p class="section-intro">
-          These are failure modes the previous project actually hit. Each one has a countermeasure
-          baked into the plan rather than a warning to be careful.
-        </p>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th style="width:220px">Trap</th><th>What happened before</th><th style="width:290px">Countermeasure here</th></tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>Protocol drift</strong></td>
-                <td>Evaluation protocol changed between runs, so headline gains were not comparable and had to be withdrawn.</td>
-                <td>Gold test sets are frozen and hashed before the first training run. The eval harness refuses to run against an unrecognised hash.</td>
-              </tr>
-              <tr>
-                <td><strong>Silent data mixing</strong></td>
-                <td>Human and augmented data merged in a way that could not be reconstructed afterwards.</td>
-                <td>Every row carries a provenance field. Mixing happens in a config, not in a notebook. A test fails if provenance is missing.</td>
-              </tr>
-              <tr>
-                <td><strong>Split leakage</strong></td>
-                <td>Near-duplicate sentences appeared across train and test splits.</td>
-                <td>Near-duplicate detection across splits runs in CI and fails the build.</td>
-              </tr>
-              <tr>
-                <td><strong>Unfalsifiable claims</strong></td>
-                <td>"Entity-aware" and "well calibrated" were asserted without a test that could have disproved them.</td>
-                <td>Every claim in the write-up names the experiment that could refute it. No experiment, no claim.</td>
-              </tr>
-              <tr>
-                <td><strong>Notebook-only runs</strong></td>
-                <td>Notebook source was treated as proof a run happened, and the run could not be reproduced.</td>
-                <td>Training runs write a registry entry with config hash, seed, and artifact path. No registry entry means the run did not happen.</td>
-              </tr>
-              <tr>
-                <td><strong>Long context on broken data</strong></td>
-                <td>A long run trained on rows that were still 52.8% truncated at 6,144 tokens. The conclusion drawn was that length did not help. What was actually measured was that the examples were malformed.</td>
-                <td>Truncation rate is measured before the run and asserted under 5%. The passage builder has its own test suite. Length only enters the argument once the data is known to be intact.</td>
-              </tr>
-              <tr>
-                <td><strong>Long context assumed to help</strong></td>
-                <td>The opposite failure, and the one this project is now exposed to. Extra tokens feel like they must be worth something.</td>
-                <td>The claim is removed rather than defended. No length experiment runs, so no length conclusion is written. <code>max_length</code> is a published config number with a measured truncation rate beside it.</td>
-              </tr>
-              <tr>
-                <td><strong>Augmentation causality</strong></td>
-                <td>A gain was attributed to a data-generation method without an ablation that isolated it.</td>
-                <td>Synthetic data is out of the default plan. If it is added, it runs as a controlled A/B on one task with everything else fixed.</td>
-              </tr>
-              <tr>
-                <td><strong>Correlated teachers</strong></td>
-                <td>New risk. The label model assumes its labelling functions fail independently. Large models trained on overlapping data fail in the same places, so k of them agreeing is weaker evidence than it looks.</td>
-                <td>Pick models from different families. Add non-LLM heuristic labelling functions. Measure pairwise agreement on the human development set and report it next to every label-model number.</td>
-              </tr>
-              <tr>
-                <td><strong>Label model theatre</strong></td>
-                <td>New risk. A learned label model feels more rigorous than counting votes, and on highly correlated inputs it often is not better.</td>
-                <td>Plain majority vote is a required baseline for the label model. If it wins, use it, and say so.</td>
-              </tr>
-              <tr>
-                <td><strong>Distillation dressed as victory</strong></td>
-                <td>New risk. Training on ensemble labels and then claiming to beat one of its members is close to circular.</td>
-                <td>The headline comparison is against the ensemble. Single-model comparisons are labelled as distillation results wherever they appear.</td>
-              </tr>
-              <tr>
-                <td><strong>Long passages, large bill</strong></td>
-                <td>New risk. Labelling cost scales with passage length times the number of models. The move to 8,192 tokens multiplies the labelling budget several times over, and it is easy not to notice until the invoice arrives.</td>
-                <td>A 500-row pilot at each length before any full run. A hard dollar ceiling in the runner. Response caching, so a prompt fix does not re-buy every label.</td>
-              </tr>
-              <tr>
-                <td><strong>Loss-function overcorrection</strong></td>
-                <td>Inverse-frequency class weighting swung the model too far toward rare classes.</td>
-                <td>Class weighting is a tuned knob measured on validation macro-F1, with the unweighted run always reported next to it.</td>
-              </tr>
-            </tbody>
-          </table>
+
+        <div class="quarantine-grid">
+          <div class="card quarantine">
+            <h3>The aspect input buys nothing</h3>
+            <p>If the multi-target rows are few and the model ignores segment B, the aspect model is a
+              sentence model with extra cost. <strong>Detect it</strong> with the multi-target number in
+              the definition of done, measured on dev long before the test split opens.</p>
+          </div>
+          <div class="card quarantine">
+            <h3>The three sources disagree about what a label means</h3>
+            <p>Three codebooks mapped into one. <strong>Detect it</strong> by scoring a model trained on
+              one source against the other two. A large drop is a mapping problem, not a domain problem.</p>
+          </div>
+          <div class="card quarantine">
+            <h3>The bench comes out flat</h3>
+            <p>Holm across several candidates on one small task points at no separation.
+              <strong>This is accepted.</strong> The write-up leads with the tie and the cheaper
+              checkpoint ships. Do not add seeds hunting for a separation the correction removed.</p>
+          </div>
+          <div class="card quarantine">
+            <h3>The test split is too small to tell</h3>
+            <p>Nobody has computed the smallest gap a 1,000-row split can detect after the correction.
+              A tie then has two readings. <strong>Compute the minimum detectable effect</strong> before
+              the bench runs, not after.</p>
+          </div>
+          <div class="card quarantine">
+            <h3>The development split gets used up</h3>
+            <p>500 rows carry the baselines, the temperature scaling, the pooling choice, the error
+              analysis and every augmentation arm. <strong>Cut a second development split</strong>, or
+              publish the count of decisions that read the first one.</p>
+          </div>
+          <div class="card quarantine">
+            <h3>The generated rows cannot be released</h3>
+            <p>If a hosted model writes the paraphrases, its terms may restrict what you do with the
+              output. <strong>Choose the generator and read its terms before the first run</strong>, not
+              after. Prefer an open-weight generator.</p>
+          </div>
         </div>
       </section>
 
       <section id="decisions">
         <div class="section-head">
           <div>
-            <p class="section-kicker">What is settled and what is not</p>
+            <p class="section-kicker">What is settled, and by whom</p>
             <h2>Decision log</h2>
           </div>
-          <span class="pill">Living</span>
+          <span class="pill blue">Append only</span>
         </div>
         <p class="section-intro">
-          Decisions marked "Decided" came from direct answers and should not be reopened without a
-          reason. Items marked "Assumed" were chosen by default and are cheap to change. Items marked
-          "Open" block work downstream.
+          <code>DECISIONS_AIM.md</code> is the authority for everything it covers. Where this document
+          disagrees with it, this document is wrong and gets edited. The rows below record what changed
+          on 21 August 2026 and what is still open.
         </p>
+
         <div class="table-wrap">
           <table>
+            <caption class="table-caption">Decisions of record</caption>
             <thead>
-              <tr><th style="width:220px">Decision</th><th>Choice</th><th style="width:110px">Status</th></tr>
+              <tr><th>Question</th><th>Answer</th><th>Status</th></tr>
             </thead>
             <tbody>
-              <tr><td>Domain</td><td>Finance only.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Model shape</td><td>Three separate single-task encoders.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>ABSA input</td><td>Aspect is supplied by the caller. No extraction.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>FLS labels</td><td>Three classes: specific FLS, non-specific FLS, and not FLS. Follows the borrowed benchmark, which is not binary.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Fact/opinion labels</td><td>Binary. Mixed sentences resolve to opinion. Whether this task keeps that definition at all is now open, because no public benchmark matches it.</td><td><span class="status compromised">Reopened</span></td></tr>
-              <tr><td>Input unit</td><td>A text span with a marked target, whatever length the source row is. 8,192 tokens is the hard ceiling because that is what the long-context candidates were pretrained for.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Length ladder</td><td><strong>Removed.</strong> Was: 512, 2,048 and 8,192 trained and published on every task, with the gap as the project's central result. It tripled the labelling bill, required rebuilding every benchmark sentence back into its source filing, and needed a model-derived tag on every test row to be readable. None of it made the shipped classifier better.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td><code>max_length</code></td><td>One per task, picked as the smallest supported setting that keeps measured truncation under 5%, read off the token distribution of that task's own inputs. Published with the distribution and the truncation rate.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Truncation gate</td><td>Under 5% at the shipped length, asserted before training starts.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Long-evidence split</td><td><strong>Removed.</strong> It existed only to make the length ladder readable. With the ladder gone there is nothing for it to split.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Passage reconstruction</td><td><strong>No longer a gate.</strong> The borrowed rows are used as the source published them. Rebuilding a sentence back into its 10-K was needed only for the length ladder, and only 27% of FLS rows resolve to a single filing anyway.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Data sources</td><td>Public labelled sets for training, a borrowed human-labelled benchmark for test and development, and weakly supervised training labels from k routed models. Nobody on this project annotates.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Training labels at scale</td><td>Each passage labelled by k different models through one router, plus heuristics, combined by a weak-supervision label model.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Test labels</td><td>Human only, borrowed from published datasets. Weak supervision never touches the test split.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Compute</td><td>Paid serverless GPU with per-second billing, Ampere class or newer.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Success bar</td><td>Macro-F1 on the borrowed frozen human-labelled test split. The number is set once, after the baselines run, and written into the config then: beat the best non-LLM baseline outside the noise band, and land within the noise band of <code>gpt-5.6-sol</code> or better. A bar invented before the baselines exist is a guess.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Model roles</td><td>Two, kept apart. Cheap router models write extra training labels. Everything else, including a pinned frontier model, is a baseline scored on the same human-labelled rows.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Machine-written answer key</td><td><strong>Removed.</strong> Was: 5,000 frontier-labelled passages per task carrying the headline. It cost low thousands of dollars, it made the headline a fidelity number, and it made "we beat the frontier model" unsayable on the set that mattered.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Beating the frontier model</td><td>A plain paired comparison on the borrowed test split, both scored against the same human labels. Losing by a small margin at a thousandth of the cost is a shippable result and the gap is published.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Weak-to-strong result</td><td>Encoder macro-F1 next to teacher-ensemble macro-F1, on the same frozen human-labelled rows. Higher means the encoder beat its own teachers.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Which frontier baseline</td><td><code>gpt-5.6-sol</code> at medium reasoning effort. The effort setting is part of the pin, not a tuning knob, because it changes both the answers and the bill. Every response is cached and published, so the comparison survives the model being retired.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Frontier baseline scope</td><td>Test split only, at evaluation time. It never labels a training row, never labels the development set, and never tunes a prompt.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Slicing</td><td>One vertical slice per task, end to end.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Open source scope</td><td>Weights, datasets, code, write-up, demo.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Base encoder</td><td>Not assumed. Four families are benched at a shared 512-token cap and the winner is pinned: <a href="https://github.com/JHU-CLSP/ettin-encoder-vs-decoder">Ettin</a> at four sizes, ModernBERT base and large, NeoBERT, and DeBERTa-v3 small and base. See <a href="ARCHITECTURE.html#model">the backbone bench</a>.</td><td><span class="status notrun">Bench decides</span></td></tr>
-              <tr><td>Model size</td><td>Small and medium first, roughly 32M to 250M parameters. The 400M and large checkpoints run only if the medium tier looks capped.</td><td><span class="status notrun">Assumed</span></td></tr>
-              <tr><td>Comparing backbones</td><td>All nine at a shared 512-token cap, three seeds each, one shared label set. Picked on the paired difference against the incumbent leader, not on the raw maximum of nine noisy draws. Ties go to the cheaper checkpoint. No report card carries a delta between two different maximum lengths.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>DeBERTa-v3 in the bench</td><td>It stays, and the shared bench cap is therefore 512. The models are small, so 512 is a working window rather than a handicap, and keeping DeBERTa-v3 keeps four architecture families in the comparison. Dropping it would raise the cap to 4,096 and drop the bench to three families; dropping NeoBERT as well would leave six checkpoints sharing one architecture. Since the project makes no context-length claim, the cap does not have to carry an argument. See <a href="ARCHITECTURE.html#model">the backbone bench</a>.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Bench cap versus shipped cap</td><td>The bench runs every candidate at 512, whatever the token distribution says, so the pick is never confounded by the ceiling. Where a task's measured p95 pushes <code>max_length</code> above 512, the bench winner is retrained once at that cap and that run ships. Both numbers go in the card.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>A fast CPU dev loop</td><td>Not built, and accepted as not needed. The development split is human-labelled and a few hundred rows, so scoring it is one short forward pass on the GPU the bench is already paying for. The bench is a batch of twenty-seven short runs rather than a tight edit-and-rerun cycle, so a seconds-scale local metric would not change how the work is done.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>CPU inference</td><td>Optional. Measured where it is cheap to measure, on a pinned CPU shape, with the macro-F1 of that export beside it. It is not a gate and it does not pick the backbone. Nothing is claimed where nothing was measured.</td><td><span class="status notrun">Optional</span></td></tr>
-              <tr><td>Adaptation method</td><td>Full fine-tune and LoRA both run and compared. Paid Ampere-class hardware makes both affordable, so the prior LoRA result gets re-tested rather than inherited.</td><td><span class="status notrun">Assumed</span></td></tr>
-              <tr><td>Labelling functions</td><td>Five routed models from different families, plus two or three cheap heuristic functions per task.</td><td><span class="status notrun">Assumed</span></td></tr>
-              <tr><td>Label model</td><td>Snorkel's label model, with plain majority vote as the required comparison.</td><td><span class="status notrun">Assumed</span></td></tr>
-              <tr><td>Benchmark and size</td><td>FLS: <code>FinanceMTEB/FLS</code>, published 1,000-row test split kept. ABSA: <code>pauri32/fiqa-2018</code>, re-split to 500 test grouped by company. Fact/opinion: unresolved, see the fork. Each task also holds out 200 rows for development.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Labelling length</td><td>Labelling functions read the same passage the student reads, at the length being trained. Short-passage labels do not transfer to a long-context student.</td><td><span class="status notrun">Assumed</span></td></tr>
-              <tr><td>Build order</td><td>Forward-looking, then aspect sentiment, then fact versus opinion. Unchanged, and now better justified: forward-looking has the strongest benchmark and the best chance of recovering its passages.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Repository licence</td><td>Depends on what the source datasets allow. Decide before the first dataset upload.</td><td><span class="status compromised">Open</span></td></tr>
-              <tr><td>Annotator count</td><td>Closed. There is no second annotator because there is no first one. The ceiling is whatever the source dataset published, or "not published" where it published nothing. See <a href="PROGRAM_DESIGN.html#annotation">benchmark program</a>.</td><td><span class="status supported">Closed</span></td></tr>
-              <tr><td>Aspect vocabulary</td><td>Closed by adoption. Aspects come from FiQA's published taxonomy, and callers may still bring their own strings at inference.</td><td><span class="status supported">Closed</span></td></tr>
-              <tr><td>Labelling budget</td><td>A ceiling in dollars. It decides how many passages, at what length, through how many models. 8,192-token passages make this the largest cost in the project.</td><td><span class="status compromised">Open</span></td></tr>
-              <tr><td>Router provider</td><td>Which router, and the exact k models behind it. Model availability shifts, so the chosen set is pinned and recorded per run.</td><td><span class="status compromised">Open</span></td></tr>
-              <tr><td>Fact-versus-opinion fork</td><td>Rename the task to premise versus claim and adopt FinArg, keeping a human benchmark, or keep the current definition and ship with no accuracy claim. Recommendation is the rename. Decide before Phase 3.</td><td><span class="status compromised">Open</span></td></tr>
-              <tr><td>Passage reconstruction bar</td><td>60% of a task's test rows must recover a real passage from the source corpus, or that task drops to a sentence-level headline. Whether 60% is the right line is a judgement, not a measurement.</td><td><span class="status notrun">Assumed</span></td></tr>
+              <tr><td>What is the task</td><td>Aspect-based financial sentiment, three classes. Plain sentence sentiment is the null-target case of the same task, not a second task. This reverses the part of the scope change that deleted the aspect input.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>How many models ship</td><td>Two. One small at 70M or less, one large at 350M or more. The medium tier is benched for the size curve and nothing ships from it.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>What the input looks like</td><td>A pair. Segment A is the text, segment B is the target string, or the literal <code>overall</code> when there is no target. Span markers are one ablation where offsets exist.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Which frontier baseline</td><td><code>gpt-5.6-sol</code> at medium reasoning effort, zero-shot and few-shot, cached and published. It is scored against human labels and it can lose.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>What happens to multi-aspect rows</td><td>They are kept and they carry the headline. The earlier instruction to count and drop them applied to a sentence-level model and no longer applies.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Which benchmarks</td><td>Financial PhraseBank for the null-target rows. FiQA 2018 and FinEntity for the aspect rows.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Can the aspect claim be measured</td><td>Yes. FinEntity gives 119 documents whose targets carry different labels, over 323 target rows. FiQA gives none. Audited 22 August 2026 by <code>finsent aspect-audit</code>.</td><td><span class="status supported">Measured</span></td></tr>
+              <tr><td>Licence of the released weights</td><td>Permissive, with the non-commercial source named in the card. A position, not a settled question, and it is the owner's call.</td><td><span class="status notrun">Position taken</span></td></tr>
+              <tr><td>Published-number survey</td><td>Required before the first GPU run. Goes in <code>configs/published.yaml</code>.</td><td><span class="status compromised">Open</span></td></tr>
+              <tr><td>Where label noise cleaning runs</td><td>First or last, never in the middle, because it changes the training set under every other ablation.</td><td><span class="status compromised">Open</span></td></tr>
+              <tr><td>The labelling budget</td><td>Gates the first weak-label spend.</td><td><span class="status compromised">Open</span></td></tr>
             </tbody>
           </table>
         </div>
       </section>
 
+      <footer class="footer">
+        <p>Document 1 of 4. Written 21 August 2026 against the aim as its owner states it.
+          <code>DECISIONS_AIM.md</code> is the decision record. <code>GAPS_AIM_2.md</code> is the open
+          gap list. <code>learnings.html</code> is what the previous project learned the hard way.</p>
+      </footer>
+
     </main>
   </div>
-
-  <footer class="footer">
-    <p>ModernFin Triad &middot; Document 1 of 4 &middot; Product spec</p>
-    <p><a href="PROGRAM_DESIGN.html">Program design</a> &middot; <a href="ARCHITECTURE.html">Architecture</a> &middot; <a href="VERTICAL_SLICES.html">Vertical slices</a> &middot; <a href="learnings.html">Prior learnings</a></p>
-  </footer>
   <a class="back-top" href="#top" aria-label="Back to top">&uarr;</a>
 </body>
 </html>

@@ -2,6 +2,7 @@
 
     finsent build-data   pull, deduplicate, split, freeze and hash
     finsent baselines    score majority, the word lists and TF-IDF
+    finsent aspect-audit count the multi-target rows the aspect claim needs
     finsent registry     print the run registry
 """
 
@@ -131,6 +132,43 @@ def _baselines(config: dict) -> int:
     return 0
 
 
+def _aspect_audit(config: dict) -> int:
+    """Count the rows that separate an aspect model from a sentence model.
+
+    This is the gate for the aspect task. The headline number in PRODUCT.html
+    is measured on sentences whose targets carry different gold labels. If no
+    source holds enough of them, the claim cannot be measured and the scope has
+    to change. FiQA answered zero. This asks FinEntity the same question.
+    """
+    from .data import finentity
+
+    print(f"Reading {finentity.REPO} ({finentity.LICENCE}) ...")
+    targets, audit = finentity.load()
+
+    print(f"  {audit.n_documents:5d} documents, after {audit.n_duplicate_documents} exact duplicates dropped")
+    print(f"  {audit.n_spans:5d} annotated spans -> {audit.n_targets} target rows")
+    print(f"  {audit.n_repaired_offsets:5d} spans had offsets that missed their own value, all repaired")
+    print(f"  {audit.n_unrepairable:5d} spans could not be repaired")
+    print(f"  {audit.n_self_conflicting:5d} documents label one target two ways and are dropped whole")
+    print(f"  span labels: {audit.label_counts}")
+    print()
+    print(f"  {audit.n_multi_target:5d} documents carry two or more distinct targets")
+    print(f"  {audit.n_multi_label:5d} documents carry targets with DIFFERENT labels ({audit.multi_label_rate:.1%})")
+    print(f"  {audit.n_polar_opposite:5d} of those hold a positive target and a negative one")
+    print(f"  {audit.targets_from_multi_label:5d} target rows come from those documents")
+    print()
+
+    # The gate. A sentence-level model scores zero on these rows by construction,
+    # so they are the whole evidence for the aspect input. Too few and the claim
+    # is unmeasurable whatever the model does.
+    if audit.n_multi_label < 100:
+        print("GATE FAILS. Too few rows to measure the aspect claim on this source alone.")
+        print("See VERTICAL_SLICES.html, slice 2, step 7 for what to do instead.")
+        return 1
+    print("Gate passes. The aspect claim can be measured on this source.")
+    return 0
+
+
 def _registry(config: dict) -> int:
     rows = registry.read()
     if not rows:
@@ -144,7 +182,12 @@ def _registry(config: dict) -> int:
     return 0
 
 
-COMMANDS = {"build-data": _build_data, "baselines": _baselines, "registry": _registry}
+COMMANDS = {
+    "build-data": _build_data,
+    "baselines": _baselines,
+    "aspect-audit": _aspect_audit,
+    "registry": _registry,
+}
 
 
 def main(argv: list[str] | None = None) -> int:

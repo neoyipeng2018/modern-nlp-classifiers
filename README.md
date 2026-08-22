@@ -1,14 +1,25 @@
 # finsent
 
-Financial sentence sentiment, benched in the open.
+Aspect-based financial sentiment, benched in the open.
 
-One task. Three classes: negative, neutral, positive. Two models will ship, one
-small and one large. Every number is measured on a frozen human-labelled split,
-through one harness, against a floor set by finance word lists.
+One task. Every row is a text and a target inside it, and the model says whether
+the text is positive, negative or neutral **about that target**. When the caller
+has no target, the target is the literal `overall`, and the task is plain
+sentence sentiment. One model, one input format, one head. Two models will ship,
+one small and one large.
 
-The plan is in [`DECISIONS_AIM.md`](DECISIONS_AIM.md). The reviews that produced
-it are in [`REVIEW_AIM.md`](REVIEW_AIM.md) and [`REVIEW.md`](REVIEW.md). What the
-previous project learned the hard way is in `learnings.html`.
+Every number is measured on a frozen human-labelled split, through one harness,
+against a floor set by finance word lists, with `gpt-5.6-sol` scored on the same
+rows and its cost on the same table.
+
+The plans are the four HTML documents at the root: [`PRODUCT.html`](PRODUCT.html),
+[`PROGRAM_DESIGN.html`](PROGRAM_DESIGN.html), [`ARCHITECTURE.html`](ARCHITECTURE.html)
+and [`VERTICAL_SLICES.html`](VERTICAL_SLICES.html). Edit them directly; they are
+no longer generated from fragments. The decision record is
+[`DECISIONS_AIM.md`](DECISIONS_AIM.md), and the open gaps are in
+[`GAPS_AIM_2.md`](GAPS_AIM_2.md). The reviews that produced them are in
+[`REVIEW_AIM.md`](REVIEW_AIM.md) and [`REVIEW.md`](REVIEW.md). What the previous
+project learned the hard way is in `learnings.html`.
 
 ## Reproduce the numbers
 
@@ -16,6 +27,7 @@ previous project learned the hard way is in `learnings.html`.
 pip install -e ".[dev,lexicon]" nltk
 finsent build-data     # pull, deduplicate, split, freeze, hash
 finsent baselines      # score the floor on the development split
+finsent aspect-audit   # count the multi-target rows the aspect claim needs
 finsent registry       # every run that happened, with its evidence grade
 ```
 
@@ -80,10 +92,18 @@ and cutting four overlapping ones leaks. One test split is cut from the 50%-agre
 superset, every row keeps the strongest tier it reached, and the four subsets are
 read back as breakdowns of that one frozen split.
 
-FiQA's labels are aspect-conditioned, so a sentence carrying two aspects with
-opposite polarity cannot be scored by a sentence-level model. The build counts
-them. On this data the count is **zero** of 1,111 sentences, so nothing is lost.
-The check stays in, because the answer was not knowable in advance.
+FiQA's labels are aspect-conditioned. Under the old sentence-level scope a
+sentence carrying two aspects with opposite polarity could not be scored, and the
+build counted those rows so they could be dropped. The scope changed on 21 August
+2026 and those rows are now kept: they are the rows that separate an aspect model
+from a sentence model. The count still matters, because it is the size of the
+effect this project claims. On FiQA it is **zero** of 1,111 sentences, which is
+why FinEntity had to be loaded before the claim could be measured at all.
+
+FinEntity was audited on 22 August 2026 and the gate passed. Reproduce it with
+`finsent aspect-audit`. Of 968 kept documents, 542 name two or more targets and
+**119 give those targets different labels**, over 323 target rows. Thirty hold a
+positive target and a negative one at once. See `VERTICAL_SLICES.html`, slice 2.
 
 ## Licence, and what is not in this repository
 
