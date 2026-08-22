@@ -17,7 +17,7 @@ The plans are the four HTML documents at the root: [`PRODUCT.html`](PRODUCT.html
 and [`VERTICAL_SLICES.html`](VERTICAL_SLICES.html). Edit them directly; they are
 no longer generated from fragments. The decision record is
 [`DECISIONS_AIM.md`](DECISIONS_AIM.md), and the open gaps are in
-[`GAPS_AIM_2.md`](GAPS_AIM_2.md). The reviews that produced them are in
+[`GAPS_AIM_2.md`](GAPS_AIM_2.md) and [`GAPS_AIM_3.md`](GAPS_AIM_3.md). The reviews that produced them are in
 [`REVIEW_AIM.md`](REVIEW_AIM.md) and [`REVIEW.md`](REVIEW.md). What the previous
 project learned the hard way is in `learnings.html`.
 
