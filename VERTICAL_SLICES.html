@@ -841,8 +841,9 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <span class="status notrun">Priced, not run</span>
         </div>
         <p class="section-intro">
-          The first slice that needs a GPU. Two tiers ship, so two tiers are tested. It ends with one
-          small checkpoint and one large checkpoint, or with a declared tie and a pick made on cost.
+          The first slice that needs a GPU starts with the small tier. A provisional small winner
+          validates the full development-side pipeline before the large tier starts. Each tier ends
+          with one unified winner or an explicit no-winner result.
         </p>
 
         <div class="table-wrap">
@@ -850,28 +851,31 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <caption class="table-caption">Steps</caption>
             <thead><tr><th>#</th><th>Step</th><th>Blocks</th></tr></thead>
             <tbody>
-              <tr><td>1</td><td>Fill the published-number survey in <a href="PROGRAM_DESIGN.html#soa">Program design</a>: scores, agreement subsets, splits, metrics, citations</td><td class="subtle-cell">Knowing what to aim at</td></tr>
-              <tr><td>2</td><td>Compute the minimum detectable effect on the frozen split, after the Holm correction, for the seven-candidate family</td><td class="subtle-cell"><strong>Gate 4</strong></td></tr>
-              <tr><td>3</td><td>Smoke check: one candidate, one fold, one seed. Measure wall time and cost, then price the whole bench and set the run budget</td><td class="subtle-cell">The compute cap</td></tr>
-              <tr><td>4</td><td>Head and pooling: CLS against mean, one run per candidate. Lock the recipe</td><td class="subtle-cell">The bench recipe</td></tr>
-              <tr><td>5</td><td>Pair against span markers, on the sources with offsets. One variable, same seeds</td><td class="subtle-cell">The input format</td></tr>
-              <tr><td>6</td><td>The bench: seven candidates, three seeds, five grouped folds over the human rows outside the test split. Holm across the family, written into <code>settings.py</code> first</td><td class="subtle-cell">The two checkpoints</td></tr>
-              <tr><td>7</td><td>Four medium checkpoints, one run each, outside the family, as points on the size curve</td><td class="subtle-cell">The accuracy-against-size plot</td></tr>
-              <tr><td>8</td><td>Re-run <code>ProsusAI/finbert</code> and <code>yiyanghkust/finbert-tone</code> on this project's split rather than quoting them</td><td class="subtle-cell">The domain-pretrained comparison</td></tr>
-              <tr><td>9</td><td>The learning curve: the bench winner on 10, 25, 50 and 100 percent of train, three seeds</td><td class="subtle-cell">Whether slice 4 is worth running at all</td></tr>
+              <tr><td>1</td><td>Fill the published-number survey in <a href="PROGRAM_DESIGN.html#soa">Program design</a>: scores, agreement subsets, splits, metrics and citations</td><td class="subtle-cell">Knowing what to aim at</td></tr>
+              <tr><td>2</td><td>Compute the minimum detectable effect for each required evaluation cell after the correction</td><td class="subtle-cell"><strong>Gate 4</strong></td></tr>
+              <tr><td>3</td><td>Smoke check one small candidate, one fold and one seed. Measure wall time and cost. Set the small-tier budget</td><td class="subtle-cell">The first compute cap</td></tr>
+              <tr><td>4</td><td>Head and pooling: CLS against mean. Pair against span markers on sources with offsets. Lock the small-tier recipe</td><td class="subtle-cell">The bench recipe</td></tr>
+              <tr><td>5</td><td>Run the four small candidates with three seeds and five grouped folds. Score Financial PhraseBank, FiQA and FinEntity separately</td><td class="subtle-cell">The provisional small winner</td></tr>
+              <tr><td>6</td><td>Apply the winner rule. A candidate must rank first or tie for first in all three cells. If none qualifies, record no winner and stop the tier</td><td class="subtle-cell"><strong>Gate 5</strong></td></tr>
+              <tr><td>7</td><td>Take the provisional small winner through calibration, inference measurement, registry, report card, model-card draft and package installation. Use development-side evidence only</td><td class="subtle-cell">The full pipeline dry run</td></tr>
+              <tr><td>8</td><td>Run the provisional small winner on 10, 25, 50 and 100 percent of train, three seeds</td><td class="subtle-cell">Whether later data lifts are useful</td></tr>
+              <tr><td>9</td><td>Smoke check and price the large tier. Then run its three candidates under the same three-cell winner rule</td><td class="subtle-cell">The large winner or no winner</td></tr>
+              <tr><td>10</td><td>Run the four medium checkpoints once each, outside both corrected families, as points on the size curve</td><td class="subtle-cell">The accuracy-against-size plot</td></tr>
+              <tr><td>11</td><td>Re-run <code>ProsusAI/finbert</code> and <code>yiyanghkust/finbert-tone</code> on this project's split</td><td class="subtle-cell">The domain-pretrained comparison</td></tr>
+              <tr><td>12</td><td>Lock the large winner. Distil it into the provisional small winner. Apply the three-cell rule again to the final small candidate</td><td class="subtle-cell">The two final candidates</td></tr>
             </tbody>
           </table>
         </div>
 
         <div class="callout warning" style="margin-top:1rem">
-          <p><strong>Warning. A flat bench is the likely outcome and it is accepted.</strong> Holm, seven
-            candidates, and modern encoders of similar size on one classification task point one way. The
-            write-up leads with the tie, and the cheaper checkpoint ships with the card saying the pick was
-            made on cost. Do not add seeds hunting for a separation the correction removed.</p>
+          <p><strong>Warning. A tier can have no winner.</strong> A tie inside one cell is accepted.
+            A loss in another cell is not averaged away. If no candidate ranks first or ties for first
+            in all three cells, stop that tier and continue development. Do not add seeds to force a
+            winner.</p>
         </div>
 
         <div class="callout info" style="margin-top:1rem">
-          <p><strong>Step 9 can end slice 4 before it starts.</strong> If the learning curve is flat at
+          <p><strong>Step 8 can end later data work before it starts.</strong> If the learning curve is flat at
             3,000 rows, then more rows do not help, and both weak supervision and Track D fail before any
             money is spent. That is a cheap finding and it is worth having early.</p>
         </div>
@@ -900,7 +904,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>3</td><td>The error analysis step: read the confusion matrix, pull the worst rows, collect errors on a training-side fold only</td><td class="subtle-cell">Upstream of the largest expected gain</td></tr>
               <tr><td>4</td><td>The Track D factorial: no augmentation, plain targeted paraphrase, Verbalized Sampling. Three seeds, equal sample counts, one variable</td><td class="subtle-cell">Largest expected gain</td></tr>
               <tr><td>5</td><td>Counterfactual target pairs as a fourth arm, once the three above settle</td><td class="subtle-cell">Only possible with the aspect input</td></tr>
-              <tr><td>6</td><td>Distillation: train large, then distil into small, then fine-tune on the human rows</td><td class="subtle-cell">Required by the two-tier release, so it runs whatever the result</td></tr>
+              <tr><td>6</td><td>Final small distillation: use the locked large winner as teacher, then fine-tune on the human rows and reapply the three-cell winner rule</td><td class="subtle-cell">The provisional small model validates the pipeline. This step creates the final candidate</td></tr>
               <tr><td>7</td><td>Intermediate fine-tune: warm up on the 50%-agree subset, then train on all-agree</td><td class="subtle-cell">Cheapest, no new data</td></tr>
               <tr><td>8</td><td>Name, licence and hash the unlabelled news corpus. Then self-training</td><td class="subtle-cell">Blocked until the corpus exists</td></tr>
               <tr><td>9</td><td>Set the labelling budget cap. Then the label rules and the routed model. Score every weak source against human labels and publish the table. Sweep the weak-to-human ratio at 0, 1, 3 and 10</td><td class="subtle-cell">Blocked until the cap is set</td></tr>
@@ -941,8 +945,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <li><strong>Slice 2 before the GPU</strong>, because the multi-target count decides whether the
             central claim of the project can be measured at all. Finding that out after the bench would
             waste the bench.</li>
-          <li><strong>The power calculation before the bench</strong>, because 105 runs that cannot detect
-            the gap they are looking for are 105 wasted runs.</li>
+          <li><strong>The power calculation before the bench</strong>, because runs that cannot detect
+            the required gap are wasted runs.</li>
+          <li><strong>The small tier before the large tier</strong>, because the cheaper family validates
+            the full development-side pipeline. The frozen test split stays closed during this dry run.</li>
           <li><strong>The learning curve before Track D</strong>, because a flat curve means no amount of
             extra data helps and the whole of slice 4 collapses to distillation.</li>
           <li><strong>The test split last</strong>, because it can only be opened once and every earlier

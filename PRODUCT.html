@@ -745,9 +745,16 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         </div>
         <p class="section-intro">
           Two fine-tuned encoders. Same task, same input format, same head, same evaluation harness.
-          They differ in one thing: parameter count. Each is released on its own and versioned on its
-          own. The medium tier is benched for the size curve and nothing ships from it.
+          One small winner and one large winner may ship. Each winner is one unified model that handles
+          target rows and <code>overall</code> rows. Specialist models are controls only.
         </p>
+
+        <div class="callout info" style="margin-bottom:1rem">
+          <p><strong>The small tier runs first.</strong> It validates the full development-side pipeline:
+            data, training, evaluation, calibration, cost, registry, report card and package. This first
+            small winner is provisional because distillation needs the large winner. The frozen test split
+            stays closed until both final candidates are locked.</p>
+        </div>
 
         <div class="stack">
           <article class="card decision recommended">
@@ -769,8 +776,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <dd>Bulk scoring. Millions of rows, CPU or one small GPU, cost per million rows is the
                 number that matters.</dd>
               <dt>Trained by</dt>
-              <dd>Distillation from <code>finsent-large</code>, then fine-tuning on the human rows.
-                The order is fixed. Without distillation the small tier gets nothing from the large one.</dd>
+              <dd>First, supervised fine-tuning validates the full pipeline. After
+                <code>finsent-large</code> exists, distillation produces the final small candidate, which
+                is then fine-tuned on the human rows. The provisional small model never touches the
+                frozen test split.</dd>
             </dl>
           </article>
 
@@ -955,10 +964,17 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <span class="status compromised">Two of three open</span>
         </div>
         <p class="section-intro">
-          Three human-labelled sources. One carries no target and supplies the null-target rows. Two
-          carry targets and supply the aspect rows. A model that wins on all three is the one this
-          project calls best.
+          Three human-labelled sources form three required evaluation cells. Financial PhraseBank tests
+          the null-target variant. FiQA and FinEntity test the target-conditioned variant. There is no
+          weighted composite that can hide a weak cell.
         </p>
+
+        <div class="callout decision" style="margin-bottom:1rem">
+          <p><strong>One winner per size tier.</strong> A candidate is eligible only when it ranks first,
+            or is statistically tied for first, on all three cells. If no candidate qualifies, that tier
+            has no winner and development continues. If several qualify, mean macro-F1 breaks the first
+            tie and measured inference cost breaks the second.</p>
+        </div>
 
         <div class="table-wrap">
           <table>
@@ -1205,13 +1221,16 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <span class="status compromised">Numbers open</span>
         </div>
         <p class="section-intro">
-          Six conditions. All six must hold. Each one is measured on the frozen test split, opened
+          Seven conditions. All seven must hold. Each one is measured on the frozen test split, opened
           once, at the end. The thresholds go into <code>settings.py</code> from the measured baselines before the
           test split is opened, never after the table is read.
         </p>
 
         <div class="checklist">
           <ol>
+            <li><strong>Each tier has one valid unified winner.</strong> The model ranks first, or is
+              statistically tied for first, on Financial PhraseBank, FiQA and FinEntity. If no candidate
+              clears all three cells, that tier has no winner.</li>
             <li><strong>Both models beat the lexical floor with an interval.</strong> Macro-F1 above the
               best of the word lists, the hybrid and TF-IDF, with a paired bootstrap interval that does
               not cross zero.</li>
@@ -1356,9 +1375,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           </div>
           <div class="card quarantine">
             <h3>The bench comes out flat</h3>
-            <p>Holm across several candidates on one small task points at no separation.
-              <strong>This is accepted.</strong> The write-up leads with the tie and the cheaper
-              checkpoint ships. Do not add seeds hunting for a separation the correction removed.</p>
+            <p>A tie inside one evaluation cell is accepted. A loss in another cell is not hidden by an
+              average. A tier has no winner when no candidate ranks first, or ties for first, on all
+              three cells. If several candidates qualify, mean macro-F1 and then inference cost settle
+              the order. Do not add seeds to force a winner.</p>
           </div>
           <div class="card quarantine">
             <h3>The test split is too small to tell</h3>
@@ -1403,7 +1423,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             </thead>
             <tbody>
               <tr><td>What is the task</td><td>Aspect-based financial sentiment, three classes. Plain sentence sentiment is the null-target case of the same task, not a second task. This reverses the part of the scope change that deleted the aspect input.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>How many models ship</td><td>Two. One small at 70M or less, one large at 350M or more. The medium tier is benched for the size curve and nothing ships from it.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>How many models ship</td><td>At most two. One small at 70M or less and one large at 350M or more. Each is one unified target-conditioned model. Specialist models are controls only.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>How a winner is chosen</td><td>Within each size tier, the candidate must rank first or be statistically tied for first on Financial PhraseBank, FiQA and FinEntity. There is no weighted composite. Mean macro-F1 and then inference cost break a tie between eligible candidates.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>What happens when no candidate clears all three cells</td><td>The tier has no winner. Development continues and the release does not force a choice.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Which tier runs first</td><td>Small. A provisional supervised small winner validates the development-side pipeline. Large runs next. Distillation then produces the final small candidate. The frozen test split stays closed until both final candidates are locked.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>What the input looks like</td><td>A pair. Segment A is the text, segment B is the target string, or the literal <code>overall</code> when there is no target. Span markers are one ablation where offsets exist.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Which frontier baseline</td><td><code>gpt-5.6-sol</code> at medium reasoning effort, zero-shot and few-shot, cached and published. It is scored against human labels and it can lose.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>What happens to multi-aspect rows</td><td>They are kept and they carry the headline. The earlier instruction to count and drop them applied to a sentence-level model and no longer applies.</td><td><span class="status supported">Decided</span></td></tr>

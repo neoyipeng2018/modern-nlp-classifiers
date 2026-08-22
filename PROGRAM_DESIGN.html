@@ -751,16 +751,16 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               multi-target count, which is the size of the effect this project claims.</p>
           </article>
           <article class="card">
-            <div class="slice-head"><div><h3 style="margin:0">Phase 3 &middot; The bench</h3></div><span class="status notrun">Priced, not run</span></div>
-            <p>Grouped five-fold cross-validation over the human rows that are not in the test split,
-              across the small and the large tier. Holm correction over the family. It ends with one
-              small checkpoint and one large checkpoint, or with a declared tie and a pick made on cost.</p>
+            <div class="slice-head"><div><h3 style="margin:0">Phase 3 &middot; The small pipeline</h3></div><span class="status notrun">Priced, not run</span></div>
+            <p>Run the small family first. Select a provisional winner only if one candidate ranks first,
+              or ties for first, on all three evaluation cells. Take it through the full development-side
+              pipeline and a release dry run. Keep the frozen test split closed.</p>
           </article>
           <article class="card">
-            <div class="slice-head"><div><h3 style="margin:0">Phase 4 &middot; The lifts, then the release</h3></div><span class="status notrun">Not started</span></div>
-            <p>Data boost, distillation, intermediate fine-tune, self-training, noise cleaning. In that
-              order, stopping when the curve flattens. Then the test split is opened once, the cards are
-              written, and the weights go out.</p>
+            <div class="slice-head"><div><h3 style="margin:0">Phase 4 &middot; Large, final small, release</h3></div><span class="status notrun">Not started</span></div>
+            <p>Run the large family under the same winner rule. Apply the lifts in measured order. Distil
+              the large winner into the provisional small winner and lock both final candidates. Open the
+              frozen test split once, write the cards and release only tiers with a valid winner.</p>
           </article>
         </div>
       </section>
@@ -990,10 +990,17 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <span class="status supported">Decided</span>
         </div>
         <p class="section-intro">
-          Two tiers ship, so two tiers are benched. Grouped five-fold cross-validation over the human
-          rows that are not in the test split. Every human row is used for training and for picking, at
-          different times. The frozen test split is never opened for the bench.
+          The small tier is benched first and validates the full development-side pipeline. The large
+          tier starts after that dry run passes. Grouped five-fold cross-validation uses the human rows
+          outside the frozen test split, which stays closed until both final candidates are locked.
         </p>
+
+        <div class="callout decision" style="margin-bottom:1rem">
+          <p><strong>There is one winner rule.</strong> Within a size tier, a candidate must rank first,
+            or be statistically tied for first, on Financial PhraseBank, FiQA and FinEntity. No weighted
+            average can rescue a loss in one cell. A tier has no winner when no candidate clears all
+            three. Mean macro-F1 and then inference cost break ties between eligible candidates.</p>
+        </div>
 
         <div class="table-wrap">
           <table>
@@ -1026,9 +1033,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         </ul>
 
         <div class="callout warning" style="margin-top:1rem">
-          <p><strong>Cost.</strong> Seven candidates, three seeds, five folds is 105 short runs, plus four
-            medium reference runs. Price it at the smoke check before committing. Nothing counts the
-            total run budget across the whole project, and that number should exist before phase 3.</p>
+          <p><strong>Cost.</strong> The small family costs 60 short runs: four candidates, three seeds
+            and five folds. Price and run it first. The large family adds 45 short runs after the small
+            pipeline passes. Four medium reference runs stay outside both corrected families. Set each
+            tier budget before its first run.</p>
         </div>
       </section>
 
@@ -1091,8 +1099,12 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <li><strong>Primary: macro-F1</strong> over the three classes, computed per row, where a row is
             one text and one target. The majority baseline scores 0.62 accuracy and 0.25 macro-F1 on this
             data, and that gap is why accuracy is secondary.</li>
-          <li><strong>Reported three ways:</strong> all rows, null-target rows only, aspect rows only. A
-            model that wins overall by winning only the easy half is not winning.</li>
+          <li><strong>Three required selection cells:</strong> Financial PhraseBank, FiQA and FinEntity.
+            Each cell has its own macro-F1 and paired interval. The pooled score is descriptive only.</li>
+          <li><strong>One winner rule:</strong> a candidate ranks first, or ties for first, in all three
+            cells. Mean macro-F1 and then inference cost only break ties between eligible candidates.</li>
+          <li><strong>Reported by task variant:</strong> null-target rows and target-conditioned rows.
+            These summaries do not replace the three selection cells.</li>
           <li><strong>Multi-target discrimination.</strong> On sentences with two or more targets carrying
             different gold labels, the share where the model predicts different labels for those targets.
             This is the number that tests the thesis.</li>
@@ -1147,7 +1159,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>2</td><td><strong>Splits sound</strong></td><td>A sentence, a near-duplicate cluster or a paraphrase family straddles two splits</td><td>CI fails the build. Fix the key, re-cut, re-hash</td></tr>
               <tr><td>3</td><td><strong>Aspect worth having</strong></td><td>The multi-target count is too small to measure, or the model gives one answer per sentence anyway</td><td>The aspect input is not earning its cost. Report it and reconsider the scope</td></tr>
               <tr><td>4</td><td><strong>Bench powered</strong></td><td>The minimum detectable effect is larger than the gaps in the published literature</td><td>Grow the split, or cut the family, or state up front that the bench measures a tie</td></tr>
-              <tr><td>5</td><td><strong>Encoder beats the floor</strong></td><td>The best candidate does not clear the lexical hybrid and TF-IDF with an interval</td><td>Stop. An encoder that cannot beat a word list is not a release</td></tr>
+              <tr><td>5</td><td><strong>Unified winner exists</strong></td><td>No candidate ranks first or ties for first on all three cells, or the eligible candidate does not clear the lexical hybrid and TF-IDF</td><td>Record no winner for that tier. Continue development and do not force a release</td></tr>
               <tr><td>6</td><td><strong>Success bar met</strong></td><td>Any of the six conditions in the definition of done is false on the frozen split</td><td>Publish the failure. Do not re-open the split to look for a better cut</td></tr>
               <tr><td>7</td><td><strong>Release clean</strong></td><td>A licence question is open, or an artefact on the release checklist is missing</td><td>Hold the upload. Licence calls are the owner's, not an agent's</td></tr>
             </tbody>
@@ -1192,8 +1204,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           <span class="status notrun">Outline only</span>
         </div>
         <p class="section-intro">
-          The write-up leads with the result, not with the method. If the bench comes out flat, it
-          leads with the tie.
+          The write-up leads with the result. It reports one winner per valid size tier. If no candidate
+          ranks first or ties for first on all three cells, it reports that the tier has no winner.
         </p>
 
         <ol class="compact-list">
