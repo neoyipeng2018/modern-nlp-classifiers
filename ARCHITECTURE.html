@@ -807,9 +807,9 @@ runs/
             <tr><td><code>licence.primary_data</code></td><td><code>CC-BY-NC-SA-3.0</code></td><td>Financial PhraseBank is non-commercial.</td></tr>
             <tr><td><code>licence.redistribute_text</code></td><td><code>false</code></td><td>The project publishes row identifiers and split assignments, never text. See <code>DECISIONS_AIM.md</code> entry J.</td></tr>
             <tr><td><code>eval.primary_metric</code></td><td><code>macro_f1</code></td><td>The majority baseline reaches 0.62 accuracy on 0.25 macro-F1, which is why accuracy is secondary.</td></tr>
-            <tr><td><code>eval.bootstrap</code></td><td><code>10000</code></td><td>Paired bootstrap resamples, on the same rows.</td></tr>
+            <tr><td><code>eval.bootstrap</code></td><td><code>10000</code></td><td>Paired resamples by independent sentence or document group. All target rows in a group travel together.</td></tr>
             <tr><td><code>eval.alpha</code></td><td><code>0.05</code></td><td>The interval every headline number carries.</td></tr>
-            <tr><td><code>eval.correction</code></td><td><code>holm</code></td><td>The family correction across the bench candidates, fixed before the bench runs.</td></tr>
+            <tr><td><code>eval.correction</code></td><td><code>holm</code></td><td>Applied only to benchmark-leader comparisons within one size tier.</td></tr>
             <tr><td><code>task_input.format</code></td><td><code>pair</code></td><td>Segment A is the text, segment B is the target. Span markers are one ablation.</td></tr>
             <tr><td><code>task_input.null_target</code></td><td><code>overall</code></td><td>Never an empty string. An empty segment B changes the input shape.</td></tr>
             <tr><td><code>baselines.frontier.model</code></td><td><code>gpt-5.6-sol</code></td><td>One model, one version. Not a router and not a fallback chain.</td></tr>
@@ -820,10 +820,14 @@ runs/
         </table>
 
         <div class="callout warning" style="margin-top:1rem">
-          <p><strong>Four winner settings must be added before the first small run.</strong>
+          <p><strong>Winner settings must be added before the first small run.</strong>
             <code>selection.cells</code> is <code>fpb, fiqa, finentity</code>.
             <code>selection.rule</code> is <code>first_or_tied_in_every_cell</code>.
+            <code>selection.comparison</code> is <code>benchmark_leader</code>.
+            <code>selection.tie_margin</code> is <code>0.01</code>.
+            <code>selection.correction_scope</code> is <code>tier</code>.
             <code>selection.tie_break</code> is <code>mean_macro_f1, inference_cost</code>.
+            <code>eval.bootstrap_unit</code> is <code>sentence_or_document</code>.
             <code>pipeline.first_tier</code> is <code>small</code>.
             <code>eval.aspect_correctness</code> is <code>contrast_pair_accuracy</code>.
             <code>eval.aspect_control</code> is <code>target_hidden</code>. These values are decisions,
@@ -1067,7 +1071,8 @@ runs/
               <tr><td class="mono">per_class</td><td>F1 for each of the three classes.</td></tr>
               <tr><td class="mono">confusion</td><td>The full matrix. The error analysis step reads it.</td></tr>
               <tr><td class="mono">by_agreement_tier</td><td>Macro-F1 broken down by 50, 66, 75 and all-agree.</td></tr>
-              <tr><td class="mono">by_benchmark</td><td><strong>New.</strong> Macro-F1 and paired intervals for Financial PhraseBank, FiQA and FinEntity. These three cells select the winner.</td></tr>
+              <tr><td class="mono">by_benchmark</td><td><strong>New.</strong> Macro-F1 for Financial PhraseBank, FiQA and FinEntity, with each benchmark leader, candidate gap, Holm-adjusted paired interval and tie result.</td></tr>
+              <tr><td class="mono">mde_by_benchmark</td><td><strong>New.</strong> The grouped, Holm-aware minimum detectable effect for each selection benchmark.</td></tr>
               <tr><td class="mono">by_target_kind</td><td><strong>New.</strong> Macro-F1 on null-target rows and on aspect rows, separately.</td></tr>
               <tr><td class="mono">contrast_pair_accuracy</td><td><strong>New.</strong> On each target pair whose gold labels differ, one only when both predicted labels are correct. The correctness measure for the aspect claim.</td></tr>
               <tr><td class="mono">target_hidden_delta</td><td><strong>New.</strong> The paired contrast-pair accuracy gain over the same checkpoint with segment B replaced by <code>overall</code>, with its 95% interval.</td></tr>
@@ -1076,8 +1081,8 @@ runs/
               <tr><td class="mono">cost</td><td><strong>New.</strong> Latency at batch size 1, throughput at batch size 32, peak memory, parameter count, on one stated machine.</td></tr>
               <tr><td class="mono">ece</td><td>Expected calibration error after temperature scaling.</td></tr>
               <tr><td class="mono">abstained</td><td>The share of rows a word list had no opinion on, and the macro-F1 on the rows it answered.</td></tr>
-              <tr><td class="mono">vs</td><td>Paired comparisons against named systems, with the bootstrap interval on the difference.</td></tr>
-              <tr><td class="mono">winner_status</td><td><strong>New.</strong> <code>eligible</code>, <code>not_eligible</code> or <code>no_winner</code>, with the result for each required cell.</td></tr>
+              <tr><td class="mono">vs</td><td>Paired comparisons against named systems. Selection comparisons name the benchmark leader and carry the Holm-adjusted interval.</td></tr>
+              <tr><td class="mono">winner_status</td><td><strong>New.</strong> <code>eligible</code>, <code>not_eligible</code> or <code>no_winner</code>, with the lead or fixed-rule tie result for each required benchmark.</td></tr>
               <tr><td class="mono">evidence_grade</td><td><code>supported</code>, <code>reported</code>, <code>compromised</code> or <code>not_run</code>. An unknown grade raises.</td></tr>
             </tbody>
           </table>
@@ -1215,6 +1220,9 @@ runs/
             <li>A near-duplicate group never straddles two splits.</li>
             <li>A paraphrase and its original never straddle two splits.</li>
             <li>All targets of one sentence never straddle two splits. <span class="small muted">New with the aspect task.</span></li>
+            <li>The bootstrap resamples sentence or document groups, never target rows. <span class="small muted">New with the winner rule.</span></li>
+            <li>Winner selection compares nonleaders only with the benchmark leader and applies Holm within the size tier. <span class="small muted">New with the winner rule.</span></li>
+            <li>A tie requires a gap at most 0.01 macro-F1 and a Holm-adjusted paired interval that contains zero. <span class="small muted">New with the winner rule.</span></li>
             <li>A generated row that is a near-duplicate of a test row fails the build. <span class="small muted">New with Track D.</span></li>
             <li>A registry row without a hypothesis is refused.</li>
             <li>An unknown evidence grade is refused.</li>

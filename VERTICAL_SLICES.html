@@ -852,26 +852,26 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <thead><tr><th>#</th><th>Step</th><th>Blocks</th></tr></thead>
             <tbody>
               <tr><td>1</td><td>Fill the published-number survey in <a href="PROGRAM_DESIGN.html#soa">Program design</a>: scores, agreement subsets, splits, metrics and citations</td><td class="subtle-cell">Knowing what to aim at</td></tr>
-              <tr><td>2</td><td>Compute the minimum detectable effect for each required evaluation cell after the correction</td><td class="subtle-cell"><strong>Gate 4</strong></td></tr>
+              <tr><td>2</td><td>Compute the grouped, Holm-aware minimum detectable effect separately for Financial PhraseBank, FiQA and FinEntity. Resolve or declare any benchmark that cannot detect the 0.01 tie margin</td><td class="subtle-cell"><strong>Gate 4</strong></td></tr>
               <tr><td>3</td><td>Smoke check one small candidate, one fold and one seed. Measure wall time and cost. Set the small-tier budget</td><td class="subtle-cell">The first compute cap</td></tr>
               <tr><td>4</td><td>Head and pooling: CLS against mean. Pair against span markers on sources with offsets. Lock the small-tier recipe</td><td class="subtle-cell">The bench recipe</td></tr>
-              <tr><td>5</td><td>Run the four small candidates with three seeds and five grouped folds. Score all three selection cells. On FinEntity, also score contrast-pair accuracy, target-hidden gain, target sensitivity and document exact match</td><td class="subtle-cell">The provisional small winner</td></tr>
-              <tr><td>6</td><td>Apply the winner rule. A candidate must rank first or tie for first in all three cells. If none qualifies, record no winner and stop the tier</td><td class="subtle-cell"><strong>Gate 5</strong></td></tr>
+              <tr><td>5</td><td>Run the four small candidates with three seeds and five grouped folds. Score all three benchmarks. Bootstrap by sentence or document. Compare each nonleader with each benchmark leader, for nine Holm-adjusted comparisons. On FinEntity, also score contrast-pair accuracy, target-hidden gain, target sensitivity and document exact match</td><td class="subtle-cell">The provisional small winner</td></tr>
+              <tr><td>6</td><td>Apply the winner rule. A candidate must lead, or be within 0.01 macro-F1 with a Holm-adjusted paired interval that contains zero, on all three benchmarks. If none qualifies, record no winner and stop the tier</td><td class="subtle-cell"><strong>Gate 5</strong></td></tr>
               <tr><td>7</td><td>Take the provisional small winner through calibration, inference measurement, registry, report card, model-card draft and package installation. Use development-side evidence only</td><td class="subtle-cell">The full pipeline dry run</td></tr>
               <tr><td>8</td><td>Run the provisional small winner on 10, 25, 50 and 100 percent of train, three seeds</td><td class="subtle-cell">Whether later data lifts are useful</td></tr>
-              <tr><td>9</td><td>Smoke check and price the large tier. Then run its three candidates under the same three-cell winner rule</td><td class="subtle-cell">The large winner or no winner</td></tr>
+              <tr><td>9</td><td>Smoke check and price the large tier. Compute power again. Run its three candidates under the same grouped winner rule, with six Holm-adjusted benchmark-leader comparisons</td><td class="subtle-cell">The large winner or no winner</td></tr>
               <tr><td>10</td><td>Run the four medium checkpoints once each, outside both corrected families, as points on the size curve</td><td class="subtle-cell">The accuracy-against-size plot</td></tr>
               <tr><td>11</td><td>Re-run <code>ProsusAI/finbert</code> and <code>yiyanghkust/finbert-tone</code> on this project's split</td><td class="subtle-cell">The domain-pretrained comparison</td></tr>
-              <tr><td>12</td><td>Lock the large winner. Distil it into the provisional small winner. Apply the three-cell rule again to the final small candidate</td><td class="subtle-cell">The two final candidates</td></tr>
+              <tr><td>12</td><td>Lock the large winner. Distil it into the provisional small winner. Apply the same fixed 0.01 and adjusted-interval rule again before locking the final small candidate</td><td class="subtle-cell">The two final candidates</td></tr>
             </tbody>
           </table>
         </div>
 
         <div class="callout warning" style="margin-top:1rem">
-          <p><strong>Warning. A tier can have no winner.</strong> A tie inside one cell is accepted.
-            A loss in another cell is not averaged away. If no candidate ranks first or ties for first
-            in all three cells, stop that tier and continue development. Do not add seeds to force a
-            winner.</p>
+          <p><strong>Warning. A tier can have no winner.</strong> A tie needs both a gap at most 0.01
+            macro-F1 and a Holm-adjusted paired interval that contains zero. A loss in another benchmark
+            is not averaged away. If no candidate leads or ties on all three benchmarks, stop that tier
+            and continue development. Do not add seeds to force a winner.</p>
         </div>
 
         <div class="callout info" style="margin-top:1rem">

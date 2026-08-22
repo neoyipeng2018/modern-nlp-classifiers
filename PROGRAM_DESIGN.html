@@ -644,7 +644,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
       <div class="audit-strip">
         <div class="audit-stat"><strong>4 data tracks</strong><span>Human, weak, distilled, augmented. Each with its own label source.</span></div>
         <div class="audit-stat"><strong>7 gates</strong><span>Each one can fail and stop the work. A gate that cannot fail is not a gate.</span></div>
-        <div class="audit-stat"><strong>Holm corrected</strong><span>Every candidate against the incumbent, the family corrected before the bench runs.</span></div>
+        <div class="audit-stat"><strong>Leader tests only</strong><span>Holm covers nine small-tier or six large-tier benchmark-leader comparisons.</span></div>
         <div class="audit-stat"><strong>One test opening</strong><span>The frozen split is opened once, at the end, for the chosen models.</span></div>
       </div>
       <nav class="doc-nav" aria-label="Document set">
@@ -752,9 +752,9 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           </article>
           <article class="card">
             <div class="slice-head"><div><h3 style="margin:0">Phase 3 &middot; The small pipeline</h3></div><span class="status notrun">Priced, not run</span></div>
-            <p>Run the small family first. Select a provisional winner only if one candidate ranks first,
-              or ties for first, on all three evaluation cells. Take it through the full development-side
-              pipeline and a release dry run. Keep the frozen test split closed.</p>
+            <p>Run the small family first. Select a provisional winner only if one candidate leads, or
+              meets the fixed 0.01 and adjusted-interval tie rule, on all three benchmarks. Take it through
+              the full development-side pipeline and a release dry run. Keep the frozen test split closed.</p>
           </article>
           <article class="card">
             <div class="slice-head"><div><h3 style="margin:0">Phase 4 &middot; Large, final small, release</h3></div><span class="status notrun">Not started</span></div>
@@ -996,10 +996,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         </p>
 
         <div class="callout decision" style="margin-bottom:1rem">
-          <p><strong>There is one winner rule.</strong> Within a size tier, a candidate must rank first,
-            or be statistically tied for first, on Financial PhraseBank, FiQA and FinEntity. No weighted
-            average can rescue a loss in one cell. A tier has no winner when no candidate clears all
-            three. Mean macro-F1 and then inference cost break ties between eligible candidates.</p>
+          <p><strong>There is one winner rule.</strong> The highest macro-F1 is the leader for each
+            benchmark. Another candidate ties only when its gap is at most 0.01 and the Holm-adjusted 95%
+            interval for its paired difference against that leader contains zero. A winner must lead or
+            tie on Financial PhraseBank, FiQA and FinEntity. No weighted average can rescue a loss.
+            Mean macro-F1 and then inference cost order eligible candidates.</p>
         </div>
 
         <div class="table-wrap">
@@ -1018,10 +1019,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 
         <div class="callout info" style="margin-top:1rem">
           <p><strong>Why the medium tier leaves the family.</strong> Nothing ships from it, and every
-            extra candidate in a Holm family costs power on a 1,000-row split. Cutting the family from
-            eleven to seven lets the same rows detect a smaller gap. The medium checkpoints still run
-            once each, so Ettin still prints a clean accuracy-against-size curve across six sizes. They
-            are reported and they are not tested.</p>
+            extra leader comparison costs power. Four small candidates create three comparisons per
+            benchmark, or nine after all three benchmarks. Three large candidates create six. Medium
+            checkpoints still run once each, outside both Holm families, as points on the size curve.
+            They are reported and they are not tested.</p>
         </div>
 
         <h3 style="margin:1.6rem 0 .7rem">Two recipe choices, settled before the bench locks</h3>
@@ -1101,8 +1102,9 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             data, and that gap is why accuracy is secondary.</li>
           <li><strong>Three required selection cells:</strong> Financial PhraseBank, FiQA and FinEntity.
             Each cell has its own macro-F1 and paired interval. The pooled score is descriptive only.</li>
-          <li><strong>One winner rule:</strong> a candidate ranks first, or ties for first, in all three
-            cells. Mean macro-F1 and then inference cost only break ties between eligible candidates.</li>
+          <li><strong>One winner rule:</strong> a candidate leads, or is no more than 0.01 macro-F1
+            behind with a Holm-adjusted 95% paired interval that contains zero, in all three cells.
+            Mean macro-F1 and then inference cost only order eligible candidates.</li>
           <li><strong>Reported by task variant:</strong> null-target rows and target-conditioned rows.
             These summaries do not replace the three selection cells.</li>
           <li><strong>Contrast-pair accuracy.</strong> For each target pair whose gold labels differ,
@@ -1126,19 +1128,25 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 
         <h3 style="margin:1.6rem 0 .7rem">The statistics</h3>
         <ul class="compact-list">
-          <li>Paired bootstrap on the same rows, 10,000 resamples, alpha 0.05.</li>
-          <li>Every candidate is tested against the incumbent leader. The family is Holm-adjusted, and the
-            rule goes into <code>settings.py</code> before the bench runs, not after the table is read.</li>
+          <li>Use 10,000 paired bootstrap resamples and alpha 0.05. Resample independent groups, not
+            target rows: Financial PhraseBank by sentence, FiQA by <code>sentence_id</code>, and
+            FinEntity by document or <code>sentence_id</code>. Every row in a group travels together.</li>
+          <li>Find the highest macro-F1 candidate on each benchmark. Compare only each nonleader with
+            that leader. Holm-adjust these comparisons within the size tier. That is nine comparisons
+            for four small candidates and six for three large candidates.</li>
+          <li>A nonleader ties only when its gap is at most 0.01 macro-F1 and the Holm-adjusted 95%
+            interval for the paired difference contains zero. Put the margin, grouping and correction
+            scope in <code>settings.py</code> before the tier runs.</li>
           <li>Three seeds per configuration, and the seed ensemble is reported too. The runs already exist,
             so the ensemble costs nothing.</li>
         </ul>
 
         <div class="callout danger" style="margin-top:1rem">
-          <p><strong>Compute the minimum detectable effect before the bench.</strong> Nobody has computed
-            the smallest gap that a 1,000-row test split can detect after the correction. Without it a flat
-            bench has two readings: the backbones are equal, or the split is too small to tell. Those are
-            different findings and only one of them is publishable. Use the class balance and the bootstrap
-            that are already in <code>src/finsent/eval/</code>.</p>
+          <p><strong>Compute power per benchmark before each tier.</strong> Estimate the minimum detectable
+            effect for Financial PhraseBank, FiQA and FinEntity with the same grouped bootstrap and Holm
+            scope used by selection. If any benchmark cannot resolve the 0.01 tie margin, grow its test
+            split, reduce the candidate family or state that the winner rule is underpowered before
+            reading the model scores.</p>
         </div>
       </section>
 
@@ -1165,8 +1173,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>1</td><td><strong>Benchmark admissible</strong></td><td>A source's licence forbids the use, or its labels cannot be mapped into the codebook at an acceptable disagreement rate</td><td>Drop the source and say so. Do not quietly re-map it</td></tr>
               <tr><td>2</td><td><strong>Splits sound</strong></td><td>A sentence, a near-duplicate cluster or a paraphrase family straddles two splits</td><td>CI fails the build. Fix the key, re-cut, re-hash</td></tr>
               <tr><td>3</td><td><strong>Aspect worth having</strong></td><td>The proof set is too small, or the paired 95% interval for contrast-pair accuracy against the target-hidden control crosses zero</td><td>The aspect input is not earning its cost. Report target sensitivity as diagnostic and reconsider the input</td></tr>
-              <tr><td>4</td><td><strong>Bench powered</strong></td><td>The minimum detectable effect is larger than the gaps in the published literature</td><td>Grow the split, or cut the family, or state up front that the bench measures a tie</td></tr>
-              <tr><td>5</td><td><strong>Unified winner exists</strong></td><td>No candidate ranks first or ties for first on all three cells, or the eligible candidate does not clear the lexical hybrid and TF-IDF</td><td>Record no winner for that tier. Continue development and do not force a release</td></tr>
+              <tr><td>4</td><td><strong>Bench powered</strong></td><td>Any benchmark's grouped, Holm-aware minimum detectable effect exceeds the 0.01 macro-F1 tie margin</td><td>Grow that split, reduce the tier family or state before scoring that the winner rule is underpowered</td></tr>
+              <tr><td>5</td><td><strong>Unified winner exists</strong></td><td>No candidate leads or meets the fixed 0.01 and adjusted-interval tie rule on all three benchmarks, or the eligible candidate does not clear the lexical hybrid and TF-IDF</td><td>Record no winner for that tier. Continue development and do not force a release</td></tr>
               <tr><td>6</td><td><strong>Success bar met</strong></td><td>Any of the seven conditions in the definition of done is false on the frozen split</td><td>Publish the failure. Do not re-open the split to look for a better cut</td></tr>
               <tr><td>7</td><td><strong>Release clean</strong></td><td>A licence question is open, or an artefact on the release checklist is missing</td><td>Hold the upload. Licence calls are the owner's, not an agent's</td></tr>
             </tbody>
@@ -1212,7 +1220,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         </div>
         <p class="section-intro">
           The write-up leads with the result. It reports one winner per valid size tier. If no candidate
-          ranks first or ties for first on all three cells, it reports that the tier has no winner.
+          leads or meets the fixed 0.01 and adjusted-interval tie rule on all three benchmarks, it reports
+          that the tier has no winner.
         </p>
 
         <ol class="compact-list">

@@ -973,10 +973,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         </p>
 
         <div class="callout decision" style="margin-bottom:1rem">
-          <p><strong>One winner per size tier.</strong> A candidate is eligible only when it ranks first,
-            or is statistically tied for first, on all three cells. If no candidate qualifies, that tier
-            has no winner and development continues. If several qualify, mean macro-F1 breaks the first
-            tie and measured inference cost breaks the second.</p>
+          <p><strong>One winner per size tier.</strong> The highest macro-F1 is the leader in each benchmark.
+            Another candidate ties that leader only when its gap is at most 0.01 macro-F1 and the
+            Holm-adjusted 95% interval for their paired difference contains zero. A candidate is eligible
+            only when it leads or ties on all three benchmarks. If none qualifies, that tier has no winner.
+            Mean macro-F1 and then measured inference cost order several eligible candidates.</p>
         </div>
 
         <div class="table-wrap">
@@ -1127,7 +1128,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <dd>Every response is cached with its token counts and its date, and the cache is published.
               The benchmark then survives the model being retired.</dd>
             <dt>How it is compared</dt>
-            <dd>Paired bootstrap on the same rows, with the cost per thousand rows on the same table.</dd>
+            <dd>Paired bootstrap by independent sentence or document group, with the cost per thousand
+              rows on the same table.</dd>
           </dl>
           <div class="callout warning" style="margin-top:.9rem">
             <p class="small"><strong>Warning. It writes no labels.</strong> In the earlier plan a frontier
@@ -1230,9 +1232,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 
         <div class="checklist">
           <ol>
-            <li><strong>Each tier has one valid unified winner.</strong> The model ranks first, or is
-              statistically tied for first, on Financial PhraseBank, FiQA and FinEntity. If no candidate
-              clears all three cells, that tier has no winner.</li>
+            <li><strong>Each tier has one valid unified winner.</strong> The model leads, or is within
+              0.01 macro-F1 of the leader with a Holm-adjusted 95% paired interval that contains zero,
+              on Financial PhraseBank, FiQA and FinEntity. If no candidate clears all three cells, that
+              tier has no winner.</li>
             <li><strong>Both models beat the lexical floor with an interval.</strong> Macro-F1 above the
               best of the word lists, the hybrid and TF-IDF, with a paired bootstrap interval that does
               not cross zero.</li>
@@ -1378,16 +1381,17 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
           </div>
           <div class="card quarantine">
             <h3>The bench comes out flat</h3>
-            <p>A tie inside one evaluation cell is accepted. A loss in another cell is not hidden by an
-              average. A tier has no winner when no candidate ranks first, or ties for first, on all
-              three cells. If several candidates qualify, mean macro-F1 and then inference cost settle
-              the order. Do not add seeds to force a winner.</p>
+            <p>A tie needs both tests: a gap of at most 0.01 macro-F1 and a Holm-adjusted paired interval
+              that contains zero. A loss in another benchmark is not hidden by an average. A tier has no
+              winner when no candidate leads or ties on all three benchmarks. Mean macro-F1 and then
+              inference cost order several eligible candidates. Do not add seeds to force a winner.</p>
           </div>
           <div class="card quarantine">
             <h3>The test split is too small to tell</h3>
-            <p>Nobody has computed the smallest gap a 1,000-row split can detect after the correction.
-              A tie then has two readings. <strong>Compute the minimum detectable effect</strong> before
-              the bench runs, not after.</p>
+            <p>Compute the minimum detectable effect separately for Financial PhraseBank, FiQA and
+              FinEntity. Use the same sentence or document grouping and Holm scope as selection. Do this
+              before each tier runs. If a benchmark cannot resolve the 0.01 tie margin, grow the split,
+              reduce the family or report that the winner rule is underpowered.</p>
           </div>
           <div class="card quarantine">
             <h3>The development split gets used up</h3>
@@ -1427,7 +1431,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <tbody>
               <tr><td>What is the task</td><td>Aspect-based financial sentiment, three classes. Plain sentence sentiment is the null-target case of the same task, not a second task. This reverses the part of the scope change that deleted the aspect input.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>How many models ship</td><td>At most two. One small at 70M or less and one large at 350M or more. Each is one unified target-conditioned model. Specialist models are controls only.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>How a winner is chosen</td><td>Within each size tier, the candidate must rank first or be statistically tied for first on Financial PhraseBank, FiQA and FinEntity. There is no weighted composite. Mean macro-F1 and then inference cost break a tie between eligible candidates.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>How a winner is chosen</td><td>For each benchmark, the highest macro-F1 is the leader. Another candidate ties only when its gap is at most 0.01 and its Holm-adjusted 95% paired interval against that leader contains zero. Only leader comparisons are corrected within each size tier. A winner must lead or tie on all three benchmarks. There is no weighted composite. Mean macro-F1 and then inference cost order eligible candidates.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>What happens when no candidate clears all three cells</td><td>The tier has no winner. Development continues and the release does not force a choice.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Which tier runs first</td><td>Small. A provisional supervised small winner validates the development-side pipeline. Large runs next. Distillation then produces the final small candidate. The frozen test split stays closed until both final candidates are locked.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>What the input looks like</td><td>A pair. Segment A is the text, segment B is the target string, or the literal <code>overall</code> when there is no target. Span markers are one ablation where offsets exist.</td><td><span class="status supported">Decided</span></td></tr>
