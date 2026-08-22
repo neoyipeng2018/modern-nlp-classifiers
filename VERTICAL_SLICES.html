@@ -850,12 +850,12 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <caption class="table-caption">Steps</caption>
             <thead><tr><th>#</th><th>Step</th><th>Blocks</th></tr></thead>
             <tbody>
-              <tr><td>1</td><td>Write the published-number survey into <code>configs/published.yaml</code>: scores, agreement subsets, splits, metrics, citations</td><td class="subtle-cell">Knowing what to aim at</td></tr>
+              <tr><td>1</td><td>Fill the published-number survey in <a href="PROGRAM_DESIGN.html#soa">Program design</a>: scores, agreement subsets, splits, metrics, citations</td><td class="subtle-cell">Knowing what to aim at</td></tr>
               <tr><td>2</td><td>Compute the minimum detectable effect on the frozen split, after the Holm correction, for the seven-candidate family</td><td class="subtle-cell"><strong>Gate 4</strong></td></tr>
               <tr><td>3</td><td>Smoke check: one candidate, one fold, one seed. Measure wall time and cost, then price the whole bench and set the run budget</td><td class="subtle-cell">The compute cap</td></tr>
               <tr><td>4</td><td>Head and pooling: CLS against mean, one run per candidate. Lock the recipe</td><td class="subtle-cell">The bench recipe</td></tr>
               <tr><td>5</td><td>Pair against span markers, on the sources with offsets. One variable, same seeds</td><td class="subtle-cell">The input format</td></tr>
-              <tr><td>6</td><td>The bench: seven candidates, three seeds, five grouped folds over the human rows outside the test split. Holm across the family, written into the config first</td><td class="subtle-cell">The two checkpoints</td></tr>
+              <tr><td>6</td><td>The bench: seven candidates, three seeds, five grouped folds over the human rows outside the test split. Holm across the family, written into <code>settings.py</code> first</td><td class="subtle-cell">The two checkpoints</td></tr>
               <tr><td>7</td><td>Four medium checkpoints, one run each, outside the family, as points on the size curve</td><td class="subtle-cell">The accuracy-against-size plot</td></tr>
               <tr><td>8</td><td>Re-run <code>ProsusAI/finbert</code> and <code>yiyanghkust/finbert-tone</code> on this project's split rather than quoting them</td><td class="subtle-cell">The domain-pretrained comparison</td></tr>
               <tr><td>9</td><td>The learning curve: the bench winner on 10, 25, 50 and 100 percent of train, three seeds</td><td class="subtle-cell">Whether slice 4 is worth running at all</td></tr>
@@ -896,7 +896,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             <thead><tr><th>#</th><th>Step</th><th>Gate or note</th></tr></thead>
             <tbody>
               <tr><td>1</td><td>Fix the position of label noise cleaning: first or last, never in the middle. Record the decision</td><td class="subtle-cell">Blocks every ablation below</td></tr>
-              <tr><td>2</td><td>Choose the generator model for Track D and read its terms. Prefer open weights. Record the name and the terms in the config</td><td class="subtle-cell">Blocks any release of generated rows</td></tr>
+              <tr><td>2</td><td>Choose the generator model for Track D and read its terms. Prefer open weights. Record the name and the terms in <code>settings.py</code></td><td class="subtle-cell">Blocks any release of generated rows</td></tr>
               <tr><td>3</td><td>The error analysis step: read the confusion matrix, pull the worst rows, collect errors on a training-side fold only</td><td class="subtle-cell">Upstream of the largest expected gain</td></tr>
               <tr><td>4</td><td>The Track D factorial: no augmentation, plain targeted paraphrase, Verbalized Sampling. Three seeds, equal sample counts, one variable</td><td class="subtle-cell">Largest expected gain</td></tr>
               <tr><td>5</td><td>Counterfactual target pairs as a fourth arm, once the three above settle</td><td class="subtle-cell">Only possible with the aspect input</td></tr>
@@ -975,7 +975,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         <ol class="compact-list">
           <li>Slice 2, steps 1 to 7. The row schema, the split key, the two mappings, and the multi-target
             count.</li>
-          <li>The published-number survey into <code>configs/published.yaml</code>.</li>
+          <li>The published-number survey, in <a href="PROGRAM_DESIGN.html#soa">Program design</a>.</li>
           <li>The model card template, empty, with the right sections.</li>
         </ol>
 

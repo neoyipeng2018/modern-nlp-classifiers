@@ -128,7 +128,7 @@ def _baselines(config: dict) -> int:
 
     print()
     print("Warning. These are development-split numbers. The test split stays shut")
-    print("until the bench is done and the success bar is written into the config.")
+    print("until the bench is done and the success bar is written into settings.py.")
     return 0
 
 
@@ -193,11 +193,17 @@ COMMANDS = {
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="finsent", description=__doc__)
     parser.add_argument("command", choices=sorted(COMMANDS))
-    parser.add_argument("--config", default="configs/base.yaml")
-    parser.add_argument("--set", dest="overrides", action="append", default=[])
+    parser.add_argument(
+        "--set",
+        dest="overrides",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="override one setting, for example --set eval.bootstrap=2000",
+    )
     args = parser.parse_args(argv)
 
-    config = apply_overrides(resolve(args.config), args.overrides)
+    config = apply_overrides(resolve(), args.overrides)
     return COMMANDS[args.command](config)
 
 

@@ -663,6 +663,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
       <nav class="toc">
         <a href="#shape">The shape of it</a>
         <a href="#repo">Repository layout</a>
+        <a href="#settings">The settings</a>
         <a href="#schema">The row schema</a>
         <a href="#input">The input builder</a>
         <a href="#splits">Splits and hashing</a>
@@ -734,7 +735,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
         </div>
 
         <pre><code>src/finsent/
-  config.py        YAML inheritance, resolution, hashing
+  settings.py      every default the code reads. No YAML file
+  config.py        resolution, overrides, hashing
   registry.py      append-only run rows. No row, no number
   data/
     schema.py      the Row dataclass and its validate()
@@ -749,13 +751,20 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
   eval/
     metrics.py     macro-F1, per-class, confusion, bootstrap
     harness.py     the guards, the report, the one door
-configs/
-  base.yaml        the shared defaults every experiment inherits
-  published.yaml   the survey of published numbers            ← to build
 tests/             the data invariant checks and the metric fixtures
 runs/
   registry.jsonl   every run that happened, with its grade
   reports/         one JSON report card per scored system</code></pre>
+
+        <div class="callout warning" style="margin-top:1rem">
+          <p><strong>Warning. <code>configs/</code> is gone.</strong> There is no YAML
+            config file and there is no <code>--config</code> flag. The four HTML documents at this
+            repository root are the plan of record, and <a href="#settings">the settings table</a>
+            below is the readable copy of what the code holds.
+            <code>src/finsent/settings.py</code> is the machine-readable copy, and it is the only
+            place in the package that carries a default. Change a value in one and change it in the
+            other in the same commit.</p>
+        </div>
 
         <div class="callout warning" style="margin-top:1rem">
           <p><strong>Warning. <code>assets/src</code> and <code>assets/build.py</code> are gone.</strong>
@@ -764,6 +773,66 @@ runs/
             overwritten the newer text with the older text. The root HTML files are now the source. Edit
             them directly. <code>assets/docs.css</code> stays as the reference copy of the stylesheet
             that each file inlines.</p>
+        </div>
+      </section>
+
+      <section id="settings">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Every value the code reads</p>
+            <h2>The settings</h2>
+          </div>
+          <span class="status supported">Built</span>
+        </div>
+
+        <p>There is no config file. These are the settings, and
+          <code>src/finsent/settings.py</code> holds the same table as a Python dictionary. A run is
+          defined by its resolved settings, the resolved settings are hashed, and the registry
+          records that hash. A value cannot change what a run means without changing the run's
+          identity.</p>
+
+        <table>
+          <caption>The settings of record. The code reads these and nothing else.</caption>
+          <thead><tr><th>Key</th><th>Value</th><th>Why it is this</th></tr></thead>
+          <tbody>
+            <tr><td><code>task</code></td><td><code>financial-sentiment</code></td><td>One task. Aspect sentiment, with plain sentence sentiment as the null-target case.</td></tr>
+            <tr><td><code>labels</code></td><td><code>negative, neutral, positive</code></td><td>Three classes. The order is fixed, because the confusion matrix reads it.</td></tr>
+            <tr><td><code>seed</code></td><td><code>20260821</code></td><td>The default seed. The bench runs three seeds and the registry records each one.</td></tr>
+            <tr><td><code>data.primary</code></td><td><code>takala/financial_phrasebank</code></td><td>The null-target rows, and the only source with agreement tiers.</td></tr>
+            <tr><td><code>data.secondary</code></td><td><code>pauri32/fiqa-2018</code></td><td>Aspect rows from news and microblogs.</td></tr>
+            <tr><td><code>data.out_dir</code></td><td><code>data/processed/fpb</code></td><td>Where the frozen splits and the manifest of hashes are written.</td></tr>
+            <tr><td><code>data.n_test</code></td><td><code>1000</code></td><td>The frozen test split. It is opened once, at the end. See the warning below.</td></tr>
+            <tr><td><code>data.n_dev</code></td><td><code>500</code></td><td>The development split. Every decision in the project reads it.</td></tr>
+            <tr><td><code>data.dedup_threshold</code></td><td><code>0.5</code></td><td>The near-duplicate cut-off. A cluster never straddles two splits.</td></tr>
+            <tr><td><code>licence.primary_data</code></td><td><code>CC-BY-NC-SA-3.0</code></td><td>Financial PhraseBank is non-commercial.</td></tr>
+            <tr><td><code>licence.redistribute_text</code></td><td><code>false</code></td><td>The project publishes row identifiers and split assignments, never text. See <code>DECISIONS_AIM.md</code> entry J.</td></tr>
+            <tr><td><code>eval.primary_metric</code></td><td><code>macro_f1</code></td><td>The majority baseline reaches 0.62 accuracy on 0.25 macro-F1, which is why accuracy is secondary.</td></tr>
+            <tr><td><code>eval.bootstrap</code></td><td><code>10000</code></td><td>Paired bootstrap resamples, on the same rows.</td></tr>
+            <tr><td><code>eval.alpha</code></td><td><code>0.05</code></td><td>The interval every headline number carries.</td></tr>
+            <tr><td><code>eval.correction</code></td><td><code>holm</code></td><td>The family correction across the bench candidates, fixed before the bench runs.</td></tr>
+            <tr><td><code>task_input.format</code></td><td><code>pair</code></td><td>Segment A is the text, segment B is the target. Span markers are one ablation.</td></tr>
+            <tr><td><code>task_input.null_target</code></td><td><code>overall</code></td><td>Never an empty string. An empty segment B changes the input shape.</td></tr>
+            <tr><td><code>baselines.frontier.model</code></td><td><code>gpt-5.6-sol</code></td><td>One model, one version. Not a router and not a fallback chain.</td></tr>
+            <tr><td><code>baselines.frontier.effort</code></td><td><code>medium</code></td><td>Part of the pin. It changes the answers and the bill.</td></tr>
+            <tr><td><code>baselines.frontier.prompts</code></td><td><code>zero_shot, few_shot</code></td><td>Both published. Few-shot examples come from train only.</td></tr>
+            <tr><td><code>baselines.frontier.cache_dir</code></td><td><code>runs/cache/gpt-5.6-sol</code></td><td>Every response with its token counts and its date. The cache is published.</td></tr>
+          </tbody>
+        </table>
+
+        <p><strong>One override flag, and it is hashed.</strong> <code>--set a.b=value</code> folds a
+          value in before the hash is taken, so an override changes the run identity the same way an
+          edit to <code>settings.py</code> does. There is no way to change a value that the hash
+          cannot see.</p>
+
+        <div class="callout warning" style="margin-top:1rem">
+          <p><strong>Warning. The success bar and the published-number survey now live here.</strong>
+            The plans said to write the thresholds and the survey into a config file and hash them.
+            There is no config file, so the thresholds go into <code>settings.py</code> and the
+            survey goes into <a href="PROGRAM_DESIGN.html#soa">Program design</a> as a table. The
+            rule that matters does not change: write the bar before the test split is opened, and
+            commit it. What is lost is the sweep. A YAML file per experiment made a ladder of arms
+            cheap, and a Python dictionary does not. Use <code>--set</code> for a one-value arm, and
+            accept a longer command line.</p>
         </div>
       </section>
 
