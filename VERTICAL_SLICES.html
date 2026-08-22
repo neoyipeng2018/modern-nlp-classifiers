@@ -784,32 +784,52 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>1</td><td>Add <code>target</code>, <code>target_start</code>, <code>target_end</code> and <code>sentence_id</code> to the row schema. Make an empty target raise. Backfill Financial PhraseBank rows with the literal <code>overall</code></td><td class="subtle-cell">Everything below</td></tr>
               <tr><td>2</td><td>Add <code>sentence_id</code> as a third split key, and a CI check that fails when a sentence straddles two splits</td><td class="subtle-cell">Split soundness</td></tr>
               <tr><td>3</td><td>Write the FiQA mapping: snippet to target string, continuous score to three classes by two thresholds fitted on train only. Publish the thresholds and the class counts</td><td class="subtle-cell">Aspect rows</td></tr>
-              <tr><td>4</td><td>Build the FinEntity loader. Each annotated entity span becomes one row, with offsets kept</td><td class="subtle-cell">Multi-target rows, and the one permissive source</td></tr>
+              <tr><td>4</td><td><s>Build the FinEntity loader. Each annotated entity span becomes one row, with offsets kept</s> <strong>Done.</strong> <code>src/finsent/data/finentity.py</code>, with the offset repair and the duplicate and self-conflict rules under test</td><td class="subtle-cell">Multi-target rows, and the one permissive source</td></tr>
               <tr><td>5</td><td>Check the mapping on 100 rows per source, by hand. Publish the disagreement rate</td><td class="subtle-cell">Gate 1</td></tr>
               <tr><td>6</td><td>Build the pair input builder. Widen <code>System.predict</code> to take rows. Add <code>reads_target</code> to the report</td><td class="subtle-cell">Every baseline and every model</td></tr>
-              <tr><td>7</td><td>Count the multi-target sentences: how many carry two or more targets with different gold labels, per source</td><td class="subtle-cell"><strong>Gate 3</strong></td></tr>
+              <tr><td>7</td><td><s>Count the multi-target sentences: how many carry two or more targets with different gold labels, per source</s> <strong>Done. The gate passed.</strong> <code>finsent aspect-audit</code></td><td class="subtle-cell"><strong>Gate 3, passed</strong></td></tr>
               <tr><td>8</td><td>Re-run all four existing baselines through the widened interface, on the pooled rows. Add <code>lexicon-window</code> and <code>lexicon-lr</code></td><td class="subtle-cell">The aspect floor</td></tr>
               <tr><td>9</td><td>Add <code>gpt-5.6-sol</code> as a system. Verify the identifier on a live call. Cache every response with its token counts. Zero-shot and few-shot, both prompts published</td><td class="subtle-cell">The comparison the release exists to print</td></tr>
             </tbody>
           </table>
         </div>
 
-        <div class="callout danger" style="margin-top:1rem">
-          <p><strong>Warning, and it is the real risk in this slice.</strong> The FiQA build already
-            counted the sentences carrying two aspects with opposite polarity. The answer was <strong>zero
-            of 1,111</strong>. If FinEntity also turns out to be thin on multi-target sentences, the
-            headline number in the definition of done cannot be measured, and the aspect input has no
-            evidence behind it. Step 7 is therefore the gate for the whole slice, and it runs before any
-            model work.</p>
-          <p><strong>If the count is too small:</strong> say so in the write-up, and choose one. Label
-            multi-target sentences by hand as part of the fresh test set. Or build them as counterfactual
-            target pairs and mark them clearly as constructed. Or drop the aspect claim and keep the
-            aspect input as an interface convenience with no accuracy claim attached.</p>
+        <div class="callout info" style="margin-top:1rem">
+          <p><strong>Gate 3 ran on 22 August 2026 and it passed.</strong> This was the real risk in the
+            slice, so it ran first, before any model work. FiQA had already answered <strong>zero of
+            1,111</strong>, which would have left the aspect claim unmeasurable at any model quality.
+            FinEntity answers it.</p>
         </div>
 
-        <p><strong>The slice ends with</strong> the multi-target count per source, the mapping
-          disagreement rate per source, and every baseline re-scored on the pooled rows with
-          <code>gpt-5.6-sol</code> beside them and its cost on the same table.</p>
+        <div class="table-wrap">
+          <table>
+            <caption class="table-caption">The gate. <code>finsent aspect-audit</code>, on <code>yixuantt/FinEntity</code>.</caption>
+            <thead><tr><th>Count</th><th>Value</th><th>What it means</th></tr></thead>
+            <tbody>
+              <tr><td>Documents published</td><td>979</td><td>Short news snippets. Median 34 words, and 623 of them are one sentence</td></tr>
+              <tr><td>Kept</td><td>968</td><td>11 exact repeats dropped, 8 dropped for labelling one target two ways</td></tr>
+              <tr><td>Target rows</td><td>1,974</td><td>From 2,104 annotated spans, one row per distinct target string</td></tr>
+              <tr><td>Offsets repaired</td><td>65</td><td>Drift of one to five characters, always forward. None unrepairable</td></tr>
+              <tr><td>Documents with two or more targets</td><td>542</td><td>56% of the set</td></tr>
+              <tr><td><strong>Documents whose targets carry different labels</strong></td><td><strong>119</strong></td><td><strong>12.3%. This is the gate, and it passes</strong></td></tr>
+              <tr><td>Of those, holding a positive and a negative target</td><td>30</td><td>The hardest case, and the clearest demonstration</td></tr>
+              <tr><td>Target rows from those 119 documents</td><td>323</td><td>The whole evidence for the aspect input</td></tr>
+              <tr><td>Span labels</td><td>494 / 492 / 1,118</td><td>positive / negative / neutral. Balanced on the polar classes</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout warning" style="margin-top:1rem">
+          <p><strong>Warning. 323 rows measure the claim. They do not fill a split.</strong> A test split
+            cut from those rows alone would be too small to separate anything. Pool the aspect rows with
+            the null-target rows for training and for the headline macro-F1, and report the multi-target
+            number as its own line over the whole frozen split. Do not cut a third split for it.</p>
+        </div>
+
+        <p><strong>What is left in this slice:</strong> steps 1, 2, 3, 5, 6, 8 and 9. The row schema
+          fields, the sentence split key, the FiQA mapping, the hand check of the mapping, the pair input
+          builder and the widened harness interface, the re-scored baselines, and
+          <code>gpt-5.6-sol</code> with its cost on the same table.</p>
       </section>
 
       <section id="slice3">

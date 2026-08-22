@@ -740,7 +740,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
     schema.py      the Row dataclass and its validate()
     fpb.py         Financial PhraseBank loader
     fiqa.py        FiQA 2018 loader
-    finentity.py   FinEntity loader                       ← to build
+    finentity.py   FinEntity loader, offsets repaired and audited
     targets.py     the pair input builder                 ← to build
     dedup.py       near-duplicate clustering
     splits.py      cut, freeze, hash, write assignments
@@ -1009,7 +1009,7 @@ runs/
               <tr><td><code>lexicon-loughran_mcdonald</code></td><td>Nothing</td><td>No</td><td><span class="status supported">Built</span></td></tr>
               <tr><td><code>lexicon-henry</code></td><td>Nothing</td><td>No</td><td><span class="status supported">Built</span></td></tr>
               <tr><td><code>tfidf-lr</code></td><td>Train</td><td>No</td><td><span class="status supported">Built</span></td></tr>
-              <tr><td><code>lexicon-window</code></td><td>Nothing</td><td>Yes. Counts word-list hits inside a window around the target span</td><td><span class="status notrun">Designed</span></td></tr>
+              <tr><td><code>lexicon-window</code></td><td>Nothing</td><td>Yes. Counts word-list hits inside a window around the target span. FinEntity carries the offsets it needs</td><td><span class="status notrun">Designed</span></td></tr>
               <tr><td><code>lexicon-lr</code></td><td>Train</td><td>No</td><td><span class="status notrun">Designed</span></td></tr>
               <tr><td><code>finbert</code>, <code>finbert-tone</code></td><td>Nothing. Public checkpoints re-run</td><td>No</td><td><span class="status notrun">Designed</span></td></tr>
             </tbody>

@@ -27,6 +27,7 @@ project learned the hard way is in `learnings.html`.
 pip install -e ".[dev,lexicon]" nltk
 finsent build-data     # pull, deduplicate, split, freeze, hash
 finsent baselines      # score the floor on the development split
+finsent aspect-audit   # count the multi-target rows the aspect claim needs
 finsent registry       # every run that happened, with its evidence grade
 ```
 
@@ -97,8 +98,12 @@ build counted those rows so they could be dropped. The scope changed on 21 Augus
 2026 and those rows are now kept: they are the rows that separate an aspect model
 from a sentence model. The count still matters, because it is the size of the
 effect this project claims. On FiQA it is **zero** of 1,111 sentences, which is
-why FinEntity has to be loaded before the claim can be measured at all. See
-`VERTICAL_SLICES.html`, slice 2, step 7.
+why FinEntity had to be loaded before the claim could be measured at all.
+
+FinEntity was audited on 22 August 2026 and the gate passed. Reproduce it with
+`finsent aspect-audit`. Of 968 kept documents, 542 name two or more targets and
+**119 give those targets different labels**, over 323 target rows. Thirty hold a
+positive target and a negative one at once. See `VERTICAL_SLICES.html`, slice 2.
 
 ## Licence, and what is not in this repository
 

@@ -985,11 +985,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               </tr>
               <tr>
                 <td><code>yixuantt/FinEntity</code></td>
-                <td>Entity spans over financial news</td>
+                <td>968 documents, 1,974 target rows</td>
                 <td>Yes, with offsets</td>
                 <td>ODC-BY</td>
-                <td>Multi-target sentences, and the one permissive human set in the plan.</td>
-                <td><span class="status compromised">Not loaded</span></td>
+                <td>Multi-target rows, and the one permissive human set in the plan.</td>
+                <td><span class="status supported">Audited, gate passed</span></td>
               </tr>
             </tbody>
           </table>
@@ -1002,6 +1002,33 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
             and drop them. Under this scope they are kept. They are the rows that separate an aspect
             model from a sentence model. The build still counts them, because the count is the size of
             the effect the project is claiming.</p>
+        </div>
+
+        <div class="callout" style="margin-top:1rem">
+          <p><strong>FinEntity was audited on 22 August 2026, and the gate passed.</strong> Run it again
+            with <code>finsent aspect-audit</code>. The source publishes 979 documents. Eleven are exact
+            repeats and eight label one target two ways, so 968 remain, and they carry 1,974 target rows.
+            <strong>542 documents name two or more distinct targets, and 119 of those give their targets
+            different labels.</strong> Thirty hold a positive target and a negative one at the same time.
+            Those 119 documents contribute 323 target rows, and they are the whole evidence for the
+            aspect input.</p>
+          <p class="small"><strong>Why this mattered.</strong> FiQA holds zero such sentences out of
+            1,111, so on FiQA alone the claim could not be measured at any model quality. FinEntity is
+            what makes the headline number real. It is also ODC-BY, so it is the one human source here
+            that the release may redistribute.</p>
+        </div>
+
+        <div class="callout warning" style="margin-top:1rem">
+          <p><strong>Warning. 323 rows is enough to measure the claim and not enough to split three
+            ways.</strong> A test split cut from them alone would be too small to separate anything. Pool
+            the aspect rows with the null-target rows for training and for the headline macro-F1, and
+            report the multi-target number as its own line over the whole frozen split. Do not cut a
+            third split for it.</p>
+          <p class="small">Two smaller notes from the same audit. 65 of 2,104 spans carry offsets that
+            miss their own value by one to five characters, always forward; every one is repaired by a
+            search for the value nearest the recorded offset, and the repair count is printed rather than
+            hidden. And the documents are short: a median of 34 words, and 623 of 979 are a single
+            sentence. They are headlines and news snippets, not passages.</p>
         </div>
 
         <div class="callout warning" style="margin-top:1rem">
@@ -1380,7 +1407,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
               <tr><td>What the input looks like</td><td>A pair. Segment A is the text, segment B is the target string, or the literal <code>overall</code> when there is no target. Span markers are one ablation where offsets exist.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>Which frontier baseline</td><td><code>gpt-5.6-sol</code> at medium reasoning effort, zero-shot and few-shot, cached and published. It is scored against human labels and it can lose.</td><td><span class="status supported">Decided</span></td></tr>
               <tr><td>What happens to multi-aspect rows</td><td>They are kept and they carry the headline. The earlier instruction to count and drop them applied to a sentence-level model and no longer applies.</td><td><span class="status supported">Decided</span></td></tr>
-              <tr><td>Which benchmarks</td><td>Financial PhraseBank for the null-target rows. FiQA 2018 and FinEntity for the aspect rows.</td><td><span class="status compromised">FinEntity not loaded</span></td></tr>
+              <tr><td>Which benchmarks</td><td>Financial PhraseBank for the null-target rows. FiQA 2018 and FinEntity for the aspect rows.</td><td><span class="status supported">Decided</span></td></tr>
+              <tr><td>Can the aspect claim be measured</td><td>Yes. FinEntity gives 119 documents whose targets carry different labels, over 323 target rows. FiQA gives none. Audited 22 August 2026 by <code>finsent aspect-audit</code>.</td><td><span class="status supported">Measured</span></td></tr>
               <tr><td>Licence of the released weights</td><td>Permissive, with the non-commercial source named in the card. A position, not a settled question, and it is the owner's call.</td><td><span class="status notrun">Position taken</span></td></tr>
               <tr><td>Published-number survey</td><td>Required before the first GPU run. Goes in <code>configs/published.yaml</code>.</td><td><span class="status compromised">Open</span></td></tr>
               <tr><td>Where label noise cleaning runs</td><td>First or last, never in the middle, because it changes the training set under every other ablation.</td><td><span class="status compromised">Open</span></td></tr>

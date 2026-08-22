@@ -36,6 +36,14 @@ documents were rewritten to match. Gap 10 closed with them.
 
 The other thirteen gaps stay open and the text below is unchanged.
 
+**Gap 1 follow-up, 22 August 2026.** Putting the aspect task back created one new
+risk: the claim needs sentences whose targets disagree, and FiQA holds none. That
+gate ran on `yixuantt/FinEntity` and it passed. 119 of 968 documents give their
+targets different labels, over 323 target rows, and 30 hold a positive target and
+a negative one at once. Reproduce it with `finsent aspect-audit`. Gap 3 also
+narrows a little: FinEntity is ODC-BY, so the release now has one human source it
+may redistribute.
+
 ## Summary
 
 Seventeen gaps. Gap 1 to gap 5 change the shape of the project. Gap 6 to gap 12
